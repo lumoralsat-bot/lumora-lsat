@@ -26,42 +26,1592 @@ const DIAGNOSTIC_QUESTIONS = [
   {id:"learning_style",q:"How do you learn best?",type:"single",options:["Step-by-step explanations","Learning from mistakes","Lots of practice questions","Understanding the big picture first","A mix of everything"]},
 ];
 
-// ─── LEARN CURRICULUM ─────────────────────────────────────────────────────────
+
+// ─── LEARN CURRICULUM (Comprehensive Interactive Textbook) ────────────────────
 const LEARN_CURRICULUM = {
   "Logical Reasoning": [
     {
-      type:"Assumption",
-      tagline:"Find the missing link the argument depends on.",
-      why:"Assumption questions are the most common on the LSAT. Master this and every other LR type becomes easier.",
-      concept:`Every LSAT argument has a GAP between the evidence and the conclusion. The assumption is the unstated bridge the author MUST believe for the argument to work. Your job: find that hidden bridge.\n\nKey signal words in the question stem: "assumes," "depends on," "takes for granted," "required assumption."`,
-      framework:["1. Find the CONCLUSION (what the author is trying to prove)", "2. Find the EVIDENCE (what they use to prove it)", "3. Identify the GAP between them", "4. The correct answer fills that gap — it must be TRUE for the argument to work", "5. Test with the Negation Test: negate each answer choice. If negating it destroys the argument, that's your assumption."],
-      levels:[
-        {level:1,desc:"Simple everyday arguments"},
-        {level:2,desc:"More complex reasoning gaps"},
-        {level:3,desc:"LSAT-style arguments"},
-        {level:4,desc:"Full test difficulty"},
+      type: "Assumption",
+      tagline: "Find the hidden link the argument cannot survive without.",
+      why: "Assumption questions are the single most common LR question type. Mastering assumptions makes every other LR type easier because ALL arguments depend on unstated assumptions.",
+      sections: [
+        {
+          title: "What Is an Assumption?",
+          content: `Every LSAT argument has three parts:
+
+1. EVIDENCE — the facts or premises the author offers
+2. CONCLUSION — what the author is trying to prove  
+3. THE GAP — the logical space between them
+
+An ASSUMPTION is the unstated belief that BRIDGES the gap. The author never says it out loud, but they MUST believe it for their argument to work.
+
+Think of it like a bridge: the evidence is on one side, the conclusion is on the other, and the assumption is the bridge connecting them. Remove the bridge and the argument collapses.
+
+Example:
+Evidence: "Maria studied for 10 hours yesterday."
+Conclusion: "Maria will do well on today's test."
+Gap: What's missing? The author assumes studying leads to good test performance — and that 10 hours is enough.
+
+The assumption: "Studying for 10 hours is sufficient preparation for this test."`,
+        },
+        {
+          title: "How to Spot the Assumption",
+          content: `Follow this 4-step process on every Assumption question:
+
+STEP 1 — FIND THE CONCLUSION
+Look for conclusion indicator words: therefore, thus, so, hence, consequently, it follows that, this shows that, clearly, must be.
+Ask yourself: "What is this person ultimately trying to PROVE?"
+
+STEP 2 — FIND THE EVIDENCE  
+Look for evidence indicator words: because, since, given that, as, for the reason that.
+Ask yourself: "What REASONS does the author give?"
+
+STEP 3 — FIND THE GAP
+Compare the evidence to the conclusion. Ask: "What has to be true that the author never stated but clearly believes?"
+Look for:
+• New concepts in the conclusion not mentioned in the evidence
+• A leap from one type of thing to another (e.g., from "popular" to "good")
+• A causal connection assumed without proof
+
+STEP 4 — THE NEGATION TEST
+This is your secret weapon. Take each answer choice and NEGATE it (make it false). If negating the answer DESTROYS the argument — makes the conclusion impossible — that's your assumption. If negating it doesn't hurt the argument, eliminate it.`,
+        },
+        {
+          title: "Common Assumption Patterns",
+          content: `Learn to recognize these recurring patterns:
+
+PATTERN 1 — NEW CONCEPT IN CONCLUSION
+The conclusion introduces a term not in the evidence.
+"This medication reduces inflammation. Therefore, it will cure arthritis."
+The assumption: Inflammation causes arthritis (connects the two concepts).
+
+PATTERN 2 — SAMPLING ASSUMPTION  
+The argument generalizes from a sample to a larger group.
+"Everyone I know prefers coffee to tea. Therefore, most people prefer coffee."
+The assumption: The people you know are representative of most people.
+
+PATTERN 3 — CAUSAL ASSUMPTION
+The argument assumes one thing causes another.
+"Students who eat breakfast score higher on tests. Schools should require breakfast."
+The assumption: Eating breakfast is what CAUSES the higher scores (not some other factor).
+
+PATTERN 4 — COMPARISON ASSUMPTION
+The argument treats two different things as equivalent.
+"This drug worked in lab mice. It will work in humans."
+The assumption: Mice and humans respond similarly to this drug.
+
+PATTERN 5 — NO ALTERNATIVE ASSUMPTION
+The argument assumes there's no other explanation.
+"Crime rose after the new mayor took office. The mayor's policies caused the crime increase."
+The assumption: Nothing else could explain the crime increase.`,
+        },
+        {
+          title: "What to Avoid",
+          content: `TRAP 1 — GOING TOO FAR
+Wrong answers often make claims stronger than the argument needs. The assumption must be the MINIMUM needed — not a bold new claim.
+
+TRAP 2 — IRRELEVANT ANSWERS
+Many wrong answers are true statements that simply don't connect to the gap you identified. Always ask: "Does this answer fill the specific gap between THIS evidence and THIS conclusion?"
+
+TRAP 3 — RESTATING THE EVIDENCE OR CONCLUSION
+The assumption is the BRIDGE, not a restatement of what's already said.
+
+TRAP 4 — NEGATION TEST MISTAKE
+When you negate, you're making the answer FALSE. Don't confuse "negate" with "contradict." Negating "all birds fly" gives you "not all birds fly" — not "no birds fly."
+
+THE GOLDEN RULE: The correct assumption, when added to the evidence, makes the conclusion follow logically. It fills the gap — nothing more, nothing less.`,
+        },
+      ],
+      levels: [
+        {level:1,desc:"Simple, everyday arguments with obvious gaps"},
+        {level:2,desc:"Two-step reasoning with less obvious assumptions"},
+        {level:3,desc:"LSAT-style arguments with subtle gaps"},
+        {level:4,desc:"Full test difficulty — complex, multi-layered assumptions"},
       ]
     },
-    {type:"Weaken",tagline:"Find the answer that most damages the argument.",why:"Weaken questions test your ability to attack reasoning — a core skill for law school.",concept:`To weaken an argument, you must understand it first. Find the conclusion and the reasoning gap, then look for an answer that makes the conclusion LESS likely to be true. You're not destroying the argument — just damaging it.\n\nKey signal words: "weakens," "undermines," "calls into question," "most damages."`,framework:["1. Identify the conclusion","2. Identify the reasoning gap (the assumption)","3. Look for an answer that attacks that assumption","4. The answer makes the conclusion less probable — not impossible","5. Beware of answers that strengthen or are irrelevant"],levels:[{level:1,desc:"Clear, simple arguments"},{level:2,desc:"Two-step reasoning"},{level:3,desc:"LSAT-style complexity"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Strengthen",tagline:"Find the answer that best supports the argument.",why:"The mirror of Weaken — understanding both makes you a complete logical reasoner.",concept:`To strengthen an argument, find its weak point (the gap/assumption) and look for an answer that supports or validates that assumption. The correct answer makes the conclusion MORE likely to be true.\n\nKey signal words: "strengthens," "supports," "most helps," "provides additional support."`,framework:["1. Find the conclusion and evidence","2. Identify the assumption/gap","3. Look for an answer that supports or validates the assumption","4. The answer makes the conclusion more probable","5. Eliminate answers that are irrelevant or weaken the argument"],levels:[{level:1,desc:"Direct support questions"},{level:2,desc:"Indirect support"},{level:3,desc:"Complex causal arguments"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Flaw",tagline:"Name the logical error in the argument.",why:"Flaw questions build the critical thinking skills you'll use every day in law school.",concept:`The argument contains a specific logical error. Your job is to identify it precisely. Common LSAT flaws:\n• Circular reasoning (conclusion restates evidence)\n• Confusing correlation with causation\n• Hasty generalization (small sample → big conclusion)\n• False dilemma (only two options when more exist)\n• Ad hominem (attacking the person, not the argument)\n• Equivocation (same word used with different meanings)\n\nKey signal words: "flaw," "error in reasoning," "vulnerable to criticism."`,framework:["1. Read the argument carefully","2. Find the conclusion and evidence","3. Ask: what's wrong with this reasoning?","4. Match the error to an answer choice that describes it accurately","5. Correct answers describe the flaw in general terms — not specific to the content"],levels:[{level:1,desc:"Named, obvious fallacies"},{level:2,desc:"Subtler reasoning errors"},{level:3,desc:"LSAT-style flawed arguments"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Inference",tagline:"Find what must be true based on the statements given.",why:"Tests pure logical deduction — a foundational skill for legal analysis.",concept:`Inference questions give you a set of statements and ask what MUST follow. Unlike other question types, you're not analyzing an argument — you're drawing a logical conclusion from facts.\n\nKey signal words: "must be true," "can be properly inferred," "conclusion follows logically."\n\nCritical rule: The correct answer must be TRUE given the statements. It cannot go beyond what's stated.`,framework:["1. Read all statements carefully","2. Look for connections between statements","3. The correct answer follows necessarily — it CANNOT be false","4. Eliminate answers that are merely possible or probable","5. Be wary of answers that go further than the evidence supports"],levels:[{level:1,desc:"Direct, obvious inferences"},{level:2,desc:"Combining two statements"},{level:3,desc:"Conditional logic chains"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Main Point",tagline:"Identify the author's central conclusion.",why:"If you can't find the main point, you can't analyze any argument correctly.",concept:`Main Point questions ask you to identify the primary conclusion the author is arguing for. This is different from a detail or a sub-conclusion.\n\nKey signal words: "main point," "main conclusion," "primarily arguing," "overall conclusion."\n\nTip: The main conclusion is what the entire argument is trying to establish. Everything else is evidence FOR it.`,framework:["1. Read the whole argument","2. Ask: what is the author ultimately trying to prove?","3. Use conclusion indicator words: therefore, thus, so, hence, consequently","4. The main point is supported by everything else — it doesn't support anything else","5. Eliminate answers that are evidence, sub-conclusions, or background"],levels:[{level:1,desc:"Simple arguments"},{level:2,desc:"Multi-premise arguments"},{level:3,desc:"Complex nested reasoning"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Paradox",tagline:"Find the answer that resolves the apparent contradiction.",why:"Tests your ability to reconcile conflicting information — key in legal reasoning.",concept:`Paradox questions present two facts that seem to contradict each other and ask you to resolve the tension. The correct answer explains HOW both facts can be true simultaneously.\n\nKey signal words: "explains," "resolves the apparent discrepancy," "reconciles," "most helps to explain."`,framework:["1. Identify the two contradictory facts","2. Understand exactly why they seem to conflict","3. Look for an answer that makes BOTH facts true at the same time","4. The answer doesn't prove one fact wrong — it explains the coexistence","5. Eliminate answers that explain only one fact or make the paradox worse"],levels:[{level:1,desc:"Simple contradictions"},{level:2,desc:"Statistical paradoxes"},{level:3,desc:"LSAT-style paradoxes"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Method of Reasoning",tagline:"Describe HOW the argument makes its case.",why:"Forces you to think about argument structure — essential for advanced LSAT performance.",concept:`Method of Reasoning questions ask you to describe the logical technique the author uses. You're not evaluating the argument — you're describing its structure.\n\nKey signal words: "argues by," "method of reasoning," "the argument proceeds by," "responds by."\n\nCommon methods: analogy, counterexample, appealing to authority, eliminating alternatives, providing evidence.`,framework:["1. Read the argument for structure, not just content","2. Ask: HOW does the author make their point?","3. Look for the logical technique used (analogy, evidence, elimination, etc.)","4. The correct answer describes the method accurately and abstractly","5. Eliminate answers that describe what the argument concludes, not how"],levels:[{level:1,desc:"Simple argument structures"},{level:2,desc:"Two-step reasoning methods"},{level:3,desc:"Complex rhetorical strategies"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Parallel Reasoning",tagline:"Find the argument with identical logical structure.",why:"The hardest LR type — but consistent practice makes it very learnable.",concept:`Parallel Reasoning questions ask you to find another argument with the EXACT SAME logical structure as the original. The content is completely different — only the structure matters.\n\nKey signal words: "parallel in its reasoning," "most similar in logical structure."\n\nStrategy: Abstract the original argument into a formula (If A → B; A; therefore B) and find the answer that matches.`,framework:["1. Strip the original argument down to its logical structure","2. Identify the type of reasoning (conditional, causal, analogical)","3. Check if the conclusion type matches (definite vs. probable)","4. Find the answer with identical structure — not just similar topic","5. Eliminate answers that are similar in content but different in structure"],levels:[{level:1,desc:"Simple conditional arguments"},{level:2,desc:"Causal and analogical structures"},{level:3,desc:"Complex multi-step reasoning"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Evaluate",tagline:"Find the question whose answer would most help assess the argument.",why:"Tests sophisticated understanding of what makes arguments stronger or weaker.",concept:`Evaluate questions ask you to find the question that, when answered, would most help determine whether the argument is strong or weak. The correct answer identifies a crucial piece of missing information.\n\nKey signal words: "would be most useful to know," "most helps to evaluate," "most relevant to assessing."`,framework:["1. Find the argument's assumption/gap","2. Ask: what information would tell us if this assumption holds?","3. The correct answer is a question whose YES answer strengthens and NO answer weakens (or vice versa)","4. Apply the Yes/No test to each answer choice","5. Eliminate questions whose answers wouldn't affect the argument's strength"],levels:[{level:1,desc:"Simple causal arguments"},{level:2,desc:"Policy and prediction arguments"},{level:3,desc:"Complex multi-variable arguments"},{level:4,desc:"Full test difficulty"}]},
+    {
+      type: "Weaken",
+      tagline: "Find the answer that most damages the argument's reasoning.",
+      why: "Weaken questions are the second most common LR type. They test your ability to attack arguments — a skill you'll use constantly in law school and legal practice.",
+      sections: [
+        {
+          title: "What Does It Mean to Weaken?",
+          content: `To weaken an argument is to make its conclusion LESS LIKELY to be true — not impossible, just less supported.
+
+Important: You are NOT proving the conclusion false. You're introducing information that damages the reasoning. Think of it as finding a crack in the argument's foundation.
+
+The key insight: Every argument has an assumption (a gap in the reasoning). To weaken an argument, ATTACK that assumption.
+
+Example:
+Argument: "Studies show people who eat more vegetables live longer. Therefore, eating vegetables causes longer life."
+Assumption: Nothing else explains the correlation.
+Weaken: "People who eat more vegetables also tend to exercise more, sleep better, and smoke less."
+Why this weakens: It suggests vegetables aren't the cause — other healthy habits might explain the longer lifespans.`,
+        },
+        {
+          title: "The Weakening Process",
+          content: `STEP 1 — IDENTIFY THE CONCLUSION
+What is the author trying to prove? This is your target.
+
+STEP 2 — IDENTIFY THE ASSUMPTION (THE GAP)
+What does the argument silently depend on? What must be true for it to hold?
+
+STEP 3 — ATTACK THE ASSUMPTION
+Look for an answer that makes the assumption FALSE or QUESTIONABLE.
+
+Common attack strategies:
+• Provide an ALTERNATIVE EXPLANATION (undermines causal arguments)
+• Show the SAMPLE IS UNREPRESENTATIVE (undermines generalizations)  
+• Reveal a COUNTEREXAMPLE (shows the conclusion doesn't always hold)
+• Show a RELEVANT DIFFERENCE between things being compared
+• Introduce NEW INFORMATION that makes the conclusion less likely
+
+STEP 4 — APPLY THE WEAKENING TEST
+Ask: "If this answer is true, does the conclusion become harder to believe?"
+If yes → potential correct answer
+If no → eliminate`,
+        },
+        {
+          title: "Weaken vs. Destroy",
+          content: `A critical distinction: you're weakening, not destroying.
+
+CORRECT weaken answer: Makes the conclusion less likely — but the argument could still be true.
+
+INCORRECT approach: Looking for an answer that proves the conclusion is definitely false.
+
+Example:
+Argument: "Our new product will increase sales by 20%."
+Good Weaken: "Consumer surveys show declining interest in this product category." (Reduces likelihood — but sales could still rise)
+Too Strong: "No one will ever buy this product." (Destroys it — but LSAT correct answers don't go this far)
+
+Also watch out for IRRELEVANT INFORMATION. An answer that introduces a true fact unrelated to the argument's gap does nothing to weaken it.
+
+STRENGTHEN vs. WEAKEN: Many wrong answer choices do the OPPOSITE — they strengthen the argument. Always check: "Am I making the conclusion more or less believable?"`,
+        },
+        {
+          title: "Common Weaken Patterns",
+          content: `PATTERN 1 — ALTERNATIVE CAUSE
+Causal argument: "X causes Y"  
+Weaken by: Showing something else could cause Y
+
+PATTERN 2 — UNREPRESENTATIVE SAMPLE
+Statistical argument: "Most X are Y"
+Weaken by: Showing the sample wasn't representative
+
+PATTERN 3 — RELEVANT DIFFERENCE
+Analogy argument: "X worked for A, so it will work for B"
+Weaken by: Showing A and B differ in an important way
+
+PATTERN 4 — CHANGING CIRCUMSTANCES
+Prediction argument: "Because X happened, Y will happen"
+Weaken by: Showing conditions have changed, making the prediction unreliable
+
+PATTERN 5 — OVERLOOKED POPULATION
+Generalization: "Policy X will benefit everyone"
+Weaken by: Identifying a group for whom X would be harmful
+
+Signal words in question stems: weakens, undermines, calls into question, most damages, casts doubt on.`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple causal and correlation arguments"},{level:2,desc:"Statistical and analogical arguments"},{level:3,desc:"Complex policy and prediction arguments"},{level:4,desc:"Full test difficulty — multi-layered reasoning"}]
+    },
+    {
+      type: "Strengthen",
+      tagline: "Find the answer that best supports the argument's conclusion.",
+      why: "The mirror image of Weaken. Understanding both makes you a complete logical reasoner — and they're often tested back-to-back on the LSAT.",
+      sections: [
+        {
+          title: "What Does It Mean to Strengthen?",
+          content: `To strengthen an argument is to make its conclusion MORE LIKELY to be true.
+
+Just as weakening attacks the assumption, strengthening SUPPORTS or VALIDATES the assumption.
+
+The process:
+1. Find the conclusion
+2. Find the gap/assumption  
+3. Find the answer that fills or supports that gap
+
+Example:
+Argument: "Our city installed red light cameras and traffic accidents decreased. Therefore, the cameras caused the decrease."
+Assumption: The cameras (not something else) caused the decrease.
+Strengthen: "Traffic accidents in neighboring cities without cameras did not decrease during the same period."
+Why this strengthens: It eliminates the alternative explanation that accidents decreased everywhere — isolating the cameras as the likely cause.`,
+        },
+        {
+          title: "The Strengthening Toolkit",
+          content: `Different argument types need different kinds of support:
+
+FOR CAUSAL ARGUMENTS:
+• Eliminate alternative causes ("nothing else changed")
+• Show the cause preceded the effect
+• Show the correlation is strong and consistent
+• Provide a mechanism explaining HOW the cause leads to the effect
+
+FOR SAMPLING/STATISTICAL ARGUMENTS:
+• Show the sample was large and representative
+• Show the methodology was sound
+• Show similar results in other studies
+
+FOR ANALOGY ARGUMENTS:
+• Show the two things being compared are relevantly similar
+• Show the key features that made it work in one case also exist in the other
+
+FOR PREDICTION ARGUMENTS:
+• Show conditions are stable / comparable to when the precedent was set
+• Provide additional evidence supporting the prediction
+
+RULE: The correct strengthen answer doesn't need to make the conclusion CERTAIN — just more likely than before.`,
+        },
+        {
+          title: "Strengthen vs. Assumption vs. Support",
+          content: `Students often confuse these three:
+
+ASSUMPTION: What MUST be true for the argument to work (required)
+STRENGTHEN: What HELPS the argument — makes conclusion more likely (beneficial)
+SUPPORT: General term — both assumptions and strengtheners provide support
+
+Key difference:
+An assumption is NECESSARY — if it's false, the argument FAILS.
+A strengthener is HELPFUL — it makes the argument better, but the argument might survive without it.
+
+This means: Every correct Assumption answer is also a strengthener — but not every strengthener is an assumption.
+
+When you're stuck on a Strengthen question, ask: "If this were true, would I feel better about the conclusion?" If yes, it's probably your answer.
+
+WRONG ANSWER TRAPS:
+• Answers that strengthen a DIFFERENT argument (related topic, wrong conclusion)
+• Answers that are true but irrelevant to the gap
+• Answers that actually WEAKEN the argument (common trap)
+• Answers that just restate the evidence`,
+        },
+        {
+          title: "The Weakening Test in Reverse",
+          content: `Just as the Negation Test helps with Assumption questions, you can use a "strengthening test":
+
+For each answer, ask: "If this is true, does the conclusion become easier to believe?"
+
+You can also use PROCESS OF ELIMINATION aggressively:
+• Eliminate anything that weakens the argument
+• Eliminate anything irrelevant to the conclusion
+• Eliminate anything that restates the evidence
+• What's left is almost always correct
+
+DEGREES OF STRENGTHENING:
+Some answers strengthen more than others. The question asks for the answer that MOST strengthens — so compare candidates.
+
+A direct attack on the assumption beats a tangentially related fact.
+Specific, concrete information beats vague generalities.
+
+Practice: After identifying your answer, always check — "is there another answer that strengthens it MORE?"`,
+        },
+      ],
+      levels: [{level:1,desc:"Direct, clear support relationships"},{level:2,desc:"Eliminating alternatives and providing mechanisms"},{level:3,desc:"Complex causal and statistical arguments"},{level:4,desc:"Full test difficulty"}]
+    },
+    {
+      type: "Flaw",
+      tagline: "Precisely identify the logical error in the argument.",
+      why: "Flaw questions build critical thinking that directly applies to legal analysis. Lawyers spot flawed reasoning for a living — this is your first training ground.",
+      sections: [
+        {
+          title: "What Is a Logical Flaw?",
+          content: `A flaw is a SPECIFIC ERROR in reasoning — a place where the argument makes an illegitimate logical move.
+
+Every Flaw question argument has a real, identifiable mistake. Your job isn't just to say "this seems wrong" — you need to NAME the error precisely, because the answer choices describe flaws in abstract, general terms.
+
+Example:
+Argument: "My neighbor's dog barked all night, and the next morning my car wouldn't start. The dog's barking must have drained my battery."
+The flaw: Assuming that because one event preceded another, it caused it. (Post hoc ergo propter hoc — "after this, therefore because of this.")
+
+The correct answer would say something like: "The argument assumes that because one event preceded another, the first event caused the second."`,
+        },
+        {
+          title: "The LSAT's Favorite Flaws",
+          content: `Memorize these — they appear constantly:
+
+FLAW 1 — AD HOMINEM
+Attacking the person making the argument instead of the argument itself.
+"Senator Smith supports this tax policy, but she's been under investigation. We should reject this policy."
+The flaw: The senator's character is irrelevant to whether the policy is good.
+
+FLAW 2 — CIRCULAR REASONING (Begging the Question)
+The conclusion is hidden inside the premises — the argument assumes what it's trying to prove.
+"This painting is beautiful because it has aesthetic value, and aesthetic value is what makes things beautiful."
+The flaw: "Beautiful" and "aesthetic value" are just restating each other.
+
+FLAW 3 — HASTY GENERALIZATION
+Drawing a broad conclusion from too small or unrepresentative a sample.
+"I've met three people from that city, and they were all rude. People from that city are rude."
+The flaw: Three people is not a representative sample.
+
+FLAW 4 — FALSE DILEMMA (False Dichotomy)
+Presenting only two options when more exist.
+"Either we cut education funding or we raise taxes. We can't raise taxes. Therefore, we must cut education funding."
+The flaw: Other options exist (cut other spending, find new revenue sources, etc.)
+
+FLAW 5 — EQUIVOCATION
+Using the same word with two different meanings.
+"The law prohibits anything that is cruel. Hunting is cruel to animals. Therefore, hunting should be illegal."
+The flaw: "Cruel" in the law refers to human suffering; in the second premise it means causing animal suffering — different meanings.`,
+        },
+        {
+          title: "More Essential Flaws",
+          content: `FLAW 6 — CONFUSING CORRELATION WITH CAUSATION
+Assuming that because two things happen together, one causes the other.
+"Ice cream sales increase in summer, and so does crime. Ice cream causes crime."
+The flaw: Both increase in summer due to a third factor (heat/more people outdoors) — not because one causes the other.
+
+FLAW 7 — APPEAL TO AUTHORITY
+Treating someone's opinion as fact simply because they're an authority figure — especially when outside their area of expertise.
+"This famous actor endorses this diet, so it must be healthy."
+The flaw: Fame doesn't equal nutritional expertise.
+
+FLAW 8 — SLIPPERY SLOPE
+Assuming a small step will lead to extreme consequences without showing how.
+"If we allow students to redo one exam, soon they'll expect to redo every exam, and academic standards will collapse."
+The flaw: No mechanism is provided showing why the first step leads to the extreme outcome.
+
+FLAW 9 — APPEAL TO POPULARITY
+Assuming something is correct because many people believe it.
+"Most people believe the earth is only 6,000 years old, so that must be right."
+The flaw: Popularity doesn't determine truth.
+
+FLAW 10 — PART TO WHOLE / WHOLE TO PART
+Assuming what's true of parts is true of the whole, or vice versa.
+"Every brick in this wall is light. Therefore, this wall is light."
+The flaw: The property of parts doesn't necessarily transfer to the whole.`,
+        },
+        {
+          title: "How to Approach Flaw Questions",
+          content: `THE PROCESS:
+
+STEP 1 — READ THE ARGUMENT CRITICALLY
+Don't just accept it. Ask: "Where is the logical leap? Where does the reasoning go wrong?"
+
+STEP 2 — IDENTIFY THE CONCLUSION AND EVIDENCE
+What is being claimed? What supports it?
+
+STEP 3 — NAME THE FLAW BEFORE READING ANSWER CHOICES
+Before you look at the answers, try to identify the flaw yourself. This prevents the answer choices from confusing you.
+
+STEP 4 — MATCH YOUR FLAW TO AN ANSWER CHOICE
+Answer choices describe flaws in general, abstract terms. Practice translating specific flaws into abstract descriptions:
+"The dog barking caused the battery to die" → "assumes causation from temporal sequence"
+
+STEP 5 — VERIFY YOUR ANSWER APPLIES TO THIS ARGUMENT
+Wrong answers often describe real flaws — just not the one in THIS argument. Check that the flaw described in your chosen answer actually appears in the argument.
+
+KEY TRAP: "This argument is flawed because it's wrong" is not a flaw description. You need the STRUCTURAL error — the logical move that doesn't hold up regardless of whether the conclusion happens to be true or false.`,
+        },
+      ],
+      levels: [{level:1,desc:"Named, recognizable fallacies in simple arguments"},{level:2,desc:"Subtler errors in more complex arguments"},{level:3,desc:"LSAT-style arguments with non-obvious flaws"},{level:4,desc:"Full test difficulty — precise flaw identification"}]
+    },
+    {
+      type: "Inference",
+      tagline: "Determine what must be true based on the statements given.",
+      why: "Inference questions test pure logical deduction — the foundation of legal analysis. If you can prove what MUST follow from given facts, you think like a lawyer.",
+      sections: [
+        {
+          title: "Inference vs. Assumption: A Critical Distinction",
+          content: `Students often confuse these two question types. Here's the key difference:
+
+ASSUMPTION: What the argument needs but never says (you're filling a gap)
+INFERENCE: What logically FOLLOWS from what IS said (you're drawing a conclusion)
+
+For Inference questions, treat the statements as FACTS. They are all true. Your job is to find what must also be true given these facts.
+
+The golden rule: The correct answer CANNOT be false given the statements. It follows with certainty.
+
+Wrong answers for Inference questions:
+• Things that MIGHT be true (possible, but not certain)
+• Things that PROBABLY are true (likely, but not certain)  
+• Things that are related but go BEYOND what the statements say
+
+Only choose an answer if you can point to specific statements that GUARANTEE it.`,
+        },
+        {
+          title: "Conditional Logic: The Core Tool",
+          content: `Many Inference questions involve CONDITIONAL STATEMENTS — "if-then" logic. This is the most important logical structure on the LSAT.
+
+THE BASIC FORM:
+"If A, then B" — written as A → B
+
+This means: Whenever A is true, B must also be true.
+
+THE CONTRAPOSITIVE (equally valid):
+"If not B, then not A" — written as ¬B → ¬A
+This is ALWAYS logically equivalent to the original statement.
+
+Example:
+"If it's raining, the ground is wet." (Rain → Wet ground)
+Contrapositive: "If the ground is NOT wet, it's NOT raining." (¬Wet → ¬Rain)
+Valid: "It's raining. Therefore, the ground is wet."
+INVALID: "The ground is wet. Therefore, it's raining." (The ground could be wet for other reasons — this is the FALLACY OF AFFIRMING THE CONSEQUENT)
+INVALID: "It's not raining. Therefore, the ground isn't wet." (FALLACY OF DENYING THE ANTECEDENT)`,
+        },
+        {
+          title: "Combining Statements: The Chain Rule",
+          content: `Many Inference questions give you multiple statements and expect you to CHAIN them together.
+
+THE CHAIN RULE:
+If A → B and B → C, then A → C
+
+Example:
+Statement 1: "All lawyers passed the bar exam." (Lawyer → Passed bar)
+Statement 2: "Everyone who passed the bar exam studied for at least 6 months." (Passed bar → Studied 6+ months)
+Chain: Lawyer → Passed bar → Studied 6+ months
+Inference: "All lawyers studied for at least 6 months." ✓
+
+QUANTIFIER LOGIC:
+"All A are B" → If something is A, it must be B
+"No A are B" → If something is A, it cannot be B
+"Some A are B" → At least one A exists that is also B (cannot be negated to "no A are B")
+"Most A are B" → More than half of A are B (NOT "all")
+
+COMBINING QUANTIFIERS:
+All A are B + All B are C = All A are C ✓
+Some A are B + All B are C = Some A are C ✓
+Most A are B + Most A are C = Some B are C ✓ (the overlapping group)`,
+        },
+        {
+          title: "The Inference Process",
+          content: `STEP 1 — READ ALL STATEMENTS CAREFULLY
+Don't rush. Inference questions often have 3-5 statements that each carry meaning.
+
+STEP 2 — LOOK FOR CONNECTIONS
+Which statements share terms? Where can you chain conditionals together?
+
+STEP 3 — DRAW WHAT FOLLOWS
+Before reading answer choices, ask: "What must be true? What can I guarantee?"
+
+STEP 4 — TEST EACH ANSWER CHOICE
+For each answer: "Can I prove this from the given statements? Is there any scenario where these statements are all true but this answer is false?"
+If yes → eliminate
+If no (it must be true) → potential correct answer
+
+STEP 5 — CHOOSE THE MOST STRONGLY SUPPORTED
+If multiple answers seem possible, choose the one you can most directly prove from the statements.
+
+COMMON TRAP: Answers that SEEM obvious but go slightly beyond the statements. The LSAT loves answers that are almost certainly true — but "almost certainly" isn't "must be."
+
+Example trap: Statements establish a correlation; answer claims causation. The statements don't prove causation → eliminate.`,
+        },
+      ],
+      levels: [{level:1,desc:"Direct one-step inferences from clear statements"},{level:2,desc:"Two-statement chains and basic conditional logic"},{level:3,desc:"Multi-statement chains with quantifiers"},{level:4,desc:"Full test difficulty — complex conditional chains"}]
+    },
+    {
+      type: "Main Point",
+      tagline: "Identify the author's primary conclusion across the whole argument.",
+      why: "If you can't find the main point, you can't analyze any argument correctly. This is the foundational skill that makes all other LR types easier.",
+      sections: [
+        {
+          title: "What Is the Main Point?",
+          content: `The MAIN POINT (also called the main conclusion) is the central claim the author is arguing for. It's what the entire argument is designed to establish.
+
+CRITICAL DISTINCTION: Main Point vs. Sub-Conclusion
+Arguments often have multiple conclusions. A sub-conclusion is something proved WITHIN the argument that then serves as evidence for the main conclusion.
+
+Example:
+Premise 1: "Air pollution causes respiratory illness."
+Sub-conclusion: "Cities with heavy traffic have high rates of respiratory illness." (proved by Premise 1)
+Main conclusion: "Cities should restrict private vehicle use." (the ultimate point — everything else supports this)
+
+The sub-conclusion SUPPORTS the main conclusion. The main conclusion doesn't support anything else.
+
+THE TEST: Ask of each statement — "Is this used to SUPPORT something, or is it the thing being SUPPORTED?" The main conclusion is supported by everything else. It supports nothing.`,
+        },
+        {
+          title: "Conclusion Indicator Words",
+          content: `Train yourself to recognize these words — they signal conclusions:
+
+STRONG CONCLUSION INDICATORS:
+• Therefore / Thus / Hence / So / Consequently
+• This shows / This demonstrates / This proves / This means
+• We can conclude that / It follows that
+• Clearly / Obviously / Certainly (when introducing a claim)
+• Must / Should (when drawing a moral or practical conclusion)
+
+EVIDENCE INDICATOR WORDS (these point AWAY from the conclusion):
+• Because / Since / Given that / As / For the reason that
+• After all / Due to the fact that / In light of
+• Studies show / Evidence suggests / Research indicates
+
+PRACTICE: When you read an argument, mentally circle every indicator word. Conclusion indicators point to the conclusion; evidence indicators point to premises.
+
+WARNING: Not every conclusion has an indicator word. When there's no indicator, use the COULD BE USED AS EVIDENCE TEST: If a statement could naturally serve as a reason for another statement in the passage, it's probably a premise. The statement that couldn't serve as evidence for anything else is the conclusion.`,
+        },
+        {
+          title: "Scope and Precision",
+          content: `The hardest Main Point questions involve scope errors in the answer choices.
+
+TOO NARROW: The answer only captures part of the argument.
+Example: If the argument concludes "We should ban all single-use plastics," an answer saying "Plastic bags should be banned" is too narrow.
+
+TOO BROAD: The answer goes beyond what the argument actually claims.
+Example: If the argument concludes "This city should invest in public transportation," an answer saying "All cities should prioritize public transportation" is too broad.
+
+TOO STRONG: The answer makes a more definitive claim than the argument.
+Example: Argument says "This policy will likely reduce crime." Wrong answer: "This policy will definitely eliminate crime."
+
+THE PRECISION TEST: The correct Main Point answer must:
+✓ Capture the FULL conclusion (not just part)
+✓ Stay within the SCOPE of the argument (not go beyond it)
+✓ Match the STRENGTH of the claim (likely vs. definitely)
+✓ Be directly SUPPORTED by the argument's evidence`,
+        },
+        {
+          title: "The Argument Map Method",
+          content: `For complex Main Point questions, build a quick ARGUMENT MAP:
+
+1. List each statement in the argument (number them)
+2. Ask of each: "Does this SUPPORT another statement, or is it SUPPORTED BY other statements?"
+3. Draw arrows: Evidence → Conclusion
+
+The statement with only INCOMING arrows (supported by others, supporting nothing) = the main conclusion.
+
+Example argument:
+[1] "Violent crime has decreased steadily over 30 years."
+[2] "Public health interventions targeting at-risk youth were introduced 35 years ago."
+[3] "The interventions preceded and correlate with the crime decrease."
+[4] "Therefore, public health interventions are an effective crime-reduction strategy."
+
+Arrow map: [1] → [4], [2] → [3] → [4]
+Statement [4] has only incoming arrows → Main conclusion ✓
+
+COMMON WRONG ANSWER TYPES for Main Point:
+• Sub-conclusion (proves something, but also supports something else)
+• Pure evidence (a premise that only supports, never gets supported)
+• Related but not the actual conclusion made
+• The contrapositive or converse of the conclusion`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple 2-3 sentence arguments with clear indicators"},{level:2,desc:"Multi-premise arguments with sub-conclusions"},{level:3,desc:"Complex arguments requiring scope precision"},{level:4,desc:"Full test difficulty — nested and subtle conclusions"}]
+    },
+    {
+      type: "Paradox",
+      tagline: "Find the answer that explains how two contradictory facts can both be true.",
+      why: "Paradox questions reward flexible thinking — the ability to reconcile conflicting information. This is a core lawyering skill: explaining why apparently contradictory evidence is actually consistent.",
+      sections: [
+        {
+          title: "What Is a Paradox?",
+          content: `A paradox question presents two facts that seem to CONTRADICT each other. Both facts are given as TRUE. Your job is to find an explanation that makes BOTH facts true simultaneously.
+
+You are not proving one fact wrong. You are explaining how BOTH can coexist.
+
+Classic example:
+FACT 1: "Exercise improves cardiovascular health."
+FACT 2: "Professional athletes have a higher rate of heart disease than the general population."
+
+These seem contradictory — if exercise is healthy, why are athletes sicker? 
+
+Correct resolution: "Professional athletes train at intensities far beyond what is beneficial — extreme exercise for decades damages the heart in ways moderate exercise doesn't."
+
+Now both facts are true: moderate exercise is healthy, AND extreme exercise in athletes causes heart damage.
+
+The resolution explains the MECHANISM that makes both facts compatible.`,
+        },
+        {
+          title: "The Resolution Must Do Two Things",
+          content: `A correct Paradox answer MUST:
+
+1. EXPLAIN FACT 1 (or at least be consistent with it)
+2. EXPLAIN FACT 2 (or at least be consistent with it)
+3. SHOW HOW BOTH CAN BE TRUE AT THE SAME TIME
+
+An answer that only explains one fact is WRONG. An answer that explains one fact by making the other false is WRONG.
+
+TEST FOR EACH ANSWER:
+→ "Does this explain why [Fact 1] is true?" 
+→ "Does this explain why [Fact 2] is true?"
+→ "If this answer is true, can I now see how both facts are compatible?"
+
+If all three are YES → likely correct
+If any are NO → eliminate
+
+TRAP: Answers that DEEPEN the paradox (make it MORE surprising that both facts are true). These are tempting because they're relevant to the topic — but they make things worse, not better.`,
+        },
+        {
+          title: "Common Paradox Patterns",
+          content: `PATTERN 1 — THE SUBSET SOLUTION
+The two facts seem to apply to the same group, but actually apply to different subgroups.
+Fact 1: Country A spends more per pupil on education than Country B.
+Fact 2: Students in Country B perform better academically.
+Resolution: Country A's extra spending goes disproportionately to low-performing schools, while Country B's strong average is driven by elite schools — different subgroups explain the paradox.
+
+PATTERN 2 — THE HIDDEN THIRD VARIABLE
+Something not mentioned in the facts explains both.
+Fact 1: Sales of winter coats increased in June.
+Fact 2: It was unusually warm in June.
+Resolution: A massive winter coat sale triggered bulk buying in anticipation of fall — a third variable (the sale) explains both.
+
+PATTERN 3 — THE DEFINITIONAL SOLUTION
+A key term is being used differently in the two facts.
+Fact 1: Hospital A has a higher mortality rate than Hospital B.
+Fact 2: Hospital A provides better medical care.
+Resolution: Hospital A accepts more severely ill patients — "mortality rate" isn't measuring quality, it's measuring patient severity.
+
+PATTERN 4 — THE TIMING SOLUTION
+The facts are both true, but at different times.
+Fact 1: The new traffic law reduced accidents.
+Fact 2: Traffic fatalities increased after the law.
+Resolution: The law was passed before being enforced — accidents dropped after enforcement began, but fatalities rose during the gap period.`,
+        },
+        {
+          title: "Avoiding Paradox Traps",
+          content: `TRAP 1 — EXPLAINS ONLY ONE FACT
+Many wrong answers beautifully explain one of the surprising facts but ignore the other. Always verify your answer handles BOTH.
+
+TRAP 2 — OUT OF SCOPE
+The answer introduces information that seems related but doesn't actually connect the two facts.
+
+TRAP 3 — DEEPENS THE PARADOX
+An answer that makes it even MORE surprising that both facts are true — this is the OPPOSITE of what you want.
+
+TRAP 4 — ALREADY KNOWN INFORMATION
+Some answers just restate what the prompt told you. Information you already have doesn't resolve anything.
+
+THE LANGUAGE OF PARADOX QUESTION STEMS:
+"Which of the following, if true, most helps to explain...?"
+"Which of the following, if true, resolves the apparent discrepancy...?"
+"Which of the following would most help reconcile...?"
+
+These all ask for the same thing — an explanation that makes both facts compatible.
+
+STRATEGY: Before reading answers, try to articulate your own explanation of the paradox. Then look for an answer that matches your reasoning. If your explanation doesn't work, try different angles until the two facts "click."`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple contradictions with straightforward explanations"},{level:2,desc:"Statistical and cause-effect paradoxes"},{level:3,desc:"Complex multi-variable paradoxes"},{level:4,desc:"Full test difficulty"}]
+    },
+    {
+      type: "Method of Reasoning",
+      tagline: "Describe HOW the argument makes its case — the technique, not the content.",
+      why: "Forces you to think about argument STRUCTURE rather than content. This is essential for advanced LSAT performance and legal writing, where understanding HOW arguments work is as important as WHAT they claim.",
+      sections: [
+        {
+          title: "What Are You Being Asked?",
+          content: `Method of Reasoning questions ask you to describe the LOGICAL TECHNIQUE the author uses to make their argument. You're not evaluating whether the argument is good or bad — you're describing its structure.
+
+The answer must describe WHAT THE ARGUMENT DOES, not WHAT IT CONCLUDES.
+
+Think of yourself as a film critic describing cinematography techniques, not the plot. The "how," not the "what."
+
+Example:
+Argument: "Both Jones and Smith claim this drug is safe. But Jones has financial ties to the manufacturer, and Smith based her conclusion on Jones's research. Therefore, we really only have one independent source, not two."
+The method: The argument exposes that what appear to be multiple independent sources of evidence are actually a single source (Jones), undermining the claim's support.
+Abstract description: "Demonstrating that what appear to be multiple independent sources of support are actually a single source."`,
+        },
+        {
+          title: "Common Argument Methods",
+          content: `LEARN TO RECOGNIZE THESE:
+
+METHOD 1 — ANALOGY
+Using a similar, better-understood case to shed light on the case at hand.
+"Teaching critical thinking is like teaching swimming — you learn by doing, not by reading about it."
+
+METHOD 2 — COUNTEREXAMPLE  
+Disproving a general claim by producing one exception.
+"You claim all birds can fly. But penguins are birds, and they cannot fly."
+
+METHOD 3 — APPEAL TO AUTHORITY
+Using an expert's opinion to support a claim.
+"Renowned economist Dr. Chen concludes that this policy will reduce inflation."
+
+METHOD 4 — ELIMINATING ALTERNATIVES
+Showing that all other possibilities are false, leaving only the conclusion.
+"The artifact is either Roman, Greek, or Egyptian. Tests rule out Roman and Greek origins. Therefore, it must be Egyptian."
+
+METHOD 5 — CITING EVIDENCE / EMPIRICAL SUPPORT  
+Using data, statistics, studies, or observations to support the conclusion.
+"Studies of 10,000 patients show this treatment reduces recovery time by 30%."
+
+METHOD 6 — REDUCTIO AD ABSURDUM
+Showing that if the opponent's position is true, it leads to an absurd conclusion.
+"If we banned everything with some risk, we'd have to ban cars, electricity, and food."
+
+METHOD 7 — APPEAL TO CONSEQUENCES
+Arguing that a position should be adopted (or rejected) based on its practical outcomes.`,
+        },
+        {
+          title: "Dialogue and Two-Person Arguments",
+          content: `Some Method of Reasoning questions involve a DIALOGUE — one person makes an argument, another responds. You may be asked:
+• How does the second speaker respond to the first?
+• What is the method of the FIRST speaker's argument?
+• How does the exchange as a whole proceed?
+
+COMMON DIALOGUE RESPONSES:
+"Accepts the premise but challenges the conclusion" — agrees with the facts but disputes what follows.
+"Questions a key assumption" — attacks an unstated belief.
+"Offers a counterexample" — gives a specific case that disproves the general claim.
+"Offers an analogy" — uses a parallel case to support or attack a position.
+"Points out an ambiguity" — identifies a term used with two different meanings.
+"Questions the relevance" — argues the evidence doesn't support the conclusion.
+
+TIP: In dialogue questions, carefully track WHO is saying WHAT. Students often mix up the positions and argue for the wrong person's method.`,
+        },
+        {
+          title: "Reading Answer Choices Accurately",
+          content: `Method of Reasoning answer choices are written in highly abstract, general language. This is intentional — the method must be described independently of specific content.
+
+MATCHING PROCESS:
+1. Identify the method in your own words
+2. Find the abstract description that matches
+
+TRAPS TO AVOID:
+
+TRAP 1 — CONTENT ANSWERS
+Answers that describe WHAT the argument says, not HOW it argues. Eliminate any answer that references specific content from the passage.
+
+TRAP 2 — WRONG RELATIONSHIP
+Answers that accurately describe a technique — just not one used in this argument. The description must match THIS argument.
+
+TRAP 3 — REVERSED DIRECTION
+Answers that describe the method backwards — for example, saying the argument moves from general to specific when it actually moves from specific to general.
+
+TRAP 4 — PARTIAL DESCRIPTION
+Answers that correctly describe part of the method but miss a key element.
+
+ACCURACY CHECK: After choosing your answer, re-read the argument and trace through each step of the method described in your answer. Each step should map to something in the actual argument.`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple single-technique arguments"},{level:2,desc:"Two-step methods and dialogues"},{level:3,desc:"Complex rhetorical structures"},{level:4,desc:"Full test difficulty — subtle method identification"}]
+    },
+    {
+      type: "Parallel Reasoning",
+      tagline: "Find the argument with the exact same logical structure as the original.",
+      why: "The most structurally demanding LR type. Mastering parallel reasoning means you've internalized argument structure at a deep level — a skill that will serve you throughout law school.",
+      sections: [
+        {
+          title: "What Does Parallel Mean?",
+          content: `Parallel Reasoning questions ask you to find an argument in the answer choices with the IDENTICAL logical structure to the original. The content will be completely different. Only the structure matters.
+
+Think of it like matching sentence structures in grammar: "The cat sat on the mat" is parallel to "The dog ran in the park" — different words, same noun-verb-preposition structure.
+
+In LSAT parallel reasoning, you're matching argument structure, not topic.
+
+WHAT MUST MATCH:
+1. The TYPE OF REASONING (conditional, causal, analogical, etc.)
+2. The LOGICAL FORM (general to specific, specific to general, etc.)
+3. The TYPE OF CONCLUSION (definite vs. probable; positive vs. negative; universal vs. particular)
+4. The NUMBER OF PREMISES and their relationship
+5. Whether the argument is VALID or INVALID (if the original has a flaw, the parallel must have the same flaw)
+
+WHAT DOESN'T MATTER:
+Content, topic, specific nouns, emotional tone`,
+        },
+        {
+          title: "Abstracting the Argument",
+          content: `The key skill in Parallel Reasoning is ABSTRACTION — stripping away content to reveal the bare logical structure.
+
+STEP 1 — TRANSLATE TO LETTERS
+Identify the key terms and replace them with letters.
+
+Example:
+"All mammals are warm-blooded. Dogs are mammals. Therefore, dogs are warm-blooded."
+Translation: All M are W. D is M. Therefore, D is W.
+Structure: Universal affirmative + specific instance → specific conclusion.
+
+STEP 2 — IDENTIFY THE ARGUMENT TYPE
+Is it: Conditional? Causal? Analogical? Elimination? Statistical? Deductive? Inductive?
+
+STEP 3 — NOTE THE CONCLUSION TYPE
+• Definite vs. probable ("must be" vs. "is likely")
+• Universal vs. particular ("all" vs. "some")
+• Positive vs. negative ("is" vs. "is not")
+
+STEP 4 — CHECK VALIDITY
+Is this a VALID argument (conclusion follows necessarily) or INVALID (contains a flaw)?
+If invalid: What is the flaw? The parallel argument must contain the SAME flaw.`,
+        },
+        {
+          title: "Common Parallel Structures",
+          content: `VALID STRUCTURES TO RECOGNIZE:
+
+MODUS PONENS (affirming the antecedent):
+If A → B. A is true. Therefore, B is true. ✓
+
+MODUS TOLLENS (denying the consequent):
+If A → B. B is false. Therefore, A is false. ✓
+
+HYPOTHETICAL SYLLOGISM (chain):
+If A → B. If B → C. Therefore, A → C. ✓
+
+DISJUNCTIVE SYLLOGISM:
+Either A or B. Not A. Therefore, B. ✓
+
+INVALID STRUCTURES (flawed arguments — still need to match):
+
+AFFIRMING THE CONSEQUENT (INVALID):
+If A → B. B is true. Therefore, A is true. ✗ (B could be true for other reasons)
+Example: "If it rains, the ground is wet. The ground is wet. Therefore, it rained."
+
+DENYING THE ANTECEDENT (INVALID):
+If A → B. Not A. Therefore, not B. ✗
+Example: "If it rains, the ground is wet. It didn't rain. Therefore, the ground isn't wet." (Could be wet from a sprinkler)
+
+When matching a flawed argument, you must find the answer with the SAME flaw.`,
+        },
+        {
+          title: "Efficient Elimination Strategy",
+          content: `Parallel Reasoning questions are time-consuming. Use this efficient approach:
+
+QUICK ELIMINATIONS:
+Before reading every answer carefully, eliminate obvious mismatches:
+
+1. WRONG CONCLUSION TYPE
+If the original has a definite conclusion ("must be"), eliminate answers with probable conclusions ("probably is") and vice versa.
+If the original is universal ("all"), eliminate answers that are particular ("some") and vice versa.
+
+2. WRONG NUMBER OF PREMISES
+If the original has two premises, eliminate answers with one or three.
+
+3. WRONG DIRECTION
+If the original goes from general to specific, eliminate answers going specific to general.
+
+AFTER QUICK ELIMINATION:
+You should be down to 1-2 candidates. Now apply full structural analysis to these.
+
+VERIFICATION:
+Take your chosen answer and your abstracted structure. Can you map every element of the original to a corresponding element in the answer? If the mapping is perfect → correct answer.
+
+TIME MANAGEMENT: If stuck, note the conclusion type first (hardest to fake) and eliminate based on that. Most wrong answers fail on conclusion type alone.`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple conditional arguments with clear structure"},{level:2,desc:"Causal and analogical parallel structures"},{level:3,desc:"Invalid arguments requiring same-flaw matching"},{level:4,desc:"Full test difficulty — complex multi-step structures"}]
+    },
+    {
+      type: "Evaluate",
+      tagline: "Find the question whose answer would most help assess the argument's strength.",
+      why: "Tests the most sophisticated form of logical analysis — knowing WHAT information would matter. This is exactly what lawyers do: identify the pivotal questions in a case.",
+      sections: [
+        {
+          title: "What Are Evaluate Questions?",
+          content: `Evaluate questions ask: "What additional information would most help us determine whether this argument is good or bad?"
+
+You're not strengthening or weakening the argument. You're finding the KEY QUESTION that, when answered, would either strengthen OR weaken the argument depending on the answer.
+
+The correct answer is a question (or information need) such that:
+• If the answer is YES → the argument is STRONGER
+• If the answer is NO → the argument is WEAKER
+(Or vice versa — either direction works)
+
+The wrong answers are questions whose answers wouldn't change how we feel about the argument either way.
+
+Example:
+Argument: "Our company switched to remote work, and productivity increased by 15%. Remote work improves productivity."
+Evaluate answer: "Did the company implement any other changes at the same time as the shift to remote work?"
+• If YES (other changes happened) → the productivity increase might not be due to remote work (WEAKENS)
+• If NO (only remote work changed) → the argument is STRONGER
+
+This is the pivotal question — the answer matters either way.`,
+        },
+        {
+          title: "Finding the Pivotal Question",
+          content: `The pivotal question always targets the argument's KEY ASSUMPTION.
+
+PROCESS:
+STEP 1 — Identify the conclusion
+STEP 2 — Identify the assumption (the gap in the reasoning)
+STEP 3 — Ask: "What question, if answered, tells us whether this assumption holds?"
+
+The assumption IS the answer to the pivotal question.
+
+Example:
+Argument: "Organic foods contain more nutrients than conventional foods. Therefore, eating organic is healthier."
+Assumption: More nutrients = healthier for humans (the leap from "more nutrients" to "healthier")
+Pivotal question: "Are the additional nutrients found in organic foods ones that improve human health outcomes?"
+• YES → the argument is stronger
+• NO → "healthier" claim doesn't follow from "more nutrients"
+
+This question directly probes the assumption.`,
+        },
+        {
+          title: "The Yes/No Test",
+          content: `Apply the YES/NO TEST to every answer choice:
+
+For each answer choice (which is a question), ask:
+"If the answer to this question is YES, does the argument get stronger or weaker? What about NO?"
+
+CORRECT ANSWER: The answer matters — yes and no lead to different assessments.
+WRONG ANSWER: The answer doesn't change anything — yes and no lead to the same assessment.
+
+Example wrong answers and why they fail:
+
+Wrong answer: "Was the remote work policy popular with employees?"
+• YES → Still doesn't tell us if productivity went up because of remote work
+• NO → Still doesn't tell us
+The answer doesn't matter → ELIMINATE
+
+Wrong answer: "Did the company track productivity before the switch?"
+• YES → Good, we have a valid comparison
+• NO → The 15% increase figure is meaningless without a baseline
+This DOES matter → could be correct
+
+TRAP: Answers where one direction matters but the other doesn't:
+"Did any employees leave the company?" 
+• YES → Could affect productivity comparison
+• NO → Doesn't strengthen the argument
+This is asymmetric — the answer only helps in one direction. Correct Evaluate answers help in BOTH directions.`,
+        },
+        {
+          title: "Evaluate vs. Strengthen vs. Weaken",
+          content: `These three question types are closely related. Understanding the differences sharpens all three:
+
+STRENGTHEN: Gives you information that DOES make the argument stronger.
+WEAKEN: Gives you information that DOES make the argument weaker.  
+EVALUATE: Asks what information WOULD be relevant — without telling you which way it cuts.
+
+You can practice converting between them:
+• The correct Evaluate answer, answered YES, often becomes a correct Strengthen answer
+• The correct Evaluate answer, answered NO, often becomes a correct Weaken answer
+
+This also means you can WORK BACKWARDS:
+If you were writing a Weaken answer for this argument, what would you use? The Evaluate answer often asks whether that weakening condition is true.
+
+COMMON EVALUATE QUESTION STEMS:
+• "Which of the following would be most useful to know in evaluating the argument?"
+• "The answer to which of the following questions would most help in assessing the argument?"
+• "Which of the following would be most important to determine?"
+• "To evaluate the conclusion, it would be most helpful to know..."
+
+All ask the same thing: find the pivotal question.`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple causal arguments with clear assumptions"},{level:2,desc:"Statistical and policy arguments"},{level:3,desc:"Complex multi-variable arguments"},{level:4,desc:"Full test difficulty — subtle pivotal questions"}]
+    },
   ],
   "Reading Comprehension": [
-    {type:"Main Idea",tagline:"Identify the central point of the entire passage.",why:"Every RC question becomes easier when you know exactly what the passage is about.",concept:`Main Idea questions ask for the author's primary purpose or central argument across the entire passage. One common mistake: choosing an answer that's true but too narrow (covers only one paragraph) or too broad (goes beyond the passage).\n\nKey signal words: "main point," "primary purpose," "best describes the passage," "central argument."`,framework:["1. Read actively — ask 'what is this passage ultimately arguing?'","2. The main idea encompasses the whole passage — not just one section","3. Note the author's tone and stance throughout","4. Eliminate answers that are too narrow, too broad, or contradict the passage","5. The correct answer should make every paragraph feel relevant"],levels:[{level:1,desc:"Short, direct passages"},{level:2,desc:"Multi-paragraph passages"},{level:3,desc:"Complex academic passages"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Author's Tone",tagline:"Identify the author's attitude toward the subject.",why:"Tone questions reward careful attention to word choice and rhetorical stance.",concept:`Author's Tone questions ask you to characterize the author's attitude. LSAT passages are rarely neutral — authors have a stance. Look for charged language, evaluative words, and how the author treats different viewpoints.\n\nCommon tones: critical, skeptical, supportive, cautious, enthusiastic, ambivalent, objective.`,framework:["1. Look for evaluative language (words that judge or assess)","2. Note how the author treats opposing views","3. Check if the author uses qualifiers (somewhat, largely, arguably)","4. Eliminate extreme answers (never 'enraged' or 'ecstatic' on LSAT)","5. The tone should be consistent with the passage's overall argument"],levels:[{level:1,desc:"Clearly positive or negative tone"},{level:2,desc:"Nuanced or mixed tone"},{level:3,desc:"Subtle academic tone"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Detail",tagline:"Find information explicitly stated in the passage.",why:"Tests careful reading — the answer is always in the text.",concept:`Detail questions ask about specific information stated in the passage. The answer is always directly supported by text — no inference required. The challenge is locating the right part of the passage quickly.\n\nKey signal words: "according to the passage," "the author states," "mentioned in the passage."`,framework:["1. Identify the key terms in the question","2. Locate those terms in the passage (use your passage map)","3. Read the surrounding sentences carefully","4. The correct answer paraphrases what the passage explicitly says","5. Eliminate answers that require you to go beyond what's stated"],levels:[{level:1,desc:"Obvious, easy-to-find details"},{level:2,desc:"Details requiring careful location"},{level:3,desc:"Details in complex passages"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Inference",tagline:"Find what must be true based on the passage.",why:"Tests your ability to draw logical conclusions from text — core legal reading skill.",concept:`RC Inference questions ask what must be true based on the passage — not what's explicitly stated, but what necessarily follows. The answer goes slightly beyond the text but is fully supported by it.\n\nKey signal words: "can be inferred," "most strongly supported," "passage suggests," "author would most likely agree."`,framework:["1. Find the relevant part of the passage","2. Ask what necessarily follows from what's stated","3. The answer cannot contradict the passage or go far beyond it","4. Eliminate answers that are merely possible but not necessarily true","5. Eliminate answers that directly contradict the passage"],levels:[{level:1,desc:"Direct, obvious inferences"},{level:2,desc:"Combining information from two paragraphs"},{level:3,desc:"Nuanced inferences from complex text"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Purpose",tagline:"Explain why the author included a specific part of the passage.",why:"Tests structural understanding of how passages are built — crucial for high scores.",concept:`Purpose questions ask WHY the author included a specific paragraph, example, or detail. You're not describing the content — you're explaining its function within the larger argument.\n\nKey signal words: "purpose of the second paragraph," "why does the author mention," "function of the example."`,framework:["1. Identify exactly what you're being asked about (paragraph, sentence, example)","2. Ask: why is this here? What job does it do for the larger argument?","3. Common purposes: illustrate a point, introduce a counterargument, provide evidence, qualify a claim","4. The correct answer describes the function, not the content","5. Eliminate answers that describe what the section says rather than why it's there"],levels:[{level:1,desc:"Clear illustrative examples"},{level:2,desc:"Counterarguments and qualifications"},{level:3,desc:"Complex rhetorical functions"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Analogy",tagline:"Find the situation most analogous to something in the passage.",why:"Tests abstract thinking — the ability to see structural similarity across different contexts.",concept:`Analogy questions ask you to find a real-world situation that is structurally similar to something described in the passage. The content will be completely different — only the underlying relationship or structure matters.\n\nKey signal words: "most analogous to," "most similar to the situation described," "best parallels."`,framework:["1. Clearly identify the structure or relationship in the passage","2. Abstract it away from the specific content","3. Find the answer with the identical structure in a different context","4. Ignore surface-level content similarity — focus on structure","5. Eliminate answers that are similar in topic but different in structure"],levels:[{level:1,desc:"Simple structural analogies"},{level:2,desc:"Complex relational analogies"},{level:3,desc:"Abstract structural matching"},{level:4,desc:"Full test difficulty"}]},
-    {type:"Comparative Passage",tagline:"Compare and contrast two related passages.",why:"Tests your ability to synthesize multiple perspectives — essential for legal analysis.",concept:`Comparative Passage questions give you two shorter passages on related topics. Questions ask about relationships between them: where they agree, disagree, how one author would respond to the other.\n\nStrategy: As you read, actively note where the passages agree, disagree, and where one addresses something the other doesn't.`,framework:["1. Read Passage A and note its main argument and stance","2. Read Passage B noting where it agrees and disagrees with A","3. Build a mental 'relationship map' between the two passages","4. Agreement questions: find claims both authors would accept","5. Disagreement questions: find claims where they take opposing sides"],levels:[{level:1,desc:"Clear agreement/disagreement"},{level:2,desc:"Subtle differences in emphasis"},{level:3,desc:"Complex comparative analysis"},{level:4,desc:"Full test difficulty"}]},
+    {
+      type: "Main Idea",
+      tagline: "Identify the author's central argument across the entire passage.",
+      why: "Every RC question becomes easier when you know exactly what the passage is about. The Main Idea is your anchor — everything else in the passage relates back to it.",
+      sections: [
+        {
+          title: "Active Reading Strategy",
+          content: `RC is not about memorizing details. It's about understanding STRUCTURE and PURPOSE.
+
+As you read, constantly ask:
+• What is the author's MAIN CLAIM or PURPOSE?
+• What EVIDENCE supports it?
+• What is the author's STANCE? (positive, critical, neutral, cautious?)
+• How does each paragraph CONTRIBUTE to the whole?
+
+THE PASSAGE MAP:
+After each paragraph, jot a 3-5 word summary in the margin (or mentally):
+P1: "Introduces controversy about X"
+P2: "Traditional view — argues Y"
+P3: "Author's challenge — actually Z"
+P4: "Implications and conclusion"
+
+Your passage map becomes your navigation tool for all questions.
+
+MAIN IDEA = What the author is ultimately arguing across ALL paragraphs.`,
+        },
+        {
+          title: "Scope: Too Narrow, Too Broad, Just Right",
+          content: `The most common Main Idea traps involve SCOPE errors.
+
+TOO NARROW: Captures only one paragraph or one example.
+If a passage argues "Three factors explain the decline of Roman civilization," a too-narrow answer would be "Economic factors contributed to Rome's decline." True — but it misses the other two factors.
+
+TOO BROAD: Goes beyond what the passage claims.
+If the passage argues "Economic factors in 3rd-century Rome contributed to its fall," a too-broad answer would be "Economic instability destroys civilizations." The passage makes a specific historical argument — not a universal claim.
+
+TOO STRONG: Makes a more definitive claim than the author does.
+If the author argues X "may have" caused Y, the correct answer cannot say X "did" cause Y.
+
+JUST RIGHT: Matches the exact scope and strength of the author's central argument.
+
+PRECISION TEST: After choosing your answer, re-read the passage's first and last paragraphs. Does your answer capture what's established across both? If yes → likely correct.`,
+        },
+        {
+          title: "Author's Stance and Purpose",
+          content: `Main Idea and Primary Purpose questions are related. The PURPOSE answers "why did the author write this?" The MAIN POINT answers "what does the author conclude?"
+
+COMMON PASSAGE PURPOSES:
+• Argue for a position (advocate, defend, contend)
+• Challenge an established view (critique, question, dispute)
+• Explain a phenomenon (describe, examine, analyze)
+• Compare two perspectives (contrast, evaluate, assess)
+• Reconcile conflicting views (synthesize, resolve)
+
+THE AUTHOR'S STANCE:
+Watch for stance-revealing language:
+• Positive: "importantly," "fortunately," "correctly"
+• Negative: "unfortunately," "erroneously," "problematically"  
+• Cautious: "may," "might," "suggests," "appears to"
+• Strong: "demonstrates," "proves," "shows," "establishes"
+
+An author who "questions" a theory has a different stance than one who "examines" it. The Main Idea must reflect the correct stance.`,
+        },
+        {
+          title: "Eliminating Wrong Answers",
+          content: `WRONG ANSWER TYPES for Main Idea:
+
+TYPE 1 — DETAIL ANSWER
+Focuses on a supporting example or sub-point. True, but too specific.
+"The author argues that the 1921 trade agreement had unexpected effects." → Only part of the argument.
+
+TYPE 2 — CONTRADICTION
+States something the author argues AGAINST.
+If the author challenges traditional views, a wrong answer summarizes the traditional view the author rejects.
+
+TYPE 3 — HALF RIGHT
+Captures the topic but not the author's specific claim about it.
+"The passage discusses the history of public education." → Too vague — doesn't capture the author's argument.
+
+TYPE 4 — DISTORTION
+Takes a real element and slightly misrepresents it.
+Author: "X contributed to Y" → Wrong answer: "X alone caused Y."
+
+SELECTION PROCESS:
+First, eliminate answers that clearly fall into these types. Then compare remaining answers — which one best captures the ENTIRE passage's central argument with the CORRECT strength and scope?`,
+        },
+      ],
+      levels: [{level:1,desc:"Short passages with clear central arguments"},{level:2,desc:"Multi-paragraph passages with supporting evidence"},{level:3,desc:"Complex academic passages requiring scope precision"},{level:4,desc:"Full test difficulty"}]
+    },
+    {
+      type: "Author's Tone",
+      tagline: "Identify the author's attitude toward the subject matter.",
+      why: "Tone questions reward close attention to language. In law, understanding a judge's or author's tone — skeptical, supportive, qualified — is critical to understanding the force of their conclusions.",
+      sections: [
+        {
+          title: "What Is Tone?",
+          content: `Tone is the author's ATTITUDE toward the subject — how they feel about what they're discussing. It's revealed through word choice, not just content.
+
+Two authors can write about the same topic with opposite tones:
+Author A: "The new policy has brought about remarkable improvements in public health outcomes."
+Author B: "The new policy's claimed improvements in public health outcomes remain unverified."
+
+Same topic. Radically different tones. A is supportive/enthusiastic. B is skeptical/qualified.
+
+HOW TONE IS EXPRESSED:
+• WORD CHOICE: "significant" vs. "allegedly significant"; "demonstrates" vs. "suggests"
+• QUALIFIERS: "clearly," "remarkably" (strong) vs. "may," "appears to" (cautious)  
+• TREATMENT OF OPPOSING VIEWS: Does the author engage them seriously or dismiss them?
+• DESCRIPTIVE LANGUAGE: Are problems described as "challenges" or "crises"? Are benefits "modest" or "dramatic"?`,
+        },
+        {
+          title: "The LSAT Tone Spectrum",
+          content: `LSAT authors typically fall somewhere on this spectrum:
+
+STRONG POSITIVE ←————————→ STRONG NEGATIVE
+Enthusiastic | Supportive | Cautiously positive | Neutral/objective | Cautiously critical | Skeptical | Dismissive | Harshly critical
+
+IMPORTANT: LSAT passages rarely express extreme tones. Authors are almost never "enraged," "ecstatic," "contemptuous," or "indignant." These strong emotional words are WRONG ANSWER TRAPS.
+
+COMMON CORRECT TONES ON LSAT:
+• Cautiously optimistic — supports something with reservations
+• Skeptical — doubts claims without fully rejecting them
+• Critical — finds problems with an argument or position
+• Analytical/objective — examines without taking strong sides
+• Qualified support — mostly agrees but with important caveats
+• Persuasive — actively arguing for a position
+
+TONE WORDS TO KNOW:
+Ambivalent (mixed feelings), Sanguine (optimistic), Circumspect (cautious), Laudatory (praising), Disparaging (critical), Equivocal (avoiding commitment), Didactic (teaching-oriented)`,
+        },
+        {
+          title: "Tone vs. Content: Don't Confuse Them",
+          content: `A critical skill: separating WHAT the author discusses from HOW they discuss it.
+
+An author can discuss a NEGATIVE topic with a POSITIVE tone:
+"Despite early setbacks, the new cancer treatment has shown remarkable promise." → Positive tone about a health topic.
+
+An author can discuss a POSITIVE topic with a SKEPTICAL tone:
+"Proponents celebrate the economic boom, but a closer examination reveals troubling inequities." → Skeptical tone about economic growth.
+
+CONTENT TRAP: Don't let the subject matter determine your tone choice. Analyze the author's ATTITUDE toward the subject, not the subject itself.
+
+TECHNIQUE — THE STANCE SIGNAL:
+In the first paragraph, look for stance signals. Authors often reveal their position early:
+• "Contrary to popular belief..." → Author is about to challenge something
+• "Recent scholarship has successfully demonstrated..." → Author accepts and builds on existing work  
+• "While X has been widely celebrated, a closer look reveals..." → Critical examination follows`,
+        },
+        {
+          title: "Tone for Specific Parts",
+          content: `Some questions ask about the author's tone toward a SPECIFIC part — a theory, a person, a study.
+
+Different parts of the same passage can have different tones:
+• Author is neutral in describing the traditional view
+• Author is critical in evaluating the traditional view
+• Author is cautiously supportive of the new approach
+
+PROCESS FOR PART-SPECIFIC TONE:
+1. Find the relevant section
+2. Identify evaluative language in THAT section
+3. Determine the tone of THAT section — not the whole passage
+
+VERB CHOICES REVEAL TONE:
+• "argues" → neutral
+• "demonstrates" → accepts as proven
+• "claims" → slight skepticism (not yet verified)
+• "acknowledges" → concedes with possible reservations
+• "correctly observes" → accepts and endorses
+• "mistakenly believes" → directly critical
+• "fails to recognize" → critical of a gap
+
+ELIMINATION STRATEGY FOR TONE:
+Eliminate answers that are too extreme for the passage's measured academic register. Then eliminate answers that misidentify the direction (positive vs. negative). What remains is almost always correct.`,
+        },
+      ],
+      levels: [{level:1,desc:"Clearly positive or negative tone in short passages"},{level:2,desc:"Nuanced or mixed tones requiring careful reading"},{level:3,desc:"Subtle academic tones with qualified language"},{level:4,desc:"Full test difficulty — distinguishing similar tones"}]
+    },
+    {
+      type: "Detail",
+      tagline: "Find information explicitly stated in the passage.",
+      why: "Tests careful, precise reading. The answer is always directly in the text — your job is locating it quickly and accurately without being misled by paraphrasing.",
+      sections: [
+        {
+          title: "What Are Detail Questions?",
+          content: `Detail questions ask about specific information EXPLICITLY STATED in the passage. No inference required — the answer is in the text.
+
+The challenge isn't understanding; it's LOCATING and RECOGNIZING the relevant information under time pressure — especially when answer choices paraphrase the original.
+
+SIGNAL PHRASES in question stems:
+• "According to the passage..."
+• "The author states..."
+• "The passage mentions..."
+• "Which of the following is mentioned in the passage?"
+
+KEY RULE: If the answer requires you to go BEYOND what's stated — to infer, interpret, or draw conclusions — it's not a Detail question answer. Eliminate it.`,
+        },
+        {
+          title: "The Passage Map Pays Off",
+          content: `Detail questions are where your PASSAGE MAP saves you. Instead of re-reading the whole passage, use your paragraph summaries to navigate to the right section.
+
+HOW TO USE YOUR MAP:
+1. Read the question and identify the KEY TERM or TOPIC
+2. Recall which paragraph discussed that topic
+3. Go directly to that paragraph
+4. Read it carefully — the answer is there
+
+WHEN THE MAP ISN'T ENOUGH:
+For very specific details, use KEYWORD SCANNING:
+• Identify the most specific, unusual term in the question
+• Scan the passage for that exact word or a close synonym
+• Read that sentence and the surrounding 2-3 sentences carefully
+
+EXAMPLE:
+Question: "According to the passage, when did the species first migrate south?"
+Key term: "migrate south" / timing word "when"
+Scan for: "migration," "south," and date/time language
+Find the relevant sentence → answer is paraphrased there`,
+        },
+        {
+          title: "Paraphrase Recognition",
+          content: `LSAT Detail answers almost always PARAPHRASE the original text — they don't quote it directly. Learning to recognize paraphrases is essential.
+
+EXAMPLE:
+Passage text: "The species' population declined precipitously in the early 20th century due to extensive habitat destruction."
+Correct answer: "Significant habitat loss led to a sharp decrease in the species' numbers during the 1900s."
+Same meaning, completely different words.
+
+WRONG answer: "The species became extinct in the early 20th century." (Goes beyond — says extinct, not just declined)
+WRONG answer: "Habitat destruction was the primary cause of all wildlife decline in the 20th century." (Too broad — passage says this species, not all wildlife)
+
+HOW TO VERIFY YOUR ANSWER:
+After choosing an answer, point to the SPECIFIC SENTENCE in the passage that supports it. If you can't find the sentence, reconsider your answer. Detail questions ALWAYS have a directly supporting sentence.`,
+        },
+        {
+          title: "Traps in Detail Questions",
+          content: `TRAP 1 — TRUE BUT NOT STATED
+An answer that is likely true based on common knowledge — but never explicitly stated in the passage. LSAT passages are the only source. If the passage didn't say it, it doesn't count.
+
+TRAP 2 — CORRECT TOPIC, WRONG DETAIL
+An answer about the right subject that misstates the specific claim.
+Passage: "Costs rose 15%." Wrong answer: "Costs doubled."
+
+TRAP 3 — REVERSAL
+Swaps the relationship between two things.
+Passage: "X led to Y." Wrong answer: "Y led to X."
+
+TRAP 4 — EXTREME LANGUAGE
+Passage: "The treatment often reduced symptoms." Wrong answer: "The treatment always eliminated symptoms." Adding "always" and "eliminated" is a distortion.
+
+TRAP 5 — SCOPE EXPANSION
+Passage makes a claim about one specific thing; wrong answer applies it broadly.
+Passage: "This technique was effective in coastal regions." Wrong answer: "This technique was effective everywhere."
+
+STRATEGY: For Detail questions, be a detective. Your job is to find the EXACT sentence and verify your answer matches it without distortion, expansion, or reversal.`,
+        },
+      ],
+      levels: [{level:1,desc:"Obvious details that are easy to locate"},{level:2,desc:"Details requiring careful scanning and paraphrase recognition"},{level:3,desc:"Details in complex passages with similar-sounding wrong answers"},{level:4,desc:"Full test difficulty"}]
+    },
+    {
+      type: "Inference",
+      tagline: "Find what must be true based on the passage — going just beyond what's stated.",
+      why: "RC Inference questions test the ability to draw logical conclusions from text — the most essential skill in legal reading.",
+      sections: [
+        {
+          title: "RC Inference vs. LR Inference",
+          content: `Both question types ask "what must be true?" but they operate differently:
+
+LR INFERENCE: Short stimulus, very tight logic. What follows necessarily from these specific statements?
+
+RC INFERENCE: Long passage. The answer is STRONGLY SUPPORTED by the passage — but you often need to combine information from different parts.
+
+RC Inference answers are not always strictly necessary — but they must be STRONGLY supported. The best answer is the one most firmly grounded in the passage.
+
+THE SPECTRUM:
+"Must be true" (strictest — directly follows from stated facts)
+"Most strongly supported" (less strict — best supported by passage)
+"Author would most likely agree" (requires understanding the author's position)
+
+All three types work similarly — find the answer most grounded in what the passage says.`,
+        },
+        {
+          title: "How to Generate RC Inferences",
+          content: `STEP 1 — IDENTIFY THE RELEVANT PASSAGE SECTION
+Use the question's keywords to locate the relevant paragraph(s).
+
+STEP 2 — READ CAREFULLY
+Re-read the relevant section, looking for:
+• Relationships between ideas
+• Comparisons and contrasts
+• Cause-effect connections
+• Implications of stated facts
+
+STEP 3 — ASK "WHAT FOLLOWS?"
+Given what's stated, what else must be true? What can you deduce?
+
+Example:
+Passage states: "In the 1950s, the company's revenues exceeded those of its three largest competitors combined. By the 1970s, it had fallen to third place in the industry."
+
+Inference: "At some point between the 1950s and 1970s, the company lost its dominant position." ✓
+(Doesn't require anything beyond what's stated — follows necessarily)
+
+WRONG inference: "The company's revenues declined between the 1950s and 1970s." 
+(NOT necessarily true — it could still have GROWN, just more slowly than competitors who grew faster)`,
+        },
+        {
+          title: "Author Agreement Questions",
+          content: `"The author would most likely agree with which of the following?" questions require understanding the author's POSITION and REASONING.
+
+STRATEGY:
+1. Identify the author's main argument and stance
+2. For each answer, ask: "Would this author, given their stated position, agree with this?"
+3. Look for answers that EXTEND the author's position logically
+4. Be wary of answers that go farther than the author goes
+
+The author's position should PREDICT their agreement:
+If the author argues that X is problematic, they would likely agree that:
+• X should be reformed ✓
+• X has been underexamined ✓
+They would likely DISAGREE that:
+• X is fundamentally sound ✗
+• X's problems are overstated ✗
+
+TRAP: Answers that the author MIGHT agree with in the abstract but that go beyond the passage's specific claims. The author only "agrees" with things their stated argument implies.`,
+        },
+        {
+          title: "Avoiding RC Inference Traps",
+          content: `TRAP 1 — TOO STRONG (Most Common)
+Answer makes a bolder claim than the passage supports.
+Passage: "Studies suggest X may contribute to Y."
+Wrong answer: "X causes Y." (Passage says "suggests" and "may" — not "causes")
+
+TRAP 2 — REQUIRES OUTSIDE KNOWLEDGE
+Answer that you know to be true from outside the passage — but isn't supported BY the passage.
+Eliminate any answer that requires knowledge the passage doesn't provide.
+
+TRAP 3 — CONTRADICTS THE PASSAGE
+Answer that is directly inconsistent with something stated. Common trap — the answer SEEMS to follow but actually reverses a relationship.
+
+TRAP 4 — ADDRESSES THE RIGHT TOPIC, WRONG CLAIM
+Answer about the same subject as the correct answer but making a different claim. Often differs subtly — "all" vs. "most," "caused" vs. "contributed to."
+
+TRAP 5 — SCOPE CREEP
+Answer that takes something true about one part of the subject and applies it to a broader category.
+
+FINAL CHECK: After choosing your answer, locate the specific passage text that supports it. Can you point to the sentence? If yes → strong confidence. If not → reconsider.`,
+        },
+      ],
+      levels: [{level:1,desc:"Direct, obvious inferences from clear passage statements"},{level:2,desc:"Inferences combining two paragraph sections"},{level:3,desc:"Nuanced inferences requiring careful scope control"},{level:4,desc:"Full test difficulty — subtle distinctions between similar inferences"}]
+    },
+    {
+      type: "Purpose",
+      tagline: "Explain WHY the author included a specific part of the passage.",
+      why: "Purpose questions test structural understanding — the ability to see how each part of a passage contributes to the whole argument. Essential for legal analysis.",
+      sections: [
+        {
+          title: "Function vs. Content",
+          content: `Purpose questions ask WHY, not WHAT.
+
+WRONG approach: "This paragraph discusses the economic implications of the policy."
+RIGHT approach: "This paragraph provides evidence that undermines the preceding claim."
+
+You're not describing the CONTENT of a paragraph or example — you're describing its ROLE in the overall argument.
+
+ASK THESE QUESTIONS:
+• What did the argument need at this point?
+• What job does this section do?
+• How would the argument be different WITHOUT this section?
+
+If the section weren't there:
+• Would a key objection go unaddressed? → Purpose: addresses a counterargument
+• Would a claim lack support? → Purpose: provides evidence
+• Would a term be undefined? → Purpose: defines a concept
+• Would the conclusion seem too strong? → Purpose: qualifies the main claim`,
+        },
+        {
+          title: "Common Paragraph Functions",
+          content: `LEARN TO RECOGNIZE THESE:
+
+PROVIDES EVIDENCE: Gives facts, data, or examples that support a claim made elsewhere.
+INTRODUCES A COUNTERARGUMENT: Presents an opposing view — usually before the author refutes it.
+REFUTES A COUNTERARGUMENT: Responds to and undermines an opposing view.
+QUALIFIES A CLAIM: Limits or adds nuance to a previous statement.
+APPLIES A PRINCIPLE: Takes a general rule and shows how it works in a specific case.
+PROVIDES HISTORICAL CONTEXT: Sets up background needed to understand the main argument.
+DRAWS A CONCLUSION: Summarizes the logical outcome of previous sections.
+DEFINES A TERM: Clarifies how a key word is being used.
+INTRODUCES A PROBLEM: Establishes the issue the rest of the passage will address.
+OFFERS A SOLUTION: Proposes an answer to the problem.
+PRESENTS A COMPARISON: Contrasts two things to illuminate both.
+
+For each passage you read, practice identifying which function each paragraph serves. This makes all RC questions — not just Purpose — easier.`,
+        },
+        {
+          title: "The Purpose of Specific Examples",
+          content: `Many Purpose questions ask about specific EXAMPLES within a paragraph, not the whole paragraph.
+
+Examples almost always serve one of these functions:
+• ILLUSTRATE a general principle (make an abstract claim concrete)
+• PROVE a claim (provide evidence)
+• PROVIDE A COUNTEREXAMPLE (challenge a previous claim)
+• SHOW A CONTRAST (demonstrate a difference between two things)
+
+PROCESS FOR EXAMPLE QUESTIONS:
+1. Identify what the example IS about (the content)
+2. Identify what COMES BEFORE the example (the claim it's illustrating or challenging)
+3. Ask: "Is this example supporting, challenging, or illustrating something?"
+4. Match to an answer that describes the function abstractly
+
+TRAP: Wrong answers describe what the example IS about (content) rather than what it DOES (function). Eliminate any answer that just summarizes the example's topic.`,
+        },
+        {
+          title: "Matching Abstract Functions to Passage Actions",
+          content: `Purpose answer choices are written in abstract language. Practice translating:
+
+"To illustrate the broader principle discussed in the preceding paragraph."
+→ The example makes a general point concrete.
+
+"To introduce a consideration that complicates the argument made in the first paragraph."
+→ A wrinkle is added to the main argument — it's not a full counterargument, just a complication.
+
+"To provide evidence in support of the claim that X is the primary cause of Y."
+→ The section gives proof for a specific causal claim.
+
+"To acknowledge an objection and explain why it does not undermine the author's central argument."
+→ The author addresses a counterargument and defends their position.
+
+VERIFICATION PROCESS:
+After choosing your answer, re-read the section in question and the section immediately before and after it. Ask:
+• Does my answer describe what this section DOES for the argument?
+• Does the section actually ACCOMPLISH what my answer says?
+Both must be yes → confident in your answer.`,
+        },
+      ],
+      levels: [{level:1,desc:"Clear paragraph functions in simple passages"},{level:2,desc:"Examples and counterarguments"},{level:3,desc:"Complex rhetorical functions in academic passages"},{level:4,desc:"Full test difficulty — subtle purpose distinctions"}]
+    },
+    {
+      type: "Analogy",
+      tagline: "Find the situation most analogous to something described in the passage.",
+      why: "Tests the ability to see structural similarity across different contexts — a core skill in legal reasoning, where lawyers constantly apply precedents from different factual situations.",
+      sections: [
+        {
+          title: "What Makes Things Analogous?",
+          content: `Two situations are ANALOGOUS when they share the same UNDERLYING STRUCTURE or RELATIONSHIP — even if they look completely different on the surface.
+
+Analogy questions ask you to find a situation in a different domain that mirrors the same structural pattern as something described in the passage.
+
+WHAT MATTERS:
+• The RELATIONSHIP between elements (A caused B; X is a subset of Y; P and Q have the same effect)
+• The STRUCTURE of the situation (the roles each element plays)
+
+WHAT DOESN'T MATTER:
+• The topic or subject matter
+• Surface-level similarities
+• Whether both situations involve the same field
+
+Example:
+Passage: A species that dominates an ecosystem can paradoxically reduce overall biodiversity by outcompeting specialized species.
+Analogy: A dominant market player driving out niche competitors, resulting in less overall variety of products.
+Why: Same structure — dominant entity reduces diversity by outcompeting specialized alternatives.`,
+        },
+        {
+          title: "Abstracting the Relationship",
+          content: `STEP 1 — IDENTIFY THE RELATIONSHIP IN THE PASSAGE
+Strip away specific content. What is the underlying relationship?
+
+Example process:
+Passage situation: "Antibiotics kill bacteria, but overuse leads to resistant strains that are harder to treat."
+Abstract structure: "A tool designed to eliminate X becomes less effective against X over time due to overuse, because overuse selects for X variants that resist the tool."
+
+STEP 2 — FIND THE ANSWER WITH THE SAME ABSTRACT STRUCTURE
+Look for an answer where:
+• There's a tool/method designed to eliminate/reduce X
+• Overuse/overexposure creates variants of X that resist the tool
+• The tool becomes less effective over time
+
+Matching answer: "Pesticides kill insects, but widespread use leads to resistant populations that are harder to control." ✓
+Same structure — different domain.
+
+WRONG answer: "Medical researchers develop antibiotics faster than bacteria evolve resistance." ✗
+Different structure — this is about the rate of development, not about use creating resistance.`,
+        },
+        {
+          title: "Common Analogy Structures",
+          content: `RECOGNIZING THESE PATTERNS SAVES TIME:
+
+PARADOX STRUCTURES:
+"Doing X to fix problem P actually makes P worse in the long run."
+Look for: Any case where the solution exacerbates the problem.
+
+FEEDBACK LOOP STRUCTURES:
+"Success at X leads to conditions that make X harder/less likely."
+Look for: Any self-undermining success cycle.
+
+SUBSET/EXCEPTION STRUCTURES:
+"General rule Y applies, except in case Z where the opposite is true."
+Look for: Any case where a general principle has a notable exception.
+
+TRADEOFF STRUCTURES:
+"Optimizing for X unavoidably reduces Y."
+Look for: Any case where improving one dimension sacrifices another.
+
+EMERGENCE STRUCTURES:
+"Individual elements have property A, but together they produce property B."
+Look for: Any case where the whole has a property its parts don't.
+
+THRESHOLD STRUCTURES:
+"Below level L, X has one effect; above L, X has the opposite effect."
+Look for: Any case where quantity or degree determines direction of effect.`,
+        },
+        {
+          title: "Avoiding Analogy Traps",
+          content: `TRAP 1 — SAME TOPIC, WRONG STRUCTURE
+The most seductive wrong answer involves the SAME SUBJECT as the passage but a DIFFERENT structure.
+If the passage discusses medicine, the most tempting wrong answer will also involve medicine — but with a different relationship.
+LSAT analogy correct answers almost always use a DIFFERENT domain from the passage.
+
+TRAP 2 — SAME STRUCTURE, WRONG DIRECTION
+The relationship is mirrored — the cause and effect are reversed. Always verify you have the same directionality.
+
+TRAP 3 — RELATED BUT INCOMPLETE
+The answer captures PART of the structure but misses a key element.
+If the passage has three key elements in a relationship, the correct answer must have three corresponding elements.
+
+TRAP 4 — LITERAL SIMILARITY
+An answer that's about the same subject/field as the passage — but the relationship is completely different.
+
+VERIFICATION:
+Draw a simple diagram of the passage relationship: [A] → [B] → [C]
+Then diagram your chosen answer: [X] → [Y] → [Z]
+Each arrow must represent the same type of relationship for the analogy to hold.`,
+        },
+      ],
+      levels: [{level:1,desc:"Simple one-step structural analogies"},{level:2,desc:"Two-element relationship matching"},{level:3,desc:"Complex multi-element analogies"},{level:4,desc:"Full test difficulty — subtle structural matching"}]
+    },
+    {
+      type: "Comparative Passage",
+      tagline: "Compare and synthesize two related passages on the same topic.",
+      why: "Comparative passages mirror real legal practice — lawyers constantly synthesize multiple sources with related but distinct perspectives. This question type rewards organized, systematic reading.",
+      sections: [
+        {
+          title: "How Comparative Passages Work",
+          content: `Comparative passages give you TWO shorter passages on related topics (Passage A and Passage B). They're always related — same topic, different perspectives, arguments, or emphases.
+
+Questions will ask about:
+• Where the passages AGREE
+• Where they DISAGREE
+• How one author would respond to the other
+• What both authors would accept
+• How the passages relate in structure or purpose
+
+THE RELATIONSHIP TYPES:
+Authors may DISAGREE on: facts, interpretations, the significance of evidence, or policy recommendations.
+Authors may AGREE on: background facts, the importance of the topic, or certain principles — while disagreeing on the conclusion.
+
+Note: They rarely completely agree or completely disagree. The interesting questions are about the NUANCES of agreement and disagreement.`,
+        },
+        {
+          title: "The Relationship Map Strategy",
+          content: `As you read, build a RELATIONSHIP MAP in your mind:
+
+FOR EACH PASSAGE, NOTE:
+• Main argument: What does this author ultimately claim?
+• Key evidence: What do they use to support it?
+• Stance: How strong/confident is this author?
+
+COMPARE:
+• Where are they talking about the same things?
+• Do they reach the same or different conclusions about those things?
+• Does one author's argument address (or fail to address) the other's claims?
+
+RELATIONSHIP MAP TEMPLATE:
+Passage A argues: ___________
+Passage B argues: ___________
+They both accept: ___________
+They disagree about: ___________
+A would say about B's argument: ___________
+B would say about A's argument: ___________
+
+Filling this in (even mentally) before answering questions saves time and prevents errors.`,
+        },
+        {
+          title: "Agreement and Disagreement Questions",
+          content: `AGREEMENT QUESTIONS: "Both authors would agree that...?"
+
+PROCESS:
+1. Find the answer choice
+2. Ask: "Does Passage A support this?" Find the evidence.
+3. Ask: "Does Passage B support this?" Find the evidence.
+4. Only if BOTH support it → likely correct
+
+TRAP: An answer supported by Passage A but contradicted or ignored by Passage B. The LSAT deliberately includes these tempting half-answers.
+
+DISAGREEMENT QUESTIONS: "The authors disagree about...?"
+
+PROCESS:
+1. Find the answer choice
+2. Ask: "What does Passage A say about this?" (Position X)
+3. Ask: "What does Passage B say about this?" (Position Y)
+4. Do X and Y CONFLICT? If yes → correct
+
+TRAP: A topic both authors discuss but from which no clear disagreement emerges — they talk around the same issue but don't directly contradict each other.
+
+KEY INSIGHT: For a genuine disagreement, both authors must address the SAME SPECIFIC CLAIM and take OPPOSITE SIDES. It's not enough that they reach different conclusions — they must directly contradict each other on a particular point.`,
+        },
+        {
+          title: "Cross-Passage Response Questions",
+          content: `These questions ask how one author would respond to something in the other passage.
+
+Example: "How would the author of Passage B most likely respond to the argument made in paragraph 2 of Passage A?"
+
+PROCESS:
+1. UNDERSTAND what Passage A's paragraph 2 argues
+2. UNDERSTAND Passage B's position and how it relates
+3. Apply Passage B's logic to Passage A's argument
+
+This requires holding both arguments in mind simultaneously.
+
+TYPES OF RESPONSES:
+"The author of B would argue that A overstates the significance of X." (challenges the weight given to evidence)
+"The author of B would point out that A's argument fails to account for Y." (identifies a gap)
+"The author of B would accept A's premise but dispute the conclusion." (concedes and challenges)
+"The author of B would cite Z as evidence that undermines A's conclusion." (provides counterevidence)
+
+TRAP: Applying Passage A's position to evaluate Passage B, or vice versa — mixing up the authors.
+
+FINAL TIP: On comparative passage questions, always re-check which author the question is asking about. Mixing up Passage A and Passage B is the most common error.`,
+        },
+      ],
+      levels: [{level:1,desc:"Clearly contrasting passages with obvious agreement/disagreement"},{level:2,desc:"Subtler differences in emphasis and conclusion"},{level:3,desc:"Complex synthesis across multiple question types"},{level:4,desc:"Full test difficulty — nuanced cross-passage analysis"}]
+    },
   ],
 };
+
 
 // ─── USER STORE ───────────────────────────────────────────────────────────────
 const DB = {
@@ -200,6 +1750,8 @@ const PRACTICE_SYSTEM=`You are an expert LSAT question author with 20+ years exp
 
 CRITICAL: The correct answer must be logically airtight — verify it three times. Wrong answers must be plausible but eliminable.
 
+IMPORTANT: Use varied, original scenarios. Never use "Millbrook," "Westville," "Eastbrook," or any previously common placeholder names. Use diverse, realistic settings: universities, hospitals, tech companies, nonprofits, courthouses, news organizations, research labs, cities worldwide. Vary the subject matter — law, science, medicine, business, environment, history, policy — never reuse the same scenario type twice in a row.
+
 Respond ONLY with valid JSON (no markdown fences):
 {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [why correct]. (A): [why wrong]. (C): [why wrong]. (D): [why wrong]. (E): [why wrong].","key_concept":"One sentence naming the specific skill tested.","level":2}`;
 
@@ -246,7 +1798,12 @@ function Nav({screen,setScreen,user,onLogout}){
 function Landing({onGetStarted}){
   const [tick,setTick]=useState(0);
   useEffect(()=>{const i=setInterval(()=>setTick(t=>t+1),2800);return()=>clearInterval(i);},[]);
-  const taglines=["Think Like a Lawyer.","Argue Like a Pro.","Score What You Deserve.","Ace the LSAT."];
+  const taglines=[
+    {line1:"Think Like", line2:"a Lawyer."},
+    {line1:"Argue Like", line2:"a Pro."},
+    {line1:"Score What", line2:"You Deserve."},
+    {line1:"Built to Help You", line2:"Ace the LSAT."},
+  ];
   const currentTag=taglines[tick%taglines.length];
   const features=[
     {icon:"🎯",title:"Infinite Practice",desc:"AI generates fresh questions every session — no question bank, no repeats, ever."},
@@ -287,9 +1844,9 @@ function Landing({onGetStarted}){
 
           {/* Headline */}
           <h1 style={{fontFamily:T.serif,fontSize:"clamp(38px,7vw,80px)",fontWeight:700,color:C.text,lineHeight:1.1,marginBottom:20}}>
-            The LSAT Prep That<br/>
-            <span style={{display:"inline-block",minWidth:400,textAlign:"center"}}>
-              <span key={tick} style={{display:"inline-block",background:"linear-gradient(135deg,#4f7fff,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",animation:"tagSwitch 2.8s ease both"}}>{currentTag}</span>
+            <span key={tick} style={{display:"block",animation:"tagSwitch 2.8s ease both"}}>
+              <span style={{display:"block",background:"linear-gradient(135deg,#4f7fff,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{currentTag.line1}</span>
+              <span style={{display:"block",background:"linear-gradient(135deg,#a78bfa,#f472b6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{currentTag.line2}</span>
             </span>
           </h1>
 
@@ -655,41 +2212,43 @@ function Learn({user,onUpdateUser}){
 }
 
 function LearnLesson({user,onUpdateUser,typeObj,section,onBack}){
-  const [phase,setPhase]=useState("intro"); // intro | lesson | practice | complete
+  const [view,setView]=useState("lesson"); // lesson | practice | complete
+  const [sectionIdx,setSectionIdx]=useState(0);
   const [levelIdx,setLevelIdx]=useState(0);
   const [question,setQuestion]=useState(null);
   const [loadingQ,setLoadingQ]=useState(false);
   const [selected,setSelected]=useState(null);
   const [submitted,setSubmitted]=useState(false);
-  const [feedback,setFeedback]=useState(null);
-  const [loadingFeedback,setLoadingFeedback]=useState(false);
-  const [error,setError]=useState(null);
   const [xpGained,setXpGained]=useState(0);
+  const [error,setError]=useState(null);
+  const learnSections=typeObj.sections||[];
+  const currentSection=learnSections[sectionIdx];
+  const currentLevel=typeObj.levels?.[levelIdx];
   const learnProgress=user.learnProgress||{};
-  const currentLevel=typeObj.levels[levelIdx];
 
   const genQuestion=async()=>{
-    setLoadingQ(true);setError(null);setSelected(null);setSubmitted(false);setFeedback(null);
+    setLoadingQ(true);setError(null);setSelected(null);setSubmitted(false);setXpGained(0);
     const level=levelIdx+1;
-    const sys=`You are an expert LSAT tutor creating a Level ${level} ${typeObj.type} question for a student who is LEARNING this question type for the first time. Level 1 means extremely simple, everyday language — NOT legal jargon. Level 4 means full official LSAT difficulty.
+    const sys=`You are an expert LSAT tutor generating a practice question for a student who just studied ${typeObj.type} questions. This is a Level ${level} question (1=simplest everyday language, 4=full LSAT difficulty).
 
-For Level 1: Use simple everyday scenarios (coffee shops, weather, pets, sports). Short sentences. The correct answer should be very clear once you understand the question type.
-For Level 2: Slightly more complex scenarios but still accessible. Two-step reasoning.
-For Level 3: LSAT-style complexity. Legal or academic content acceptable.
-For Level 4: Full official LSAT difficulty and style.
+Level guidelines:
+- Level 1: Use simple everyday scenarios. Short, clear sentences. Very accessible. The correct answer should be clear once the student applies the ${typeObj.type} framework.
+- Level 2: Moderate complexity. Realistic but accessible scenarios. Two-step reasoning.
+- Level 3: LSAT-style language. Academic or legal content acceptable. 
+- Level 4: Full official LSAT difficulty, style, and complexity.
 
-The student is learning ${typeObj.type} questions. Your question must be a perfect example of this type.
+Generate a ${typeObj.type} question for the ${section} section.
 
 Respond ONLY with valid JSON (no markdown):
-{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [clear, simple explanation]. (A): [why wrong]. (C): [why wrong]. (D): [why wrong]. (E): [why wrong].","teaching_point":"One key insight about ${typeObj.type} questions this question illustrates.","level":${level}}`;
+{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [clear explanation of why B is right and directly connects to the ${typeObj.type} framework]. (A): [why wrong]. (C): [why wrong]. (D): [why wrong]. (E): [why wrong].","teaching_point":"One specific insight about ${typeObj.type} questions illustrated by this question.","level":${level}}`;
     try{
-      const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question for a student learning this type. Section: ${section}. Keep it appropriate for this difficulty level.`);
+      const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question. Use a varied, original scenario — avoid placeholder names like Millbrook or Westview. Use diverse settings: universities, hospitals, companies, policy debates, scientific research. Keep the question type pure — this must be a clear ${typeObj.type} question.`);
       setQuestion(parseJSON(raw));
     }catch(e){setError("Could not generate question: "+(e.message||"Please try again."));}
     setLoadingQ(false);
   };
 
-  const submitAnswer=async()=>{
+  const submitAnswer=()=>{
     if(!selected||!question)return;
     setSubmitted(true);
     const correct=selected===question.correct;
@@ -706,16 +2265,14 @@ Respond ONLY with valid JSON (no markdown):
   const nextLevel=()=>{
     const newLevel=levelIdx+1;
     if(newLevel>=typeObj.levels.length){
-      // Completed all levels
       const newProgress={...(user.learnProgress||{}),[typeObj.type]:4};
       onUpdateUser({learnProgress:newProgress});
-      setPhase("complete");
+      setView("complete");
     }else{
       const newProgress={...(user.learnProgress||{}),[typeObj.type]:newLevel};
       onUpdateUser({learnProgress:newProgress});
       setLevelIdx(newLevel);
-      setQuestion(null);setSelected(null);setSubmitted(false);setFeedback(null);setXpGained(0);
-      setPhase("practice");
+      setQuestion(null);setSelected(null);setSubmitted(false);setXpGained(0);
     }
   };
 
@@ -723,107 +2280,103 @@ Respond ONLY with valid JSON (no markdown):
   const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
 
   return(
-    <main style={{maxWidth:700,margin:"0 auto",padding:"24px 20px"}}>
+    <main style={{maxWidth:760,margin:"0 auto",padding:"24px 20px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Learn</button>
 
       {/* Header */}
-      <div style={{marginBottom:24}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
+      <div style={{marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,flexWrap:"wrap"}}>
           <Tag color={C.purple}>{section}</Tag>
           <Tag color={C.accent}>{typeObj.type}</Tag>
-          {phase==="practice"&&<Tag color={LEVEL_COLORS[levelIdx+1]}>Level {levelIdx+1} — {LEVEL_LABELS[levelIdx+1]}</Tag>}
+          {view==="practice"&&<Tag color={LEVEL_COLORS[levelIdx+1]}>Level {levelIdx+1} — {LEVEL_LABELS[levelIdx+1]}</Tag>}
         </div>
-        {/* Progress bar through 4 levels */}
-        <div style={{display:"flex",gap:6,marginTop:10}}>
-          {typeObj.levels.map((l,i)=>(
-            <div key={i} style={{flex:1,height:5,borderRadius:3,background:i<levelIdx?C.success:i===levelIdx?C.accent:C.surfaceHigh,transition:"background 0.3s"}}/>
-          ))}
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+          <button onClick={()=>setView("lesson")} style={{fontSize:13,padding:"5px 12px",borderRadius:8,border:`1px solid ${view==="lesson"?C.accent:C.border}`,background:view==="lesson"?C.accentSoft:"transparent",color:view==="lesson"?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans}}>📖 Lesson</button>
+          <button onClick={()=>{setView("practice");if(!question&&!loadingQ)genQuestion();}} style={{fontSize:13,padding:"5px 12px",borderRadius:8,border:`1px solid ${view==="practice"?C.accent:C.border}`,background:view==="practice"?C.accentSoft:"transparent",color:view==="practice"?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans}}>🎯 Practice</button>
+        </div>
+        {/* Level progress */}
+        <div style={{display:"flex",gap:6}}>
+          {typeObj.levels?.map((_,i)=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<levelIdx?C.success:i===levelIdx&&view==="practice"?C.accent:C.surfaceHigh,transition:"background 0.3s"}}/>)}
         </div>
       </div>
 
-      {/* INTRO PHASE */}
-      {phase==="intro"&&(
+      {/* LESSON VIEW */}
+      {view==="lesson"&&(
         <div>
-          <Card style={{marginBottom:14,borderColor:C.accent+"44",background:`linear-gradient(135deg,${C.accentSoft},${C.surface})`}}>
-            <div style={{fontSize:13,color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Why This Matters</div>
-            <h2 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:10,fontWeight:700}}>{typeObj.type}</h2>
-            <p style={{fontSize:16,color:C.textSub,fontStyle:"italic",marginBottom:16,lineHeight:1.6}}>{typeObj.tagline}</p>
-            <p style={{fontSize:14,color:C.textSub,lineHeight:1.8}}>{typeObj.why}</p>
+          {/* Why this matters banner */}
+          <Card style={{marginBottom:14,background:`linear-gradient(135deg,${C.accentSoft},${C.surface})`,borderColor:C.accent+"44"}}>
+            <div style={{fontSize:13,color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Why This Matters</div>
+            <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,marginBottom:8,fontWeight:700}}>{typeObj.type}</h2>
+            <p style={{fontSize:15,color:C.textSub,fontStyle:"italic",marginBottom:10,lineHeight:1.6}}>{typeObj.tagline}</p>
+            <p style={{fontSize:14,color:C.textSub,lineHeight:1.75}}>{typeObj.why}</p>
           </Card>
 
-          <Card style={{marginBottom:14}}>
-            <div style={{fontSize:13,color:C.textMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:14}}>Core Concept</div>
-            <p style={{fontSize:14,color:C.text,lineHeight:1.9,whiteSpace:"pre-wrap",marginBottom:16}}>{typeObj.concept}</p>
-            <div style={{fontSize:13,color:C.textMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:12}}>Your Framework</div>
-            {typeObj.framework.map((f,i)=>(
-              <div key={i} style={{display:"flex",gap:12,marginBottom:10,alignItems:"flex-start"}}>
-                <div style={{width:24,height:24,borderRadius:"50%",background:C.accentSoft,color:C.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{i+1}</div>
-                <div style={{fontSize:14,color:C.textSub,lineHeight:1.65}}>{f}</div>
-              </div>
+          {/* Section navigation */}
+          <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+            {learnSections.map((s,i)=>(
+              <button key={i} onClick={()=>setSectionIdx(i)} style={{fontSize:12,padding:"5px 12px",borderRadius:8,border:`1px solid ${sectionIdx===i?C.accent:C.border}`,background:sectionIdx===i?C.accentSoft:"transparent",color:sectionIdx===i?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans,fontWeight:sectionIdx===i?600:400,transition:"all 0.15s"}}>
+                {i+1}. {s.title.split(":")[0].slice(0,22)}{s.title.length>22?"…":""}
+              </button>
             ))}
-          </Card>
+          </div>
 
-          <Card style={{marginBottom:18,background:C.goldSoft,borderColor:C.gold+"44"}}>
-            <div style={{fontSize:13,color:C.gold,fontWeight:700,marginBottom:8}}>📚 How This Lesson Works</div>
-            <p style={{fontSize:14,color:C.textSub,lineHeight:1.7}}>You'll practice {typeObj.type} questions across 4 levels — from simple everyday examples to full LSAT difficulty. Answer each question, get instant AI feedback, and earn XP as you go. Take your time with Level 1 — the goal is to truly understand the concept before things get harder.</p>
-          </Card>
+          {/* Current section content */}
+          {currentSection&&(
+            <Card style={{marginBottom:14}}>
+              <h3 style={{fontFamily:T.serif,fontSize:18,color:C.text,marginBottom:16,fontWeight:700,borderBottom:`1px solid ${C.border}`,paddingBottom:12}}>{currentSection.title}</h3>
+              <div style={{fontSize:15,color:C.text,lineHeight:1.95,whiteSpace:"pre-wrap"}}>{currentSection.content}</div>
+            </Card>
+          )}
 
-          <Btn onClick={()=>{setPhase("practice");genQuestion();}} style={{width:"100%",padding:15}}>
-            Start Level 1 — {LEVEL_LABELS[1]} →
-          </Btn>
+          {/* Navigation */}
+          <div style={{display:"flex",gap:10,justifyContent:"space-between",flexWrap:"wrap"}}>
+            {sectionIdx>0&&<Btn ghost onClick={()=>setSectionIdx(i=>i-1)}>← Previous Section</Btn>}
+            {sectionIdx<learnSections.length-1
+              ?<Btn onClick={()=>setSectionIdx(i=>i+1)} style={{marginLeft:"auto"}}>Next Section →</Btn>
+              :<Btn onClick={()=>{setView("practice");genQuestion();}} style={{marginLeft:"auto",background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>Start Practice Questions →</Btn>
+            }
+          </div>
         </div>
       )}
 
-      {/* PRACTICE PHASE */}
-      {phase==="practice"&&(
+      {/* PRACTICE VIEW */}
+      {view==="practice"&&(
         <div>
-          {loadingQ&&<Spinner label="Generating your question…"/>}
+          <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:C.textSub}}>
+            <strong style={{color:C.gold}}>Level {levelIdx+1} — {LEVEL_LABELS[levelIdx+1]}:</strong> {currentLevel?.desc}
+          </div>
+
+          {loadingQ&&<Spinner label="Generating your practice question…"/>}
           <ErrBanner message={error} onDismiss={()=>setError(null)}/>
-          {!loadingQ&&!question&&!error&&<div style={{textAlign:"center",padding:"32px 0"}}><Btn onClick={genQuestion}>Generate Question</Btn></div>}
 
           {question&&!loadingQ&&(
             <div>
               <Card style={{marginBottom:12}}>
-                <div style={{fontSize:12,color:C.textMuted,marginBottom:12}}>Read carefully and apply your framework:</div>
+                <div style={{fontSize:12,color:C.textMuted,marginBottom:12}}>Apply your {typeObj.type} framework to this question:</div>
                 <p style={{lineHeight:1.85,fontSize:15,color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
                 <p style={{fontWeight:600,fontSize:15,color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{question.question}</p>
-                <div role="radiogroup" aria-label="Answer choices">
-                  {Object.entries(question.choices).map(([l,t])=>(
-                    <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
-                      <span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}
-                    </button>
-                  ))}
-                </div>
+                <div role="radiogroup">{Object.entries(question.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
                 {!submitted&&<Btn onClick={submitAnswer} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit Answer</Btn>}
               </Card>
 
               {submitted&&(
                 <div>
-                  {xpGained>0&&<div role="status" style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
-                    <span>⭐</span><span style={{color:C.gold,fontWeight:700}}>+{xpGained} XP earned!</span>
-                  </div>}
-
+                  {xpGained>0&&<div role="status" style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}><span>⭐</span><span style={{color:C.gold,fontWeight:700}}>+{xpGained} XP!</span></div>}
                   <Card style={{borderColor:selected===question.correct?C.success:C.danger,marginBottom:12}}>
                     <div style={{fontSize:16,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:10}}>
-                      {selected===question.correct?"✓ Correct! Well done.":"✗ Not quite — let's understand why."}
+                      {selected===question.correct?"✓ Correct!":"✗ Not quite — here's why:"}
                     </div>
                     {question.teaching_point&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:14,color:C.accent}}>
-                      💡 Key insight: {question.teaching_point}
+                      💡 {question.teaching_point}
                     </div>}
-                    <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>
-                      {question.explanation}
-                    </div>
+                    <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{question.explanation}</div>
                   </Card>
-
-                  {selected!==question.correct&&(
-                    <Card style={{marginBottom:12,borderColor:C.purple+"44",background:C.surfaceHigh}}>
-                      <div style={{fontSize:13,color:C.purple,fontWeight:700,marginBottom:8}}>🤔 Don't worry — this is how you learn.</div>
-                      <p style={{fontSize:14,color:C.textSub,lineHeight:1.7}}>Re-read the framework, look at the explanation above, and try again on the next question. {typeObj.type} questions become intuitive with practice.</p>
-                    </Card>
-                  )}
-
-                  <div style={{display:"flex",gap:10}}>
-                    <Btn ghost onClick={genQuestion} style={{flex:1}}>Try Another →</Btn>
+                  {selected!==question.correct&&<Card style={{marginBottom:12,background:C.surfaceHigh,borderColor:C.purple+"44"}}>
+                    <div style={{fontSize:13,color:C.purple,fontWeight:700,marginBottom:6}}>🤔 Don't worry — this is how mastery happens.</div>
+                    <p style={{fontSize:14,color:C.textSub,lineHeight:1.7}}>Go back to the <button onClick={()=>setView("lesson")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:14,fontFamily:T.sans,padding:0}}>lesson sections</button> and re-read the framework. Then try another question. Each attempt builds intuition.</p>
+                  </Card>}
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <Btn ghost onClick={genQuestion} style={{flex:1}}>Try Another Question</Btn>
                     {levelIdx<typeObj.levels.length-1
                       ?<Btn onClick={nextLevel} style={{flex:1}}>Next Level: {LEVEL_LABELS[levelIdx+2]} →</Btn>
                       :<Btn onClick={nextLevel} style={{flex:1,background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>Complete Lesson ✓</Btn>
@@ -833,25 +2386,27 @@ Respond ONLY with valid JSON (no markdown):
               )}
             </div>
           )}
+          {!question&&!loadingQ&&!error&&<div style={{textAlign:"center",padding:"32px 0"}}><Btn onClick={genQuestion}>Generate First Question</Btn></div>}
         </div>
       )}
 
-      {/* COMPLETE PHASE */}
-      {phase==="complete"&&(
+      {/* COMPLETE VIEW */}
+      {view==="complete"&&(
         <Card style={{textAlign:"center",padding:"48px 32px",borderColor:C.success+"44"}}>
           <div style={{fontSize:56,marginBottom:16}}>🎓</div>
           <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:10}}>Lesson Complete!</h2>
-          <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:8}}>You've mastered all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
-          <p style={{color:C.textMuted,fontSize:13,lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. The more you see it, the more automatic it becomes.</p>
+          <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:8}}>You've worked through all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
+          <p style={{color:C.textMuted,fontSize:13,lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
             <Btn onClick={onBack}>← Back to Learn</Btn>
-            <Btn ghost onClick={()=>{setPhase("practice");setLevelIdx(0);genQuestion();}}>Practice More</Btn>
+            <Btn ghost onClick={()=>{setView("practice");setLevelIdx(0);setQuestion(null);setSubmitted(false);setSelected(null);genQuestion();}}>Practice More</Btn>
           </div>
         </Card>
       )}
     </main>
   );
 }
+
 
 // ─── QUEUE HOOK (with streaming delivery) ─────────────────────────────────────
 function useQueue(user,section,level,qType,adaptive){
@@ -1546,7 +3101,7 @@ function FullSection({user,onUpdateUser}){
       </Card>
       <div style={{display:"flex",gap:10}}>
         {qIdx>0&&<Btn ghost onClick={()=>goToQ(qIdx-1)}>← Prev</Btn>}
-        {qIdx<questions.length-1?<Btn onClick={()=>goToQ(qIdx+1)} style={{flex:1}}>Next →</Btn>:<Btn onClick={finish} style={{flex:1,background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>Submit Section ✓</Btn>}
+        {qIdx<SECTION_Q_COUNT-1?<Btn onClick={()=>goToQ(qIdx+1)} style={{flex:1}}>Next →</Btn>:<Btn onClick={finish} style={{flex:1,background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>Submit Section ✓</Btn>}
       </div>
     </main>
   );
