@@ -2045,36 +2045,83 @@ function Profile({user,onUpdateUser,onLogout,setScreen}){
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 // ─── DAILY CHALLENGE ─────────────────────────────────────────────────────────
 
-function DailyChallenge({user,onUpdateUser}){
+// ─── DAILY CHALLENGE HELPERS ─────────────────────────────────────────────────
+function getDailyKey(){
+  // Reset at 2am — use date string offset by 2 hours
+  const d=new Date(Date.now()-2*60*60*1000);
+  return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+}
+function getDailySeed(){
+  const d=new Date(Date.now()-2*60*60*1000);
+  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+}
+
+// Home card — just the teaser button
+function DailyChallenge({onStart}){
+  const saved=DB.getDailyChallenge();
+  const todayKey=getDailyKey();
+  const isToday=saved&&saved.dateKey===todayKey;
+  const done=isToday&&saved.completed;
+  const userAnswer=saved?.userAnswer;
+  const correct=done&&userAnswer===saved?.correct;
+  return(
+    <div
+      onClick={done?undefined:onStart}
+      style={{background:"linear-gradient(135deg,"+C.surface+",#1a1230)",border:"1px solid "+(done?C.success+"44":C.gold+"44"),borderRadius:20,padding:20,marginBottom:16,cursor:done?"default":"pointer",transition:"all 0.2s"}}
+      onMouseEnter={e=>{if(!done){e.currentTarget.style.borderColor=C.gold+"88";e.currentTarget.style.transform="translateY(-1px)";}}}
+      onMouseLeave={e=>{e.currentTarget.style.borderColor=done?C.success+"44":C.gold+"44";e.currentTarget.style.transform="translateY(0)";}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>⚡</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:15,color:C.gold,marginBottom:2}}>Daily Challenge</div>
+          {done
+            ?<div style={{fontSize:13,color:correct?C.success:C.danger,fontWeight:600}}>{correct?"✓ Correct today! Come back tomorrow.":"✗ Missed it today. Try again tomorrow."}</div>
+            :<div style={{fontSize:13,color:C.textMuted}}>Today's question — same for everyone · 2× XP · Resets at 2am</div>
+          }
+        </div>
+        {!done&&<div style={{background:"linear-gradient(135deg,#d97706,#f59e0b)",border:"none",borderRadius:10,padding:"8px 16px",color:"#fff",fontSize:13,fontWeight:700}}>Start →</div>}
+        {done&&<div style={{fontSize:12,fontWeight:700,color:done?C.success:C.textMuted,background:(done?C.success:C.textMuted)+"15",border:"1px solid "+(done?C.success:C.textMuted)+"33",padding:"3px 10px",borderRadius:10}}>Done ✓</div>}
+      </div>
+    </div>
+  );
+}
+
+// Full-screen daily challenge view
+function DailyChallengeScreen({user,onUpdateUser,onBack}){
   const [challenge,setChallenge]=useState(null);
-  const [loading,setLoading]=useState(false);
+  const [loading,setLoading]=useState(true);
   const [selected,setSelected]=useState(null);
   const [submitted,setSubmitted]=useState(false);
-  const today=new Date().toDateString();
+  const [error,setError]=useState(null);
+  const todayKey=getDailyKey();
 
-  useEffect(()=>{
+  useEffect(()=>{load();},[]);
+
+  const load=async()=>{
+    setLoading(true);setError(null);
     const saved=DB.getDailyChallenge();
-    if(saved&&saved.date===today){
+    if(saved&&saved.dateKey===todayKey){
       setChallenge(saved);
       if(saved.completed){setSubmitted(true);setSelected(saved.userAnswer);}
-    }else{
-      generate();
+      setLoading(false);
+      return;
     }
-  },[]);
-
-  const generate=async()=>{
-    setLoading(true);
-    // Use a seed based on today's date for consistent daily challenge
-    const dateNum=new Date().getDate()+new Date().getMonth()*31;
-    const secIdx=dateNum%2;const sec=SECTIONS[secIdx];
+    // Generate new question — same seed for everyone today
+    const seed=getDailySeed();
+    const secIdx=seed%2;
+    const sec=SECTIONS[secIdx];
     const types=QUESTION_TYPES[sec];
-    const typeIdx=dateNum%types.length;const qt=types[typeIdx];
-    const lv=(dateNum%3)+2; // levels 2-4
+    const typeIdx=(seed*7)%types.length;
+    const qt=types[typeIdx];
+    const lv=(seed%3)+2; // levels 2-4
     try{
-      const raw=await callClaude(PRACTICE_SYSTEM,`Generate a Level ${lv} LSAT ${sec} question of type: ${qt}. This is today's Daily Challenge — make it memorable and interesting. Use a unique, engaging scenario.`);
-      const q={...parseJSON(raw),section:sec,qType:qt,assignedLevel:lv,date:today,completed:false};
-      setChallenge(q);DB.saveDailyChallenge(q);
-    }catch(e){console.error(e);}
+      const sys=PRACTICE_SYSTEM;
+      const prompt="Generate a Level "+lv+" LSAT "+sec+" question of type: "+qt+". This is today's Daily Challenge — make it high quality and engaging. Avoid any placeholder names.";
+      const raw=await callClaude(sys,prompt);
+      const q={...parseJSON(raw),section:sec,qType:qt,assignedLevel:lv,dateKey:todayKey,completed:false};
+      DB.saveDailyChallenge(q);
+      setChallenge(q);
+    }catch(e){setError("Could not load today's challenge: "+(e.message||"Please try again."));}
     setLoading(false);
   };
 
@@ -2082,55 +2129,73 @@ function DailyChallenge({user,onUpdateUser}){
     if(!selected||!challenge)return;
     setSubmitted(true);
     const correct=selected===challenge.correct;
-    const xp=correct?XP_PER_CORRECT[challenge.assignedLevel||2]*2:0; // double XP for daily
+    const xp=correct?XP_PER_CORRECT[challenge.assignedLevel||2]*2:0;
     const updated={...challenge,completed:true,userAnswer:selected};
-    DB.saveDailyChallenge(updated);setChallenge(updated);
-    if(correct||true){
-      const newCount=(user.stats?.dailyChallengesCompleted||0)+1;
-      onUpdateUser({
-        history:[...(user.history||[]),{section:challenge.section,qType:challenge.qType,level:challenge.assignedLevel,correct,xp,timestamp:Date.now(),source:"daily"}],
-        stats:{...user.stats,xp:(user.stats?.xp||0)+xp,dailyChallengesCompleted:newCount},
-      });
-    }
+    DB.saveDailyChallenge(updated);
+    setChallenge(updated);
+    const newCount=(user.stats?.dailyChallengesCompleted||0)+1;
+    onUpdateUser({
+      history:[...(user.history||[]),{section:challenge.section,qType:challenge.qType,level:challenge.assignedLevel,correct,xp,timestamp:Date.now(),source:"daily"}],
+      stats:{...user.stats,xp:(user.stats?.xp||0)+xp,dailyChallengesCompleted:newCount},
+    });
   };
 
   const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===challenge?.correct)return"ok";if(l===selected)return"bad";return"def";};
-  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:10,padding:"10px 14px",cursor:submitted?"default":"pointer",fontSize:13,marginBottom:8,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.5,boxSizing:"border-box",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
-
-  if(loading)return(
-    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:20,marginBottom:16}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><span style={{fontSize:20}}>⚡</span><div><div style={{fontWeight:700,fontSize:14,color:C.text}}>Daily Challenge</div><div style={{fontSize:12,color:C.textMuted}}>Loading today's question…</div></div></div>
-      <div style={{height:6,background:C.surfaceHigh,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:"60%",background:C.gold,borderRadius:3,animation:"pulse 1.5s ease infinite"}}/></div>
-    </div>
-  );
-
-  if(!challenge)return null;
-
-  const alreadyDone=challenge.completed||submitted;
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"13px 18px",cursor:submitted?"default":"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
 
   return(
-    <div style={{background:`linear-gradient(135deg,${C.surface},#1a1230)`,border:`1px solid ${C.gold}44`,borderRadius:20,padding:20,marginBottom:16}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-        <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>⚡</div>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:14,color:C.gold}}>Daily Challenge</div>
-          <div style={{fontSize:12,color:C.textMuted}}>{challenge.section} · {challenge.qType} · Level {challenge.assignedLevel} · 2× XP</div>
+    <main style={{maxWidth:700,margin:"0 auto",padding:"24px 20px"}}>
+      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <div style={{width:44,height:44,borderRadius:12,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>⚡</div>
+        <div>
+          <h1 style={{fontFamily:T.serif,fontSize:24,color:C.gold,marginBottom:2,fontWeight:700}}>Daily Challenge</h1>
+          <div style={{fontSize:13,color:C.textMuted}}>Same question for everyone today · 2× XP · Resets at 2am</div>
         </div>
-        {alreadyDone&&<div style={{fontSize:12,fontWeight:700,color:C.success,background:C.success+"15",border:`1px solid ${C.success}33`,padding:"3px 10px",borderRadius:10}}>✓ Done</div>}
       </div>
-      {!alreadyDone&&<div>
-        <p style={{fontSize:13,color:"#c8d4e8",lineHeight:1.75,marginBottom:12,whiteSpace:"pre-wrap"}}>{challenge.stimulus?.length>300?challenge.stimulus.slice(0,300)+"…":challenge.stimulus}</p>
-        <p style={{fontWeight:600,fontSize:13,color:C.text,marginBottom:10}}>{challenge.question}</p>
-        {Object.entries(challenge.choices||{}).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)}><span style={{fontWeight:700,marginRight:8}}>{l}.</span>{t}</button>)}
-        <Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8,background:"linear-gradient(135deg,#d97706,#f59e0b)"}}>Submit for 2× XP ⚡</Btn>
-      </div>}
-      {alreadyDone&&<div style={{textAlign:"center",padding:"8px 0"}}>
-        <div style={{fontSize:16,fontWeight:700,color:selected===challenge.correct||challenge.userAnswer===challenge.correct?C.success:C.danger,marginBottom:6}}>
-          {(selected||challenge.userAnswer)===challenge.correct?"✓ Correct! Well done.":"✗ Missed it — review the explanation in Practice."}
+
+      {loading&&<Spinner label="Loading today's challenge…"/>}
+      <ErrBanner message={error} onDismiss={()=>setError(null)}/>
+
+      {challenge&&!loading&&(
+        <div>
+          <div style={{marginBottom:12}}>
+            <Tag color={C.gold}>Daily</Tag>
+            <Tag color={LEVEL_COLORS[challenge.assignedLevel]}>Level {challenge.assignedLevel}</Tag>
+            <Tag color={C.accent}>{challenge.section}</Tag>
+            <Tag color={C.purple}>{challenge.qType}</Tag>
+          </div>
+          <Card style={{marginBottom:12}}>
+            <p style={{lineHeight:1.9,fontSize:15,color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{challenge.stimulus}</p>
+            <p style={{fontWeight:600,fontSize:15,color:C.text,borderTop:"1px solid "+C.border,paddingTop:16,marginBottom:16}}>{challenge.question}</p>
+            <div role="radiogroup">
+              {Object.entries(challenge.choices||{}).map(([l,t])=>(
+                <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
+                  <span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}
+                </button>
+              ))}
+            </div>
+            {!submitted&&<Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8,background:"linear-gradient(135deg,#d97706,#f59e0b)"}}>Submit for 2× XP ⚡</Btn>}
+          </Card>
+
+          {submitted&&(
+            <div>
+              <Card style={{borderColor:selected===challenge.correct?C.success:C.danger,marginBottom:12}}>
+                <div style={{fontSize:18,fontWeight:700,color:selected===challenge.correct?C.success:C.danger,marginBottom:10}}>
+                  {selected===challenge.correct?"✓ Correct! Well done.":"✗ Incorrect — Correct answer: "+challenge.correct}
+                </div>
+                {challenge.key_concept&&<div style={{fontSize:13,color:C.purple,marginBottom:10}}>🔑 {challenge.key_concept}</div>}
+                <div style={{background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{challenge.explanation}</div>
+              </Card>
+              <div style={{background:C.goldSoft,border:"1px solid "+C.gold+"33",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:C.textSub,lineHeight:1.6}}>
+                <strong style={{color:C.gold}}>+{selected===challenge.correct?XP_PER_CORRECT[challenge.assignedLevel||2]*2:0} XP earned.</strong> Come back tomorrow at 2am for a new challenge.
+              </div>
+              <Btn onClick={onBack} style={{width:"100%"}}>Back to Home</Btn>
+            </div>
+          )}
         </div>
-        <div style={{fontSize:13,color:C.textMuted}}>Come back tomorrow for a new challenge ⚡</div>
-      </div>}
-    </div>
+      )}
+    </main>
   );
 }
 
@@ -2194,7 +2259,7 @@ function Home({user,setScreen,onUpdateUser}){
       </div>
 
       {/* Daily Challenge */}
-      <DailyChallenge user={user} onUpdateUser={onUpdateUser}/>
+      <DailyChallenge onStart={()=>setScreen("daily")}/>
 
       {/* Stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
@@ -3368,14 +3433,59 @@ function StudyPlan({user,onUpdateUser}){
   const gen=async()=>{
     setLoading(true);setError(null);
     const history=user.history||[];
-    const wt=(()=>{const t={};history.forEach(h=>{if(!t[h.qType])t[h.qType]={c:0,total:0};t[h.qType].total++;if(h.correct)t[h.qType].c++;});return Object.entries(t).filter(([,v])=>v.total>1&&v.c/v.total<0.6).map(([k])=>k);})();
     const d=user.diagnostic||{};
-    try{
-      const raw=await callClaude(`You are an expert LSAT tutor. Respond ONLY with valid JSON — no markdown.`,
-        `Create a personalized LSAT study plan. Profile: name=${user.name}, target=${d.target_score||"165+"}, timeline=${d.test_date||"unknown"}, hrs/wk=${d.study_hours||"unknown"}, challenge=${d.biggest_challenge||"unknown"}, style=${d.learning_style||"unknown"}, LR=${d.lr_comfort||"?"}/5, RC=${d.rc_comfort||"?"}/5, Writing=${d.writing_comfort||"?"}/5, weak=${wt.join(",")||"assessing"}, total q=${history.length}, accuracy=${history.length>0?Math.round(history.filter(h=>h.correct).length/history.length*100)+"%":"none"}.
+    // Summarize history — never send raw history to avoid token limit issues
+    const totalQ=history.length;
+    const accuracy=totalQ>0?Math.round(history.filter(h=>h.correct).length/totalQ*100):null;
+    const typeStats={};
+    history.forEach(h=>{if(!typeStats[h.qType])typeStats[h.qType]={c:0,t:0};typeStats[h.qType].t++;if(h.correct)typeStats[h.qType].c++;});
+    const weakTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t<0.6).map(([k])=>k).slice(0,5);
+    const strongTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t>=0.8).map(([k])=>k).slice(0,3);
+    const sys="You are an expert LSAT tutor. Respond ONLY with valid JSON — no markdown, no text outside the JSON object.";
+    const msg="Create a personalized LSAT study plan for this student.
 
-Return ONLY this JSON:
-{"summary":"3-4 sentence personalized assessment","target_score":"${d.target_score||"165+"}","timeline":"${d.test_date||"flexible"}","weekly_hours":"${d.study_hours||"flexible"}","phases":[{"name":"...","duration":"X weeks","focus":"...","tasks":["...","...","...","..."]}],"daily_routine":["Morning: ...","Afternoon: ...","Evening: ..."],"priority_areas":["most important","second","third"],"milestone":"Specific measurable halfway success description"}`,1600);
+"+
+      "Student Profile:
+"+
+      "- Name: "+user.name+"
+"+
+      "- Target Score: "+(d.target_score||"165+")+"
+"+
+      "- Test Timeline: "+(d.test_date||"unknown")+"
+"+
+      "- Weekly Study Hours: "+(d.study_hours||"unknown")+"
+"+
+      "- Biggest Challenge: "+(d.biggest_challenge||"unknown")+"
+"+
+      "- Learning Style: "+(d.learning_style||"unknown")+"
+"+
+      "- LR Comfort: "+(d.lr_comfort||"?")+"/5
+"+
+      "- RC Comfort: "+(d.rc_comfort||"?")+"/5
+"+
+      "- Writing Comfort: "+(d.writing_comfort||"?")+"/5
+"+
+      "- Total Questions Answered: "+totalQ+"
+"+
+      "- Overall Accuracy: "+(accuracy!==null?accuracy+"%":"no data yet")+"
+"+
+      "- Weak Question Types: "+(weakTypes.length>0?weakTypes.join(", "):"still assessing")+"
+"+
+      "- Strong Question Types: "+(strongTypes.length>0?strongTypes.join(", "):"still assessing")+"
+
+"+
+      "Return ONLY this JSON with no other text:
+"+
+      "{"summary":"3-4 sentence personalized assessment of this student","+
+      ""target_score":""+(d.target_score||"165+")+"","+
+      ""timeline":""+(d.test_date||"flexible")+"","+
+      ""weekly_hours":""+(d.study_hours||"flexible")+"","+
+      ""phases":[{"name":"Foundation","duration":"2 weeks","focus":"Building core skills","tasks":["Task 1","Task 2","Task 3"]}],"+
+      ""daily_routine":["Morning: ...","Afternoon: ...","Evening: ..."],"+
+      ""priority_areas":["First priority","Second priority","Third priority"],"+
+      ""milestone":"What success looks like at the halfway point"}";
+    try{
+      const raw=await callClaude(sys,msg,1400);
       onUpdateUser({studyPlan:parseJSON(raw)});
     }catch(e){setError("Could not generate: "+(e.message||"Please try again."));}
     setLoading(false);
@@ -3614,6 +3724,7 @@ export default function App(){
 
   const pages={
     home:<Home user={user} setScreen={setScreen} onUpdateUser={handleUpdateUser}/>,
+    daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
     learn:<Learn user={user} onUpdateUser={handleUpdateUser}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser}/>,
     writing:<Writing/>,
