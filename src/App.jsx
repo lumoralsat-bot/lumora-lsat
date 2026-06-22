@@ -3443,49 +3443,29 @@ function StudyPlan({user,onUpdateUser}){
     history.forEach(h=>{if(!typeStats[h.qType])typeStats[h.qType]={c:0,t:0};typeStats[h.qType].t++;if(h.correct)typeStats[h.qType].c++;});
     const weakTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t<0.6).map(([k])=>k).slice(0,5);
     const strongTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t>=0.8).map(([k])=>k).slice(0,3);
-    const sys="You are an expert LSAT tutor. Respond ONLY with valid JSON — no markdown, no text outside the JSON object.";
-    const msg="Create a personalized LSAT study plan for this student.
-
-"+
-      "Student Profile:
-"+
-      "- Name: "+user.name+"
-"+
-      "- Target Score: "+(d.target_score||"165+")+"
-"+
-      "- Test Timeline: "+(d.test_date||"unknown")+"
-"+
-      "- Weekly Study Hours: "+(d.study_hours||"unknown")+"
-"+
-      "- Biggest Challenge: "+(d.biggest_challenge||"unknown")+"
-"+
-      "- Learning Style: "+(d.learning_style||"unknown")+"
-"+
-      "- LR Comfort: "+(d.lr_comfort||"?")+"/5
-"+
-      "- RC Comfort: "+(d.rc_comfort||"?")+"/5
-"+
-      "- Writing Comfort: "+(d.writing_comfort||"?")+"/5
-"+
-      "- Total Questions Answered: "+totalQ+"
-"+
-      "- Overall Accuracy: "+(accuracy!==null?accuracy+"%":"no data yet")+"
-"+
-      "- Weak Question Types: "+(weakTypes.length>0?weakTypes.join(", "):"still assessing")+"
-"+
-      "- Strong Question Types: "+(strongTypes.length>0?strongTypes.join(", "):"still assessing")+"
-
-"+
-      "Return ONLY this JSON with no other text:
-"+
-      "{"summary":"3-4 sentence personalized assessment of this student","+
-      ""target_score":""+(d.target_score||"165+")+"","+
-      ""timeline":""+(d.test_date||"flexible")+"","+
-      ""weekly_hours":""+(d.study_hours||"flexible")+"","+
-      ""phases":[{"name":"Foundation","duration":"2 weeks","focus":"Building core skills","tasks":["Task 1","Task 2","Task 3"]}],"+
-      ""daily_routine":["Morning: ...","Afternoon: ...","Evening: ..."],"+
-      ""priority_areas":["First priority","Second priority","Third priority"],"+
-      ""milestone":"What success looks like at the halfway point"}";
+    const sys="You are an expert LSAT tutor. Respond ONLY with valid JSON.";
+    const nl="\n";
+    const msg=[
+      "Create a personalized LSAT study plan for this student.",
+      "",
+      "Student Profile:",
+      "- Name: "+user.name,
+      "- Target Score: "+(d.target_score||"165+"),
+      "- Test Timeline: "+(d.test_date||"unknown"),
+      "- Weekly Study Hours: "+(d.study_hours||"unknown"),
+      "- Biggest Challenge: "+(d.biggest_challenge||"unknown"),
+      "- Learning Style: "+(d.learning_style||"unknown"),
+      "- LR Comfort: "+(d.lr_comfort||"?")+"/5",
+      "- RC Comfort: "+(d.rc_comfort||"?")+"/5",
+      "- Writing Comfort: "+(d.writing_comfort||"?")+"/5",
+      "- Total Questions Answered: "+totalQ,
+      "- Overall Accuracy: "+(accuracy!==null?accuracy+"%":"no data yet"),
+      "- Weak Question Types: "+(weakTypes.length>0?weakTypes.join(", "):"still assessing"),
+      "- Strong Question Types: "+(strongTypes.length>0?strongTypes.join(", "):"still assessing"),
+      "",
+      "Return ONLY this JSON with no other text:",
+      '{"summary":"3-4 sentence assessment","target_score":"'+(d.target_score||"165+")+'","timeline":"'+(d.test_date||"flexible")+'","weekly_hours":"'+(d.study_hours||"flexible")+'","phases":[{"name":"Foundation","duration":"2 weeks","focus":"Core skill building","tasks":["Practice weakest question types daily","Review all wrong answers","Complete Learn lessons"]}],"daily_routine":["Morning: 30 min Learn section","Afternoon: 20 min timed practice","Evening: Review notes and wrong answers"],"priority_areas":["'+(weakTypes[0]||"Identify weak areas")+'","Timed practice under test conditions","Full section simulations"],"milestone":"Consistently scoring 70%+ on Level 3 questions at the halfway point"}',
+    ].join(nl);
     try{
       const raw=await callClaude(sys,msg,1400);
       onUpdateUser({studyPlan:parseJSON(raw)});
