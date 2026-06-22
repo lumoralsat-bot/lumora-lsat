@@ -82,11 +82,13 @@ async function callClaude(system,userMsg,maxTokens=1200){
 }
 
 function parseJSON(raw){
-  // Remove markdown code fences if present
+  // Remove markdown code fences (avoid backtick chars in source via charCode)
+  const BT=String.fromCharCode(96); // backtick character
   let clean=raw.trim();
-  if(clean.startsWith("```json"))clean=clean.slice(7);
-  else if(clean.startsWith("```"))clean=clean.slice(3);
-  if(clean.endsWith("```"))clean=clean.slice(0,-3);
+  const fence3=BT+BT+BT;
+  if(clean.startsWith(fence3+"json"))clean=clean.slice(7);
+  else if(clean.startsWith(fence3))clean=clean.slice(3);
+  if(clean.endsWith(fence3))clean=clean.slice(0,-3);
   return JSON.parse(clean.trim());
 }
 // ─── LEARN CURRICULUM (Comprehensive Interactive Textbook) ────────────────────
