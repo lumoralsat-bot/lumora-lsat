@@ -1726,7 +1726,7 @@ function XPBar({xp,level}){
     <span style={{fontSize:11,color:C.textMuted,whiteSpace:"nowrap"}}>{xp%XP_PER_LEVEL}/{XP_PER_LEVEL}</span>
   </div>;
 }
-function Spinner({label="Lumora LSAT is thinking…"}){
+function Spinner({label="Lumora is thinking…"}){
   return <div role="status" aria-live="polite" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:18,padding:"44px 0"}}>
     <div style={{position:"relative",width:50,height:50}} aria-hidden="true">
       <div style={{position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${C.border}`}}/>
@@ -1826,7 +1826,7 @@ function Landing({onGetStarted}){
   useEffect(()=>{const i=setInterval(()=>setTick(t=>t+1),2800);return()=>clearInterval(i);},[]);
   const taglines=[{l1:"Think Like",l2:"a Lawyer."},{l1:"Argue Like",l2:"a Pro."},{l1:"Score What",l2:"You Deserve."},{l1:"Built to Help You",l2:"Ace the LSAT."}];
   const tag=taglines[tick%taglines.length];
-  const features=[{icon:"🎯",title:"Infinite Practice",desc:"AI generates fresh questions every session — no question bank, no repeats, ever."},{icon:"📖",title:"Interactive Lessons",desc:"Learn every question type from first principles with 4 difficulty levels and AI tutoring."},{icon:"⚖",title:"Flaw Lab",desc:"Spot hidden flaws in AI-generated legal arguments and get scored on your reasoning."},{icon:"🧠",title:"Score Predictor",desc:"Real-time AI analysis projects your LSAT score range as you practice."},{icon:"✍",title:"2026 Writing",desc:"Full LSAC argumentative writing with guided prewriting and detailed AI feedback."},{icon:"⏱",title:"Full Sections",desc:"35-minute timed simulations that ramp from Level 1 to Level 4, starting instantly."}];
+  const features=[{icon:"🎯",title:"Infinite Practice",desc:"Lumora generates a completely fresh question every session — no question bank, no repeats, ever."},{icon:"📖",title:"Interactive Lessons",desc:"Learn every question type from first principles with 4 difficulty levels and Lumora tutoring."},{icon:"⚖",title:"Flaw Lab",desc:"Spot hidden flaws in Lumora-generated legal arguments and get scored on your reasoning."},{icon:"🧠",title:"Score Predictor",desc:"Real-time Lumora analysis projects your LSAT score range as you practice."},{icon:"✍",title:"2026 Writing",desc:"Full LSAC argumentative writing with guided prewriting and detailed Lumora feedback."},{icon:"⏱",title:"Full Sections",desc:"35-minute timed simulations that ramp from Level 1 to Level 4, starting instantly."}];
   return(
     <div style={{minHeight:"100vh",background:C.bg,overflow:"hidden",position:"relative"}}>
       <div style={{position:"fixed",inset:0,overflow:"hidden",pointerEvents:"none",zIndex:0}}>
@@ -1848,13 +1848,13 @@ function Landing({onGetStarted}){
               <span style={{display:"block",background:"linear-gradient(135deg,#a78bfa,#f472b6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{tag.l2}</span>
             </span>
           </h1>
-          <p style={{fontSize:"clamp(16px,2.5vw,20px)",color:C.textSub,maxWidth:560,margin:"0 auto 48px",lineHeight:1.8}}>AI-powered adaptive learning, infinite practice questions, interactive lessons for every question type, and real-time score prediction. Built for students who want to win.</p>
+          <p style={{fontSize:"clamp(16px,2.5vw,20px)",color:C.textSub,maxWidth:560,margin:"0 auto 48px",lineHeight:1.8}}>Adaptive learning, infinite Lumora-generated questions, interactive lessons for every question type, and real-time score prediction. Built for students who want to win.</p>
           <div style={{display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}}>
             <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"18px 44px",fontSize:17,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55"}}>Start for Free →</button>
             <button onClick={onGetStarted} style={{background:"transparent",color:C.textSub,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 32px",fontSize:16,cursor:"pointer",fontFamily:T.sans}}>Sign In</button>
           </div>
           <div style={{marginTop:40,display:"flex",alignItems:"center",justifyContent:"center",gap:24,flexWrap:"wrap"}}>
-            {[["∞","Unique Questions"],["17","Question Types"],["2026","LSAC Format"],["AI","Score Predictor"]].map(([v,l])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:22,fontWeight:900,color:C.accent,fontFamily:T.serif}}>{v}</div><div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{l}</div></div>)}
+            {[["∞","Unique Questions"],["17","Question Types"],["2026","LSAC Format"],["🎯","Score Predictor"]].map(([v,l])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:22,fontWeight:900,color:C.accent,fontFamily:T.serif}}>{v}</div><div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{l}</div></div>)}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,marginBottom:80}}>
@@ -2078,7 +2078,7 @@ function DailyChallenge({onStart}){
           <div style={{fontWeight:700,fontSize:15,color:C.gold,marginBottom:2}}>Daily Challenge</div>
           {done
             ?<div style={{fontSize:13,color:correct?C.success:C.danger,fontWeight:600}}>{correct?"✓ Correct today! Come back tomorrow.":"✗ Missed it today. Try again tomorrow."}</div>
-            :<div style={{fontSize:13,color:C.textMuted}}>Today's question — same for everyone · 2× XP · Resets at 2am</div>
+            :<div style={{fontSize:13,color:C.textMuted}}>Today's Lumora Challenge — same for everyone · 2× XP · Resets at 2am</div>
           }
         </div>
         {!done&&<div style={{background:"linear-gradient(135deg,#d97706,#f59e0b)",border:"none",borderRadius:10,padding:"8px 16px",color:"#fff",fontSize:13,fontWeight:700}}>Start →</div>}
@@ -2229,12 +2229,12 @@ function Home({user,setScreen,onUpdateUser}){
   const suggestion=getSuggestion();
 
   const quickActions=[
-    {id:"practice",icon:"🎯",label:"Practice",desc:"AI questions, no repeats, adapts to you",color:C.accent},
+    {id:"practice",icon:"🎯",label:"Practice",desc:"Lumora questions, no repeats, adapts to you",color:C.accent},
     {id:"learn",icon:"📖",label:"Learn",desc:`${learnedTypes}/${totalTypes} types mastered`,color:C.purple,badge:learnedTypes<totalTypes?{label:"Continue",color:C.purple}:null},
     {id:"flaw",icon:"⚖️",label:"Flaw Lab",desc:"Find hidden flaws in legal arguments",color:C.teal,badge:{label:"Infinite",color:C.teal}},
-    {id:"writing",icon:"✍️",label:"Writing",desc:"2026 LSAC format, AI feedback",color:C.success,badge:{label:"2026",color:C.success}},
+    {id:"writing",icon:"✍️",label:"Writing",desc:"2026 LSAC format, Lumora feedback",color:C.success,badge:{label:"2026",color:C.success}},
     {id:"fullsection",icon:"⏱",label:"Full Section",desc:"35-min timed simulation",color:C.gold,badge:{label:"Instant Start",color:C.gold}},
-    {id:"dashboard",icon:"📊",label:"Progress",desc:"Score predictor + analytics",color:C.pink},
+    {id:"dashboard",icon:"📊",label:"Progress",desc:"Lumora score predictor + analytics",color:C.pink},
     {id:"plan",icon:"📋",label:"Study Plan",desc:"Your personalized roadmap",color:C.orange},
     {id:"notes",icon:"📝",label:"Notes",desc:`${(user.notes||[]).length} notes saved`,color:C.textSub},
   ];
@@ -2485,7 +2485,7 @@ Respond ONLY with valid JSON (no markdown):
             <strong style={{color:C.gold}}>Level {levelIdx+1} — {LEVEL_LABELS[levelIdx+1]}:</strong> {currentLevel?.desc}
           </div>
 
-          {loadingQ&&<Spinner label="Generating your practice question…"/>}
+          {loadingQ&&<Spinner label="Lumora is generating your practice question…"/>}
           <ErrBanner message={error} onDismiss={()=>setError(null)}/>
 
           {question&&!loadingQ&&(
@@ -2810,7 +2810,7 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Practice</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>AI-generated questions, every session. The next question loads in the background while you read this one.</p>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>Lumora generates a fresh question for you every time — no repeats, ever. The next one loads in the background.</p>
       <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);start();}}/>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(s);setQType(null);}}>{s}</Pill>)}</div></Card>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>{[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}</div></Card>
@@ -2829,7 +2829,19 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
           </div>
         </Card>
       </div>
-      <Btn onClick={()=>{setConfigured(true);start();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{width:"100%",padding:15}}>Start Practice →</Btn>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Btn onClick={()=>{setConfigured(true);start();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
+        <Btn onClick={()=>{
+          const randSec=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
+          const randTypes=QUESTION_TYPES[randSec];
+          const randType=randTypes[Math.floor(Math.random()*randTypes.length)];
+          const randLevel=Math.ceil(Math.random()*4);
+          setSection(randSec);setQType(randType);setLevel(randLevel);setAdaptive(false);
+          setConfigured(true);
+          setTimeout(()=>start(),50);
+          if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}
+        }} style={{padding:15,background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>🎲 Random</Btn>
+      </div>
     </main>
   );
 
@@ -2849,7 +2861,7 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
           <Btn ghost onClick={()=>setConfigured(false)} small>Settings</Btn>
         </div>
       </div>
-      {loading&&<Spinner label="Generating question…"/>}
+      {loading&&<Spinner label="Lumora is generating your question…"/>}
       {error&&!loading&&<Card style={{borderColor:C.danger}}><ErrBanner message={error}/><Btn onClick={start} style={{marginTop:8}}>Retry</Btn></Card>}
       {q&&!loading&&(
         <div>
@@ -2895,7 +2907,7 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
   );
 }
 
-// ─── FLAW LAB (AI-generated fresh arguments) ──────────────────────────────────
+// ─── FLAW LAB (Lumora-generated fresh arguments) ──────────────────────────────────
 
 function FlawLab({user,onUpdateUser}){
   const [phase,setPhase]=useState("config");
@@ -2962,10 +2974,10 @@ Respond ONLY with valid JSON:
   if(phase==="config")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Flaw Lab ⚖️</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:16,lineHeight:1.7}}>Each session, AI generates a fresh, unique flawed legal argument — you'll never see the same argument twice. Identify the flaw, explain the reasoning error, and argue against it.</p>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:16,lineHeight:1.7}}>Each session, Lumora generates a fresh, unique flawed legal argument — you'll never see the same argument twice. Identify the flaw, explain the reasoning error, and argue against it.</p>
       <Card style={{marginBottom:14,background:C.accentSoft,borderColor:C.accent+"44"}}>
         <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:13}}>How It Works</strong>
-        {["Choose a flaw type — AI generates a unique argument in that style","Read the argument carefully — flaws may be subtle","Identify the specific logical flaw(s) by name","Explain precisely why the reasoning fails","Construct your counter-argument with sound logic","AI scores flaw identification, argumentation, precision, and writing"].map((s,i)=><div key={i} style={{display:"flex",gap:10,fontSize:13,marginBottom:5}}><span style={{color:C.accent,fontWeight:700,flexShrink:0}}>{i+1}.</span><span style={{color:C.textSub}}>{s}</span></div>)}
+        {["Choose a flaw type — Lumora generates a unique argument in that style","Read the argument carefully — flaws may be subtle","Identify the specific logical flaw(s) by name","Explain precisely why the reasoning fails","Construct your counter-argument with sound logic","Lumora scores flaw identification, argumentation, precision, and writing"].map((s,i)=><div key={i} style={{display:"flex",gap:10,fontSize:13,marginBottom:5}}><span style={{color:C.accent,fontWeight:700,flexShrink:0}}>{i+1}.</span><span style={{color:C.textSub}}>{s}</span></div>)}
       </Card>
       <Card style={{marginBottom:14}}>
         <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Choose a Flaw Type</div>
@@ -2992,8 +3004,8 @@ Respond ONLY with valid JSON:
 
   if(phase==="loading")return(
     <main style={{maxWidth:580,margin:"0 auto",padding:"32px 20px",textAlign:"center"}}>
-      <Spinner label="AI is crafting a unique flawed argument…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>This takes about 10 seconds. Each argument is completely unique.</p>
+      <Spinner label="Lumora is crafting a unique flawed argument…"/>
+      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>This takes about 10 seconds. Each argument is completely unique to you.</p>
     </main>
   );
 
@@ -3077,7 +3089,7 @@ Respond ONLY with valid JSON:
   return null;
 }
 
-// ─── WRITING (AI-generated fresh prompt variations) ────────────────────────────
+// ─── WRITING (Lumora-generated fresh prompt variations) ────────────────────────────
 
 function Writing(){
   const [phase,setPhase]=useState("config");
@@ -3155,7 +3167,7 @@ Respond ONLY with valid JSON:
   if(phase==="config")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Argumentative Writing</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>Choose a topic theme — AI generates a completely fresh, unique prompt every session. Infinite practice, never the same twice.</p>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>Choose a topic theme — Lumora generates a completely fresh, unique prompt every session. Infinite practice, never the same twice.</p>
       <Card style={{marginBottom:14,background:C.accentSoft,borderColor:C.accent+"44"}}>
         <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:13}}>2026 LSAC Format</strong>
         <p style={{fontSize:13,color:C.textSub,lineHeight:1.8,margin:"0 0 12px"}}>A debatable issue + key question + 4 perspectives. Take your own position and engage with the perspectives. No single correct answer.</p>
@@ -3188,8 +3200,8 @@ Respond ONLY with valid JSON:
 
   if(phase==="generating")return(
     <main style={{maxWidth:580,margin:"0 auto",padding:"32px 20px",textAlign:"center"}}>
-      <Spinner label="AI is crafting your unique writing prompt…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>About 10 seconds. Each prompt is completely original.</p>
+      <Spinner label="Lumora is crafting your writing prompt…"/>
+      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>About 10 seconds. Every prompt is completely original.</p>
     </main>
   );
 
@@ -3365,7 +3377,7 @@ function FullSection({user,onUpdateUser}){
   if(phase==="config")return(
     <main style={{maxWidth:620,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Full Section</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:24}}>35 minutes · 25 AI-generated questions · Level 1→4 ramp. The first question appears immediately — the rest generate in the background as you work.</p>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:24}}>35 minutes · 25 Lumora-generated questions · Level 1→4 ramp. The first question appears immediately — the rest generate in the background as you work.</p>
       <ErrBanner message={genError} onDismiss={()=>setGenError(null)}/>
       <Card style={{marginBottom:16}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Choose Section</div><div style={{display:"flex",flexDirection:"column",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={sel===s} onClick={()=>setSel(s)}>{s}</Pill>)}</div></Card>
       <Card style={{marginBottom:18,background:C.accentSoft,borderColor:C.accent+"44"}}><div style={{display:"flex",gap:20,flexWrap:"wrap",fontSize:14,color:C.textSub}}><span>⏱ <strong style={{color:C.text}}>35 min</strong></span><span>📝 <strong style={{color:C.text}}>25 questions</strong></span><span>📈 <strong style={{color:C.text}}>Levels 1→4</strong></span><span>⚡ <strong style={{color:C.text}}>Instant start</strong></span></div></Card>
@@ -3436,38 +3448,31 @@ function StudyPlan({user,onUpdateUser}){
     setLoading(true);setError(null);
     const history=user.history||[];
     const d=user.diagnostic||{};
-    // Summarize history — never send raw history to avoid token limit issues
     const totalQ=history.length;
     const accuracy=totalQ>0?Math.round(history.filter(h=>h.correct).length/totalQ*100):null;
     const typeStats={};
     history.forEach(h=>{if(!typeStats[h.qType])typeStats[h.qType]={c:0,t:0};typeStats[h.qType].t++;if(h.correct)typeStats[h.qType].c++;});
-    const weakTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t<0.6).map(([k])=>k).slice(0,5);
+    const weakTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t<0.6).map(([k])=>k).slice(0,4);
     const strongTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t>=0.8).map(([k])=>k).slice(0,3);
-    const sys="You are an expert LSAT tutor. Respond ONLY with valid JSON.";
-    const nl="\n";
-    const msg=[
-      "Create a personalized LSAT study plan for this student.",
-      "",
-      "Student Profile:",
-      "- Name: "+user.name,
-      "- Target Score: "+(d.target_score||"165+"),
-      "- Test Timeline: "+(d.test_date||"unknown"),
-      "- Weekly Study Hours: "+(d.study_hours||"unknown"),
-      "- Biggest Challenge: "+(d.biggest_challenge||"unknown"),
-      "- Learning Style: "+(d.learning_style||"unknown"),
-      "- LR Comfort: "+(d.lr_comfort||"?")+"/5",
-      "- RC Comfort: "+(d.rc_comfort||"?")+"/5",
-      "- Writing Comfort: "+(d.writing_comfort||"?")+"/5",
-      "- Total Questions Answered: "+totalQ,
-      "- Overall Accuracy: "+(accuracy!==null?accuracy+"%":"no data yet"),
-      "- Weak Question Types: "+(weakTypes.length>0?weakTypes.join(", "):"still assessing"),
-      "- Strong Question Types: "+(strongTypes.length>0?strongTypes.join(", "):"still assessing"),
-      "",
-      "Return ONLY this JSON with no other text:",
-      '{"summary":"3-4 sentence assessment","target_score":"'+(d.target_score||"165+")+'","timeline":"'+(d.test_date||"flexible")+'","weekly_hours":"'+(d.study_hours||"flexible")+'","phases":[{"name":"Foundation","duration":"2 weeks","focus":"Core skill building","tasks":["Practice weakest question types daily","Review all wrong answers","Complete Learn lessons"]}],"daily_routine":["Morning: 30 min Learn section","Afternoon: 20 min timed practice","Evening: Review notes and wrong answers"],"priority_areas":["'+(weakTypes[0]||"Identify weak areas")+'","Timed practice under test conditions","Full section simulations"],"milestone":"Consistently scoring 70%+ on Level 3 questions at the halfway point"}',
-    ].join(nl);
+    const profile=[
+      "Name: "+user.name,
+      "Target Score: "+(d.target_score||"165+"),
+      "Test Timeline: "+(d.test_date||"unknown"),
+      "Weekly Study Hours: "+(d.study_hours||"unknown"),
+      "Biggest Challenge: "+(d.biggest_challenge||"unknown"),
+      "Learning Style: "+(d.learning_style||"unknown"),
+      "LR Comfort: "+(d.lr_comfort||"?")+"/5",
+      "RC Comfort: "+(d.rc_comfort||"?")+"/5",
+      "Writing Comfort: "+(d.writing_comfort||"?")+"/5",
+      "Questions Answered: "+totalQ,
+      "Overall Accuracy: "+(accuracy!==null?accuracy+"%":"none yet"),
+      "Weak Types: "+(weakTypes.join(", ")||"still assessing"),
+      "Strong Types: "+(strongTypes.join(", ")||"still assessing"),
+    ].join(", ");
+    const sys="You are an expert LSAT tutor. Respond ONLY with a valid JSON object. No markdown, no explanation, no text before or after the JSON.";
+    const prompt="Create a personalized LSAT study plan. Student: "+profile+". Return this exact JSON structure with your content filled in: {"summary":"your 3-4 sentence assessment here","target_score":""+( d.target_score||"165+")+"","timeline":""+(d.test_date||"flexible")+"","weekly_hours":""+(d.study_hours||"flexible")+"","phases":[{"name":"Phase name","duration":"X weeks","focus":"what this develops","tasks":["task 1","task 2","task 3"]}],"daily_routine":["Morning routine","Afternoon routine","Evening routine"],"priority_areas":["first priority","second priority","third priority"],"milestone":"halfway success description"}";
     try{
-      const raw=await callClaude(sys,msg,1400);
+      const raw=await callClaude(sys,prompt,1400);
       onUpdateUser({studyPlan:parseJSON(raw)});
     }catch(e){setError("Could not generate: "+(e.message||"Please try again."));}
     setLoading(false);
@@ -3478,7 +3483,7 @@ function StudyPlan({user,onUpdateUser}){
         <div><h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:14}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
         <Btn onClick={gen} small>{plan?"Regenerate":"Generate Plan"}</Btn>
       </div>
-      {loading&&<Spinner label="Building your personalized study plan…"/>}
+      {loading&&<Spinner label="Lumora is building your study plan…"/>}
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
       {!plan&&!loading&&<Card style={{textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>📋</div><h2 style={{color:C.text,fontSize:18,marginBottom:8}}>No study plan yet</h2><p style={{color:C.textMuted,fontSize:14,marginBottom:20,lineHeight:1.7}}>Lumora LSAT builds a structured plan from your diagnostic and practice history.</p><Btn onClick={gen}>Generate My Plan</Btn></Card>}
       {plan&&!loading&&<div>
@@ -3581,7 +3586,7 @@ function Dashboard({user,onUpdateUser}){
 
       {/* Score Predictor */}
       <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:14,fontWeight:700}}>🎯 AI Score Predictor</div>
+        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:14,fontWeight:700}}>🎯 Lumora Score Predictor</div>
         {pred?(
           <div>
             <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:14,flexWrap:"wrap"}}>
@@ -3599,7 +3604,7 @@ function Dashboard({user,onUpdateUser}){
           </div>
         ):(
           <div>
-            <p style={{color:C.textMuted,fontSize:14,lineHeight:1.7,marginBottom:10}}>Answer at least <strong style={{color:C.text}}>10 questions</strong> to unlock your AI score prediction. You've answered {history.length} so far.</p>
+            <p style={{color:C.textMuted,fontSize:14,lineHeight:1.7,marginBottom:10}}>Answer at least <strong style={{color:C.text}}>10 questions</strong> to unlock your Lumora score prediction. You've answered {history.length} so far.</p>
             <div style={{background:C.surfaceHigh,borderRadius:6,height:6}}><div style={{height:"100%",width:`${Math.min(100,history.length/10*100)}%`,background:C.accent,borderRadius:6,transition:"width 0.5s"}}/></div>
             <div style={{fontSize:12,marginTop:4,color:C.textMuted}}>{history.length}/10</div>
           </div>
