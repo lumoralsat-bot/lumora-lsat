@@ -1622,6 +1622,8 @@ const DB = {
   clearSession:()=>{try{localStorage.removeItem("lumora_session")}catch{}},
   getUser:(e)=>{const u=DB.getUsers();return u[e]||null},
   saveUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
+  getDailyChallenge:()=>{try{return JSON.parse(localStorage.getItem("lumora_daily")||"null")}catch{return null}},
+  saveDailyChallenge:(d)=>{try{localStorage.setItem("lumora_daily",JSON.stringify(d))}catch{}},
 };
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -1746,17 +1748,24 @@ const FLAW_SEEDS=[
 ];
 
 // ─── PRACTICE SYSTEM PROMPT ───────────────────────────────────────────────────
+// Session-level question history to prevent duplicates
+const sessionQHistory = [];
+
 const PRACTICE_SYSTEM=`You are an expert LSAT question author with 20+ years experience. Write questions indistinguishable from official LSAT content in quality, structure, and rigor.
 
-CRITICAL: The correct answer must be logically airtight — verify it three times. Wrong answers must be plausible but eliminable.
-
-IMPORTANT: Use varied, original scenarios. Never use "Millbrook," "Westville," "Eastbrook," or any previously common placeholder names. Use diverse, realistic settings: universities, hospitals, tech companies, nonprofits, courthouses, news organizations, research labs, cities worldwide. Vary the subject matter — law, science, medicine, business, environment, history, policy — never reuse the same scenario type twice in a row.
+CRITICAL RULES:
+1. The correct answer must be logically airtight — verify it three times.
+2. Wrong answers must be plausible but clearly eliminable with careful analysis.
+3. NEVER reuse topics, scenarios, or argument structures from previous questions in this session.
+4. Use RADICALLY DIFFERENT scenarios each time: vary the domain (law, science, medicine, business, politics, environment, sports, technology, history, philosophy), the setting (courtroom, lab, hospital, startup, school, government, nonprofit), and the specific subject matter.
+5. FORBIDDEN placeholder names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield. Use real-sounding specific names or real places.
 
 Respond ONLY with valid JSON (no markdown fences):
 {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [why correct]. (A): [why wrong]. (C): [why wrong]. (D): [why wrong]. (E): [why wrong].","key_concept":"One sentence naming the specific skill tested.","level":2}`;
 
-function buildQ(sec,level,qType,profile){
-  return `Generate a Level ${level} (1=easiest,4=hardest) LSAT ${sec} question of type: ${qType}. Student targets ${profile?.target_score||"165+"}. Match real LSAT difficulty for Level ${level} exactly.`;
+function buildQ(sec,level,qType,profile,recentTopics=[]){
+  const avoidStr = recentTopics.length>0 ? `\n\nRECENT TOPICS TO AVOID (do not reuse these scenarios or themes): ${recentTopics.join(" | ")}` : "";
+  return `Generate a Level ${level} (1=easiest,4=hardest) LSAT ${sec} question of type: ${qType}. Student targets ${profile?.target_score||"165+"}. Match real LSAT difficulty for Level ${level} exactly. The scenario must be COMPLETELY DIFFERENT from any typical LSAT question — use an original, unexpected context.${avoidStr}`;
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
@@ -2057,6 +2066,20 @@ function Profile({user,onUpdateUser,onLogout,setScreen}){
       {/* XP Bar */}
       <Card style={{marginBottom:14,padding:"16px 20px"}}><XPBar xp={user.stats?.xp||0} level={Math.floor((user.stats?.xp||0)/XP_PER_LEVEL)+1}/></Card>
 
+      {/* Badges */}
+      <Card style={{marginBottom:14}}>
+        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14,fontWeight:600}}>Badges Earned</div>
+        {(user.earnedBadges||[]).length===0&&<p style={{color:C.textMuted,fontSize:14}}>No badges yet — keep studying to unlock them!</p>}
+        <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+          {BADGES.map(b=>{const earned=(user.earnedBadges||[]).includes(b.id);return(
+            <div key={b.id} title={b.desc} style={{width:64,textAlign:"center",opacity:earned?1:0.25,transition:"opacity 0.2s"}}>
+              <div style={{fontSize:28,marginBottom:4}}>{b.icon}</div>
+              <div style={{fontSize:10,color:earned?C.text:C.textMuted,fontWeight:earned?600:400,lineHeight:1.3}}>{b.name}</div>
+            </div>
+          );})}
+        </div>
+      </Card>
+
       {/* Account info */}
       <Card style={{marginBottom:24}}>
         <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12,fontWeight:600}}>Account</div>
@@ -2073,7 +2096,97 @@ function Profile({user,onUpdateUser,onLogout,setScreen}){
 }
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
-function Home({user,setScreen}){
+// ─── DAILY CHALLENGE ─────────────────────────────────────────────────────────
+function DailyChallenge({user,onUpdateUser}){
+  const [challenge,setChallenge]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [selected,setSelected]=useState(null);
+  const [submitted,setSubmitted]=useState(false);
+  const today=new Date().toDateString();
+
+  useEffect(()=>{
+    const saved=DB.getDailyChallenge();
+    if(saved&&saved.date===today){
+      setChallenge(saved);
+      if(saved.completed){setSubmitted(true);setSelected(saved.userAnswer);}
+    }else{
+      generate();
+    }
+  },[]);
+
+  const generate=async()=>{
+    setLoading(true);
+    // Use a seed based on today's date for consistent daily challenge
+    const dateNum=new Date().getDate()+new Date().getMonth()*31;
+    const secIdx=dateNum%2;const sec=SECTIONS[secIdx];
+    const types=QUESTION_TYPES[sec];
+    const typeIdx=dateNum%types.length;const qt=types[typeIdx];
+    const lv=(dateNum%3)+2; // levels 2-4
+    try{
+      const raw=await callClaude(PRACTICE_SYSTEM,`Generate a Level ${lv} LSAT ${sec} question of type: ${qt}. This is today's Daily Challenge — make it memorable and interesting. Use a unique, engaging scenario.`);
+      const q={...parseJSON(raw),section:sec,qType:qt,assignedLevel:lv,date:today,completed:false};
+      setChallenge(q);DB.saveDailyChallenge(q);
+    }catch(e){console.error(e);}
+    setLoading(false);
+  };
+
+  const submit=()=>{
+    if(!selected||!challenge)return;
+    setSubmitted(true);
+    const correct=selected===challenge.correct;
+    const xp=correct?XP_PER_CORRECT[challenge.assignedLevel||2]*2:0; // double XP for daily
+    const updated={...challenge,completed:true,userAnswer:selected};
+    DB.saveDailyChallenge(updated);setChallenge(updated);
+    if(correct||true){
+      const newCount=(user.stats?.dailyChallengesCompleted||0)+1;
+      onUpdateUser({
+        history:[...(user.history||[]),{section:challenge.section,qType:challenge.qType,level:challenge.assignedLevel,correct,xp,timestamp:Date.now(),source:"daily"}],
+        stats:{...user.stats,xp:(user.stats?.xp||0)+xp,dailyChallengesCompleted:newCount},
+      });
+    }
+  };
+
+  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===challenge?.correct)return"ok";if(l===selected)return"bad";return"def";};
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:10,padding:"10px 14px",cursor:submitted?"default":"pointer",fontSize:13,marginBottom:8,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.5,boxSizing:"border-box",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+
+  if(loading)return(
+    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:20,marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}><span style={{fontSize:20}}>⚡</span><div><div style={{fontWeight:700,fontSize:14,color:C.text}}>Daily Challenge</div><div style={{fontSize:12,color:C.textMuted}}>Loading today's question…</div></div></div>
+      <div style={{height:6,background:C.surfaceHigh,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:"60%",background:C.gold,borderRadius:3,animation:"pulse 1.5s ease infinite"}}/></div>
+    </div>
+  );
+
+  if(!challenge)return null;
+
+  const alreadyDone=challenge.completed||submitted;
+
+  return(
+    <div style={{background:`linear-gradient(135deg,${C.surface},#1a1230)`,border:`1px solid ${C.gold}44`,borderRadius:20,padding:20,marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>⚡</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:14,color:C.gold}}>Daily Challenge</div>
+          <div style={{fontSize:12,color:C.textMuted}}>{challenge.section} · {challenge.qType} · Level {challenge.assignedLevel} · 2× XP</div>
+        </div>
+        {alreadyDone&&<div style={{fontSize:12,fontWeight:700,color:C.success,background:C.success+"15",border:`1px solid ${C.success}33`,padding:"3px 10px",borderRadius:10}}>✓ Done</div>}
+      </div>
+      {!alreadyDone&&<div>
+        <p style={{fontSize:13,color:"#c8d4e8",lineHeight:1.75,marginBottom:12,whiteSpace:"pre-wrap"}}>{challenge.stimulus?.length>300?challenge.stimulus.slice(0,300)+"…":challenge.stimulus}</p>
+        <p style={{fontWeight:600,fontSize:13,color:C.text,marginBottom:10}}>{challenge.question}</p>
+        {Object.entries(challenge.choices||{}).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)}><span style={{fontWeight:700,marginRight:8}}>{l}.</span>{t}</button>)}
+        <Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8,background:"linear-gradient(135deg,#d97706,#f59e0b)"}}>Submit for 2× XP ⚡</Btn>
+      </div>}
+      {alreadyDone&&<div style={{textAlign:"center",padding:"8px 0"}}>
+        <div style={{fontSize:16,fontWeight:700,color:selected===challenge.correct||challenge.userAnswer===challenge.correct?C.success:C.danger,marginBottom:6}}>
+          {(selected||challenge.userAnswer)===challenge.correct?"✓ Correct! Well done.":"✗ Missed it — review the explanation in Practice."}
+        </div>
+        <div style={{fontSize:13,color:C.textMuted}}>Come back tomorrow for a new challenge ⚡</div>
+      </div>}
+    </div>
+  );
+}
+
+function Home({user,setScreen,onUpdateUser}){
   const history=user.history||[];
   const overall=history.length>0?Math.round(history.filter(h=>h.correct).length/history.length*100):null;
   const todayCount=history.filter(h=>new Date(h.timestamp).toDateString()===new Date().toDateString()).length;
@@ -2084,77 +2197,87 @@ function Home({user,setScreen}){
   const learnProgress=user.learnProgress||{};
   const totalTypes=LEARN_CURRICULUM["Logical Reasoning"].length+LEARN_CURRICULUM["Reading Comprehension"].length;
   const learnedTypes=Object.keys(learnProgress).filter(k=>learnProgress[k]>=4).length;
+  const earnedBadges=BADGES.filter(b=>(user.earnedBadges||[]).includes(b.id));
+  const nextBadge=BADGES.find(b=>!(user.earnedBadges||[]).includes(b.id));
+
+  // Smart suggestion
+  const getSuggestion=()=>{
+    if(history.length===0)return{text:"Start with the Learn section to build your foundation.",action:"learn",cta:"Go to Learn"};
+    const typeStats={};
+    history.filter(h=>!h.source).forEach(h=>{if(!typeStats[h.qType])typeStats[h.qType]={c:0,t:0};typeStats[h.qType].t++;if(h.correct)typeStats[h.qType].c++;});
+    const sorted=Object.entries(typeStats).filter(([,v])=>v.t>=2).map(([k,v])=>({type:k,pct:Math.round(v.c/v.t*100)})).sort((a,b)=>a.pct-b.pct);
+    if(sorted.length>0&&sorted[0].pct<60)return{text:`Your ${sorted[0].type} accuracy is ${sorted[0].pct}% — that's your highest-priority weakness right now.`,action:"practice",cta:"Drill It Now"};
+    if(todayCount===0&&history.length>0)return{text:"You haven't studied today yet. Consistency is the key to a higher score.",action:"practice",cta:"Start Practicing"};
+    if(learnedTypes<totalTypes)return{text:`You've mastered ${learnedTypes} of ${totalTypes} question types. Keep going in Learn.`,action:"learn",cta:"Continue Learning"};
+    return{text:"You're on track. Keep the momentum going.",action:"practice",cta:"Keep Practicing"};
+  };
+  const suggestion=getSuggestion();
 
   const quickActions=[
-    {id:"practice",icon:"🎯",label:"Practice",desc:"AI questions targeting your weak spots",color:C.accent,badge:null},
-    {id:"learn",icon:"📖",label:"Learn",desc:`${learnedTypes}/${totalTypes} types mastered`,color:C.purple,badge:learnedTypes<totalTypes?{label:"New lessons",color:C.purple}:null},
-    {id:"flaw",icon:"⚖️",label:"Flaw Lab",desc:"Spot flaws in legal arguments",color:C.teal,badge:{label:"AI Generated",color:C.teal}},
-    {id:"writing",icon:"✍️",label:"Writing",desc:"2026 LSAC format with AI feedback",color:C.success,badge:{label:"2026 Format",color:C.success}},
-    {id:"fullsection",icon:"⏱",label:"Full Section",desc:"35-min timed simulation",color:C.gold,badge:{label:"Timed",color:C.gold}},
-    {id:"dashboard",icon:"📊",label:"Progress",desc:"Score predictor + full analytics",color:C.pink,badge:history.length>=10?{label:"Predictor Active",color:C.pink}:null},
+    {id:"practice",icon:"🎯",label:"Practice",desc:"AI questions, no repeats, adapts to you",color:C.accent},
+    {id:"learn",icon:"📖",label:"Learn",desc:`${learnedTypes}/${totalTypes} types mastered`,color:C.purple,badge:learnedTypes<totalTypes?{label:"Continue",color:C.purple}:null},
+    {id:"flaw",icon:"⚖️",label:"Flaw Lab",desc:"Find hidden flaws in legal arguments",color:C.teal,badge:{label:"Infinite",color:C.teal}},
+    {id:"writing",icon:"✍️",label:"Writing",desc:"2026 LSAC format, AI feedback",color:C.success,badge:{label:"2026",color:C.success}},
+    {id:"fullsection",icon:"⏱",label:"Full Section",desc:"35-min timed simulation",color:C.gold,badge:{label:"Instant Start",color:C.gold}},
+    {id:"dashboard",icon:"📊",label:"Progress",desc:"Score predictor + analytics",color:C.pink},
     {id:"plan",icon:"📋",label:"Study Plan",desc:"Your personalized roadmap",color:C.orange},
     {id:"notes",icon:"📝",label:"Notes",desc:`${(user.notes||[]).length} notes saved`,color:C.textSub},
   ];
 
   return(
     <main style={{maxWidth:820,margin:"0 auto",padding:"32px 20px"}}>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:28,gap:16,flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:16,flexWrap:"wrap"}}>
         <div>
           <div style={{fontSize:13,color:C.textMuted,marginBottom:4}}>{greeting}</div>
-          <h1 style={{fontFamily:T.serif,fontSize:"clamp(24px,4vw,36px)",color:C.text,lineHeight:1.15,marginBottom:6}}>{user.name.split(" ")[0]}.</h1>
+          <h1 style={{fontFamily:T.serif,fontSize:"clamp(24px,4vw,34px)",color:C.text,lineHeight:1.15,marginBottom:6}}>{user.name.split(" ")[0]}.</h1>
           <p style={{color:C.textMuted,fontSize:14,lineHeight:1.6}}>
-            {history.length===0?"Start your LSAT journey below.":todayCount===0?"Pick up where you left off.":
-            `${todayCount} question${todayCount!==1?"s":""} answered today. Keep going.`}
+            {history.length===0?"Your LSAT journey starts here.":todayCount===0?"Pick up where you left off.":`${todayCount} question${todayCount!==1?"s":""} answered today.`}
           </p>
         </div>
-        <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          <button onClick={()=>setScreen("profile")} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:12,padding:"8px 16px",color:C.textSub,fontSize:13,cursor:"pointer",fontFamily:T.sans,display:"flex",alignItems:"center",gap:8}}>
-            <Avatar user={user} size={22}/>
-            Profile
-          </button>
-        </div>
+        <button onClick={()=>setScreen("profile")} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:12,padding:"8px 14px",color:C.textSub,fontSize:13,cursor:"pointer",fontFamily:T.sans,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <Avatar user={user} size={22}/>Profile
+        </button>
       </div>
 
-      {/* Stats strip */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
-        {[
-          {label:"Questions",value:history.length,color:C.accent,icon:"📝"},
-          {label:"Accuracy",value:overall!==null?overall+"%":"—",color:overall>=70?C.success:overall>=50?C.gold:C.danger,icon:"🎯"},
-          {label:"Streak",value:`${user.stats?.streak||0}🔥`,color:"#ff8c42",icon:null},
-          {label:"XP",value:xp.toLocaleString(),color:C.gold,icon:"⭐"},
-        ].map(s=><Card key={s.label} style={{padding:"14px 16px",textAlign:"center"}}>
-          <div style={{fontSize:20,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div>
-          <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
-        </Card>)}
+      {/* Smart suggestion banner */}
+      <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}44`,borderRadius:16,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+        <div style={{fontSize:13,color:C.textSub,lineHeight:1.6,flex:1}}>💡 {suggestion.text}</div>
+        <button onClick={()=>setScreen(suggestion.action)} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",border:"none",borderRadius:10,padding:"8px 18px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:T.sans,flexShrink:0}}>{suggestion.cta} →</button>
       </div>
 
-      {/* XP Bar */}
-      <Card style={{marginBottom:16,padding:"13px 18px"}}>
-        <XPBar xp={xp} level={level}/>
-      </Card>
+      {/* Daily Challenge */}
+      <DailyChallenge user={user} onUpdateUser={onUpdateUser}/>
 
-      {/* Learn progress bar */}
-      {learnedTypes>0&&<Card style={{marginBottom:16,padding:"13px 18px",borderColor:C.purple+"44"}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted,marginBottom:6}}>
-          <span style={{fontWeight:600,color:C.purple}}>📖 Learn Progress</span>
-          <span>{learnedTypes}/{totalTypes} question types mastered</span>
-        </div>
-        <div style={{background:C.surfaceHigh,borderRadius:4,height:6}}>
-          <div style={{height:"100%",width:`${learnedTypes/totalTypes*100}%`,background:`linear-gradient(90deg,${C.purple},#c084fc)`,borderRadius:4,transition:"width 0.6s"}}/>
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
+        {[{label:"Questions",value:history.length,color:C.accent},{label:"Accuracy",value:overall!==null?overall+"%":"—",color:overall>=70?C.success:overall>=50?C.gold:C.danger},{label:"Streak",value:`${user.stats?.streak||0}🔥`,color:"#ff8c42"},{label:"XP",value:xp.toLocaleString(),color:C.gold}].map(s=><Card key={s.label} style={{padding:"12px 14px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div><div style={{fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div></Card>)}
+      </div>
+      <Card style={{marginBottom:12,padding:"12px 18px"}}><XPBar xp={xp} level={level}/></Card>
+
+      {/* Badges row */}
+      {earnedBadges.length>0&&<Card style={{marginBottom:12,padding:"12px 18px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:C.textMuted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Badges</span>
+          {earnedBadges.map(b=><div key={b.id} title={b.name+": "+b.desc} style={{fontSize:20,cursor:"default"}}>{b.icon}</div>)}
+          {nextBadge&&<div style={{fontSize:12,color:C.textMuted,marginLeft:4}}>Next: {nextBadge.icon} {nextBadge.name}</div>}
         </div>
       </Card>}
 
-      {/* Quick action grid */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      {/* Learn progress */}
+      {learnedTypes>0&&<Card style={{marginBottom:12,padding:"12px 18px",borderColor:C.purple+"44"}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted,marginBottom:5}}><span style={{fontWeight:600,color:C.purple}}>📖 Learn Progress</span><span>{learnedTypes}/{totalTypes} mastered</span></div>
+        <div style={{background:C.surfaceHigh,borderRadius:4,height:5}}><div style={{height:"100%",width:`${learnedTypes/totalTypes*100}%`,background:`linear-gradient(90deg,${C.purple},#c084fc)`,borderRadius:4,transition:"width 0.6s"}}/></div>
+      </Card>}
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {quickActions.map(c=>(
           <Card key={c.id} onClick={()=>setScreen(c.id)} role="button" ariaLabel={`Go to ${c.label}`}
-            style={{cursor:"pointer",transition:"all 0.2s",borderColor:C.border}}
+            style={{cursor:"pointer",transition:"all 0.2s"}}
             onMouseEnter={e=>{e.currentTarget.style.borderColor=c.color+"66";e.currentTarget.style.transform="translateY(-2px)";}}
             onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}>
-            <div style={{fontSize:28,marginBottom:10}} aria-hidden="true">{c.icon}</div>
-            <div style={{fontWeight:700,fontSize:15,color:C.text,marginBottom:4}}>{c.label}</div>
-            <div style={{fontSize:13,color:C.textMuted,lineHeight:1.55,marginBottom:c.badge?8:0}}>{c.desc}</div>
+            <div style={{fontSize:26,marginBottom:8}}>{c.icon}</div>
+            <div style={{fontWeight:700,fontSize:14,color:C.text,marginBottom:3}}>{c.label}</div>
+            <div style={{fontSize:12,color:C.textMuted,lineHeight:1.55,marginBottom:c.badge?7:0}}>{c.desc}</div>
             {c.badge&&<Tag color={c.badge.color}>{c.badge.label}</Tag>}
           </Card>
         ))}
@@ -2408,7 +2531,7 @@ Respond ONLY with valid JSON (no markdown):
 }
 
 
-// ─── QUEUE HOOK (with streaming delivery) ─────────────────────────────────────
+// ─── QUEUE HOOK (with streaming delivery + duplicate prevention) ──────────────
 function useQueue(user,section,level,qType,adaptive){
   const history=user.history||[];
   const [queue,setQueue]=useState([]);
@@ -2416,13 +2539,17 @@ function useQueue(user,section,level,qType,adaptive){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
   const generating=useRef(false);
+  const sessionTopics=useRef([]); // track topics this session to avoid repeats
 
   const getParams=useCallback(()=>{
     const sec=section||SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
     let lv=level||2;
     if(adaptive&&history.length>=3){const recent=history.filter(h=>h.section===sec).slice(-8);if(recent.length>=3){const acc=recent.filter(h=>h.correct).length/recent.length;if(acc>0.8)lv=Math.min(4,lv+1);else if(acc<0.45)lv=Math.max(1,lv-1);}}
     let qt=qType||QUESTION_TYPES[sec][0];
-    if(adaptive&&history.length>=4){const scored=QUESTION_TYPES[sec].map(t=>{const items=history.filter(h=>h.section===sec&&h.qType===t);return{t,s:items.length<2?0.6:items.filter(h=>h.correct).length/items.length};}).sort((a,b)=>a.s-b.s);qt=scored[0].t;}
+    if(adaptive&&history.length>=4){
+      const scored=QUESTION_TYPES[sec].map(t=>{const items=history.filter(h=>h.section===sec&&h.qType===t);return{t,s:items.length<2?0.6:items.filter(h=>h.correct).length/items.length};}).sort((a,b)=>a.s-b.s);
+      qt=scored[0].t;
+    }
     return{sec,lv,qt};
   },[section,level,qType,adaptive,history]);
 
@@ -2431,9 +2558,14 @@ function useQueue(user,section,level,qType,adaptive){
     generating.current=true;
     const{sec,lv,qt}=getParams();
     try{
-      const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic));
+      const recentTopics=sessionTopics.current.slice(-6);
+      const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
+      const parsed=parseJSON(raw);
+      // Extract topic fingerprint from stimulus for future avoidance
+      const topicKey=(parsed.stimulus||"").split(" ").slice(0,8).join(" ");
+      sessionTopics.current=[...sessionTopics.current.slice(-9),topicKey];
       generating.current=false;
-      return{...parseJSON(raw),section:sec,qType:qt,assignedLevel:lv};
+      return{...parsed,section:sec,qType:qt,assignedLevel:lv};
     }catch(e){generating.current=false;throw e;}
   },[getParams,user]);
 
@@ -2444,6 +2576,7 @@ function useQueue(user,section,level,qType,adaptive){
 
   const start=useCallback(async()=>{
     setLoading(true);setError(null);setCurrent(null);setQueue([]);
+    sessionTopics.current=[];
     try{const q=await genOne();setCurrent(q);setLoading(false);setTimeout(fill,300);}
     catch(e){setError(e.message||"Failed to generate. Check your API key.");setLoading(false);}
   },[genOne,fill]);
@@ -2464,12 +2597,108 @@ function useQueue(user,section,level,qType,adaptive){
 }
 
 // ─── PRACTICE ─────────────────────────────────────────────────────────────────
-function Practice({user,onUpdateUser}){
-  const [section,setSection]=useState(null);
+// ─── WEAKNESS RADAR ───────────────────────────────────────────────────────────
+function WeaknessRadar({user,onDrillWeakness}){
+  const history=(user.history||[]).filter(h=>!h.source); // exclude learn questions
+  if(history.length<5)return null;
+  const typeStats={};
+  history.forEach(h=>{
+    if(!typeStats[h.qType])typeStats[h.qType]={c:0,t:0,section:h.section};
+    typeStats[h.qType].t++;
+    if(h.correct)typeStats[h.qType].c++;
+  });
+  const sorted=Object.entries(typeStats)
+    .filter(([,v])=>v.t>=2)
+    .map(([k,v])=>({type:k,section:v.section,pct:Math.round(v.c/v.t*100),total:v.t}))
+    .sort((a,b)=>a.pct-b.pct);
+  if(sorted.length===0)return null;
+  const weakest=sorted.slice(0,3);
+  const strongest=sorted.slice(-2).reverse();
+  return(
+    <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:20,marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,display:"flex",alignItems:"center",gap:8}}>
+          <span>🎯</span> Weakness Radar
+        </div>
+        <button onClick={()=>onDrillWeakness(weakest[0])} style={{background:"linear-gradient(135deg,#f43f5e,#fb7185)",border:"none",borderRadius:10,padding:"6px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:T.sans}}>
+          Drill Weakest Now →
+        </button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {weakest.map((w,i)=>(
+          <div key={w.type} style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{fontSize:12,width:16,height:16,borderRadius:"50%",background:i===0?"#f43f5e":i===1?"#fb923c":"#f5c842",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,flexShrink:0}}>{i+1}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:13}}>
+                <span style={{color:C.text,fontWeight:600}}>{w.type}</span>
+                <span style={{color:w.pct<50?C.danger:w.pct<70?C.gold:C.success,fontWeight:700}}>{w.pct}%</span>
+              </div>
+              <div style={{background:C.surfaceHigh,borderRadius:3,height:5}}>
+                <div style={{height:"100%",width:`${w.pct}%`,background:w.pct<50?C.danger:w.pct<70?C.gold:C.success,borderRadius:3,transition:"width 0.5s"}}/>
+              </div>
+            </div>
+            <span style={{fontSize:11,color:C.textMuted,flexShrink:0}}>{w.total}q</span>
+          </div>
+        ))}
+      </div>
+      {strongest.length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.border}`}}>
+        <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Strengths</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {strongest.map(s=><div key={s.type} style={{fontSize:12,padding:"3px 10px",borderRadius:10,background:C.success+"15",color:C.success,border:`1px solid ${C.success}33`,fontWeight:600}}>{s.type} {s.pct}% ✓</div>)}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+// ─── SESSION DEBRIEF ──────────────────────────────────────────────────────────
+function SessionDebrief({sessionHistory,user,onDismiss,onRecord}){
+  const [debrief,setDebrief]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{generate();},[]);
+  const generate=async()=>{
+    if(sessionHistory.length<3){setDebrief(null);setLoading(false);return;}
+    const correct=sessionHistory.filter(h=>h.correct).length;
+    const total=sessionHistory.length;
+    const pct=Math.round(correct/total*100);
+    const byType={};
+    sessionHistory.forEach(h=>{if(!byType[h.qType])byType[h.qType]={c:0,t:0};byType[h.qType].t++;if(h.correct)byType[h.qType].c++;});
+    const sorted=Object.entries(byType).map(([k,v])=>({type:k,pct:Math.round(v.c/v.t*100),t:v.t})).sort((a,b)=>a.pct-b.pct);
+    try{
+      const raw=await callClaude(
+        `You are an encouraging LSAT tutor. Give a short, specific, personalized debrief of a student's practice session. Be warm, direct, and actionable. Respond ONLY with valid JSON:
+{"headline":"One punchy sentence about this session (e.g. 'Strong session — your Assumption instincts are sharpening.')","insight":"One specific observation about what they did well or what pattern you notice.","tip":"One concrete, actionable technique they should apply next time for their weakest type.","emoji":"One relevant emoji"}`,
+        `Session: ${correct}/${total} correct (${pct}%). Question types: ${sorted.map(s=>`${s.type} ${s.pct}% (${s.t}q)`).join(", ")}. Student's overall history: ${(user.history||[]).length} total questions, ${user.history?.length>0?Math.round(user.history.filter(h=>h.correct).length/user.history.length*100):0}% overall accuracy.`,
+        400
+      );
+      setDebrief(parseJSON(raw));
+    }catch{setDebrief({headline:`${pct>=70?"Strong":"Keep going"} — ${correct}/${total} correct this session.`,insight:sorted[0]?`Focus on ${sorted[0].type} — your lowest at ${sorted[0].pct}%.`:"Keep practicing consistently.",tip:"Review wrong answers carefully before moving on.",emoji:"📊"});}
+    setLoading(false);
+  };
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000bb",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:32,maxWidth:420,width:"100%",textAlign:"center"}}>
+        {loading?<Spinner label="Analyzing your session…"/>:<div>
+          <div style={{fontSize:48,marginBottom:12}}>{debrief?.emoji||"📊"}</div>
+          <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontWeight:700}}>Session Complete</div>
+          <h3 style={{fontFamily:T.serif,fontSize:20,color:C.text,marginBottom:16,lineHeight:1.4}}>{debrief?.headline}</h3>
+          {debrief?.insight&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.accent,fontWeight:700}}>💡 </span>{debrief.insight}</div>}
+          {debrief?.tip&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"12px 16px",marginBottom:20,fontSize:14,color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.gold,fontWeight:700}}>→ Next time: </span>{debrief.tip}</div>}
+          <Btn onClick={onDismiss} style={{width:"100%"}}>Continue →</Btn>
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+function Practice({user,onUpdateUser,initialWeakType}){
+  const [section,setSection]=useState(initialWeakType?.section||null);
   const [level,setLevel]=useState(null);
-  const [qType,setQType]=useState(null);
+  const [qType,setQType]=useState(initialWeakType?.type||null);
   const [adaptive,setAdaptive]=useState(true);
-  const [configured,setConfigured]=useState(false);
+  const [timedMode,setTimedMode]=useState(false);
+  const [questionTimer,setQuestionTimer]=useState(90);
+  const [configured,setConfigured]=useState(!!initialWeakType);
   const [selected,setSelected]=useState(null);
   const [submitted,setSubmitted]=useState(false);
   const [sparring,setSparring]=useState(false);
@@ -2481,25 +2710,44 @@ function Practice({user,onUpdateUser}){
   const [xpEarned,setXpEarned]=useState(null);
   const [sessionCount,setSessionCount]=useState(0);
   const [sessionCorrect,setSessionCorrect]=useState(0);
+  const [sessionHistory,setSessionHistory]=useState([]);
+  const [showDebrief,setShowDebrief]=useState(false);
+  const questionTimerRef=useRef(null);
   const bottomRef=useRef(null);
   const {current:q,loading,error,start,advance}=useQueue(user,section,level,qType,adaptive);
 
   const submit=()=>{
     if(!selected||!q)return;
+    if(timedMode)clearInterval(questionTimerRef.current);
     setSubmitted(true);
     const correct=selected===q.correct;
     const xp=correct?XP_PER_CORRECT[q.assignedLevel||2]:0;
     setXpEarned(xp);
     setSessionCount(c=>c+1);
     if(correct)setSessionCorrect(c=>c+1);
-    onUpdateUser({
-      history:[...(user.history||[]),{section:q.section,qType:q.qType,level:q.assignedLevel,correct,xp,timestamp:Date.now()}],
-      stats:{...user.stats,xp:(user.stats?.xp||0)+xp},
-    });
+    const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,xp,timestamp:Date.now()};
+    setSessionHistory(h=>[...h,record]);
+    const newHistory=[...(user.history||[]),record];
+    const newStats={...user.stats,xp:(user.stats?.xp||0)+xp};
+    const newBadges=checkBadges(newHistory,newStats,user.earnedBadges||[]);
+    onUpdateUser({history:newHistory,stats:newStats,earnedBadges:[...(user.earnedBadges||[]),...newBadges]});
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),150);
   };
 
-  const nextQ=()=>{setSelected(null);setSubmitted(false);setSparring(false);setSparMsgs([]);setXpEarned(null);setNote("");setNoteOpen(false);advance();};
+  const nextQ=()=>{
+    setSelected(null);setSubmitted(false);setSparring(false);setSparMsgs([]);
+    setXpEarned(null);setNote("");setNoteOpen(false);
+    if(timedMode){
+      setQuestionTimer(90);
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);
+    }
+    advance();
+  };
+  const endSession=()=>{
+    if(sessionCount>=3)setShowDebrief(true);
+    else setConfigured(false);
+  };
 
   const startSpar=()=>{setSparring(true);setSparMsgs([{role:"assistant",text:`You chose ${selected} but the correct answer is ${q.correct}. Make your case — why do you think ${selected} is right?`}]);};
 
@@ -2527,6 +2775,17 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
     onUpdateUser({notes:[...(user.notes||[]),{id:Date.now(),text:note.trim(),source:`${q?.section||""} · ${q?.qType||""}`,timestamp:Date.now()}]});
     setNote("");setNoteOpen(false);
   };
+  // Auto-submit when timed question expires
+  useEffect(()=>{
+    if(timedMode&&questionTimer===0&&q&&!submitted){
+      setSubmitted(true);
+      const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct:false,xp:0,timestamp:Date.now()};
+      setSessionHistory(h=>[...h,record]);
+      setSessionCount(c=>c+1);
+      onUpdateUser({history:[...(user.history||[]),record]});
+    }
+  },[questionTimer,timedMode,q,submitted]);
+  useEffect(()=>()=>clearInterval(questionTimerRef.current),[]);
 
   const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===q?.correct)return"ok";if(l===selected)return"bad";return"def";};
   const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
@@ -2534,25 +2793,44 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Practice</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:22}}>AI-generated questions, every session. The next question loads in the background while you read this one.</p>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>AI-generated questions, every session. The next question loads in the background while you read this one.</p>
+      <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);start();}}/>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(s);setQType(null);}}>{s}</Pill>)}</div></Card>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>{[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}</div></Card>
       {section&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Question Type</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{QUESTION_TYPES[section].map(t=><Pill key={t} active={qType===t} onClick={()=>setQType(t)}>{t}</Pill>)}</div></Card>}
-      <Card style={{marginBottom:18}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>setAdaptive(v=>!v)} role="checkbox" aria-checked={adaptive} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setAdaptive(v=>!v);}}>
-          <div style={{width:40,height:22,borderRadius:11,background:adaptive?C.accent:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:16,height:16,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:adaptive?21:3,transition:"left 0.2s"}}/></div>
-          <div><div style={{fontWeight:600,fontSize:14,color:C.text}}>Adaptive Mode</div><div style={{fontSize:12,color:C.textMuted}}>Targets weak areas, auto-adjusts difficulty</div></div>
-        </div>
-      </Card>
-      <Btn onClick={()=>{setConfigured(true);start();}} style={{width:"100%",padding:15}}>Start Practice →</Btn>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
+        <Card style={{padding:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setAdaptive(v=>!v)} role="checkbox" aria-checked={adaptive} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setAdaptive(v=>!v);}}>
+            <div style={{width:36,height:20,borderRadius:10,background:adaptive?C.accent:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:14,height:14,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:adaptive?19:3,transition:"left 0.2s"}}/></div>
+            <div><div style={{fontWeight:600,fontSize:13,color:C.text}}>Adaptive</div><div style={{fontSize:11,color:C.textMuted}}>Targets weak areas</div></div>
+          </div>
+        </Card>
+        <Card style={{padding:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setTimedMode(v=>!v)} role="checkbox" aria-checked={timedMode} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setTimedMode(v=>!v);}}>
+            <div style={{width:36,height:20,borderRadius:10,background:timedMode?C.danger:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:14,height:14,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:timedMode?19:3,transition:"left 0.2s"}}/></div>
+            <div><div style={{fontWeight:600,fontSize:13,color:C.text}}>⏱ Timed</div><div style={{fontSize:11,color:C.textMuted}}>90 sec per question</div></div>
+          </div>
+        </Card>
+      </div>
+      <Btn onClick={()=>{setConfigured(true);start();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{width:"100%",padding:15}}>Start Practice →</Btn>
     </main>
   );
 
   return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"22px 20px"}}>
+      {showDebrief&&<SessionDebrief sessionHistory={sessionHistory} user={user} onDismiss={()=>{setShowDebrief(false);setConfigured(false);setSessionHistory([]);setSessionCount(0);setSessionCorrect(0);}} onRecord={onUpdateUser}/>}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18,flexWrap:"wrap",gap:8}}>
-        <div>{q&&<><Tag color={C.accent}>{q.section}</Tag><Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag></>}{adaptive&&<Tag color={C.purple}>Adaptive</Tag>}</div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:C.textMuted,fontSize:13}}>{sessionCount} done · {sessionCount>0?Math.round(sessionCorrect/sessionCount*100):"—"}%</span><Btn ghost onClick={()=>setConfigured(false)} small>Settings</Btn></div>
+        <div>
+          {q&&<><Tag color={C.accent}>{q.section}</Tag><Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag></>}
+          {adaptive&&<Tag color={C.purple}>Adaptive</Tag>}
+          {timedMode&&<Tag color={C.danger}>⏱ Timed</Tag>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {timedMode&&!submitted&&q&&<div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:questionTimer<=15?C.danger:questionTimer<=30?C.gold:C.text,minWidth:40,textAlign:"center"}}>{questionTimer}</div>}
+          <span style={{color:C.textMuted,fontSize:13}}>{sessionCount} done · {sessionCount>0?Math.round(sessionCorrect/sessionCount*100):"—"}%</span>
+          {sessionCount>=3&&<Btn ghost onClick={endSession} small>End Session</Btn>}
+          <Btn ghost onClick={()=>setConfigured(false)} small>Settings</Btn>
+        </div>
       </div>
       {loading&&<Spinner label="Generating question…"/>}
       {error&&!loading&&<Card style={{borderColor:C.danger}}><ErrBanner message={error}/><Btn onClick={start} style={{marginTop:8}}>Retry</Btn></Card>}
@@ -2687,7 +2965,10 @@ Respond ONLY with valid JSON:
           <div><div style={{fontWeight:600,fontSize:14,color:C.text}}>Timed Mode (20 minutes)</div><div style={{fontSize:12,color:C.textMuted}}>Auto-submits when time runs out.</div></div>
         </div>
       </Card>
-      <Btn onClick={async()=>{setPhase("loading");await generateArgument();setPhase("reading");}} style={{width:"100%",padding:15}}>Generate Argument →</Btn>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Btn onClick={async()=>{setPhase("loading");await generateArgument();setPhase("reading");}} style={{padding:15}}>Generate This Type →</Btn>
+        <Btn onClick={async()=>{const ri=Math.floor(Math.random()*FLAW_SEEDS.length);setSeedIdx(ri);setPhase("loading");await generateArgument();setPhase("reading");}} style={{padding:15,background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>🎲 Random Flaw →</Btn>
+      </div>
     </main>
   );
 
@@ -2879,7 +3160,10 @@ Respond ONLY with valid JSON:
           <div><div style={{fontWeight:600,fontSize:14,color:C.text}}>Timed Mode (50 min total)</div><div style={{fontSize:12,color:C.textMuted}}>15 min prewriting auto-advances to 35 min essay.</div></div>
         </div>
       </Card>
-      <Btn onClick={async()=>{setPhase("generating");await generatePrompt();if(phaseRef.current==="generating")setPhaseSync("prewriting_ready");}} style={{width:"100%",padding:15}}>Generate Fresh Prompt →</Btn>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Btn onClick={async()=>{setPhaseSync("generating");await generatePrompt();if(phaseRef.current==="generating")setPhaseSync("prewriting_ready");}} style={{padding:15}}>Generate This Theme →</Btn>
+        <Btn onClick={async()=>{const ri=Math.floor(Math.random()*WRITING_SEEDS.length);setSeedIdx(ri);setPhaseSync("generating");await generatePrompt();if(phaseRef.current==="generating")setPhaseSync("prewriting_ready");}} style={{padding:15,background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>🎲 Random Theme →</Btn>
+      </div>
     </main>
   );
 
@@ -3125,6 +3409,8 @@ function StudyPlan({user,onUpdateUser}){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
   const plan=user.studyPlan;
+  // Auto-generate on first visit if no plan exists
+  useEffect(()=>{if(!plan&&!loading)gen();},[]);
   const gen=async()=>{
     setLoading(true);setError(null);
     const history=user.history||[];
@@ -3345,15 +3631,27 @@ export default function App(){
 
   // Diagnostic
   if(!user.diagnosticDone){
-    return <Diagnostic user={user} onComplete={(answers)=>{
+    return <Diagnostic user={user} onComplete={async(answers)=>{
       const u={...user,diagnostic:answers,diagnosticDone:true};
       try{DB.saveUser(u.email,u);}catch{}
       setUser(u);setScreen("home");
+      // Auto-generate study plan in background
+      try{
+        const d=answers||{};
+        const sys=`You are an expert LSAT tutor. Respond ONLY with valid JSON.`;
+        const msg=`Create a personalized LSAT study plan. Profile: name=${u.name}, target=${d.target_score||"165+"}, timeline=${d.test_date||"unknown"}, hrs/wk=${d.study_hours||"unknown"}, challenge=${d.biggest_challenge||"unknown"}, LR=${d.lr_comfort||"?"}/5, RC=${d.rc_comfort||"?"}/5, Writing=${d.writing_comfort||"?"}/5, weak=${(d.weak_types||[]).join(",")||"assessing"}.
+Return ONLY this JSON: {"summary":"3-4 sentence personalized assessment","target_score":"${d.target_score||"165+"}","timeline":"${d.test_date||"flexible"}","weekly_hours":"${d.study_hours||"flexible"}","phases":[{"name":"...","duration":"X weeks","focus":"...","tasks":["...","...","...","..."]}],"daily_routine":["Morning: ...","Afternoon: ...","Evening: ..."],"priority_areas":["most important","second","third"],"milestone":"Specific measurable halfway success description"}`;
+        const raw=await callClaude(sys,msg,1600);
+        const plan=parseJSON(raw);
+        const u2={...u,studyPlan:plan};
+        try{DB.saveUser(u2.email,u2);}catch{}
+        setUser(u2);
+      }catch(e){console.warn("Auto study plan failed:",e.message);}
     }}/>;
   }
 
   const pages={
-    home:<Home user={user} setScreen={setScreen}/>,
+    home:<Home user={user} setScreen={setScreen} onUpdateUser={handleUpdateUser}/>,
     learn:<Learn user={user} onUpdateUser={handleUpdateUser}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser}/>,
     writing:<Writing/>,
@@ -3373,6 +3671,8 @@ export default function App(){
         body{margin:0;}
         *:focus-visible{outline:2px solid ${C.accent}!important;outline-offset:2px!important;}
         button,input,textarea,select{font-family:${T.sans};}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         @media(max-width:640px){
           nav{height:auto!important;flex-wrap:wrap!important;padding:8px 12px!important;}
         }
