@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const SECTIONS = ["Logical Reasoning", "Reading Comprehension"];
+const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
 const QUESTION_TYPES = {
-  "Logical Reasoning": ["Assumption","Weaken","Strengthen","Flaw","Inference","Main Point","Paradox","Method of Reasoning","Parallel Reasoning","Evaluate"],
-  "Reading Comprehension": ["Main Idea","Author's Tone","Detail","Inference","Purpose","Analogy","Comparative Passage"],
+  "Logical Reasoning":["Assumption","Weaken","Strengthen","Flaw","Inference","Main Point","Paradox","Method of Reasoning","Parallel Reasoning","Evaluate"],
+  "Reading Comprehension":["Main Idea","Author's Tone","Detail","Inference","Purpose","Analogy","Comparative Passage"],
 };
 const LEVEL_LABELS = {1:"Foundations",2:"Developing",3:"Proficient",4:"Expert"};
 const LEVEL_COLORS = {1:"#38bdf8",2:"#a78bfa",3:"#fb923c",4:"#f43f5e"};
@@ -26,7 +26,69 @@ const DIAGNOSTIC_QUESTIONS = [
   {id:"learning_style",q:"How do you learn best?",type:"single",options:["Step-by-step explanations","Learning from mistakes","Lots of practice questions","Understanding the big picture first","A mix of everything"]},
 ];
 
+// ─── BADGES ───────────────────────────────────────────────────────────────────
+const BADGES = [
+  {id:"first_q",icon:"🎯",name:"First Shot",desc:"Answer your first question",check:(h,s)=>h.length>=1},
+  {id:"ten_q",icon:"🔟",name:"Getting Started",desc:"Answer 10 questions",check:(h,s)=>h.length>=10},
+  {id:"fifty_q",icon:"🏅",name:"Committed",desc:"Answer 50 questions",check:(h,s)=>h.length>=50},
+  {id:"hundred_q",icon:"💯",name:"Century",desc:"Answer 100 questions",check:(h,s)=>h.length>=100},
+  {id:"streak_3",icon:"🔥",name:"On Fire",desc:"3-day study streak",check:(h,s)=>(s?.streak||0)>=3},
+  {id:"streak_7",icon:"⚡",name:"Lightning Week",desc:"7-day study streak",check:(h,s)=>(s?.streak||0)>=7},
+  {id:"streak_30",icon:"🌟",name:"LSAT Warrior",desc:"30-day study streak",check:(h,s)=>(s?.streak||0)>=30},
+  {id:"perfect_l4",icon:"💎",name:"Diamond Level",desc:"Get a Level 4 question correct",check:(h,s)=>h.some(q=>q.level===4&&q.correct)},
+  {id:"accuracy_80",icon:"🎖",name:"Sharp Mind",desc:"Maintain 80%+ accuracy over 20+ questions",check:(h,s)=>h.length>=20&&Math.round(h.filter(q=>q.correct).length/h.length*100)>=80},
+  {id:"all_lr",icon:"⚖",name:"LR Master",desc:"Answer all 10 LR question types",check:(h,s)=>{const t=new Set(h.filter(q=>q.section==="Logical Reasoning").map(q=>q.qType));return t.size>=10;}},
+  {id:"all_rc",icon:"📚",name:"RC Scholar",desc:"Answer all 7 RC question types",check:(h,s)=>{const t=new Set(h.filter(q=>q.section==="Reading Comprehension").map(q=>q.qType));return t.size>=7;}},
+  {id:"xp_500",icon:"🏆",name:"XP Hunter",desc:"Earn 500 total XP",check:(h,s)=>(s?.xp||0)>=500},
+  {id:"xp_2000",icon:"👑",name:"XP Royalty",desc:"Earn 2000 total XP",check:(h,s)=>(s?.xp||0)>=2000},
+  {id:"flaw_lab",icon:"🔍",name:"Flaw Finder",desc:"Complete your first Flaw Lab",check:(h,s)=>(s?.flawLabCount||0)>=1},
+  {id:"full_section",icon:"⏱",name:"Endurance",desc:"Complete a Full Section",check:(h,s)=>(s?.fullSectionCount||0)>=1},
+  {id:"daily_7",icon:"📅",name:"Daily Devotion",desc:"Complete 7 Daily Challenges",check:(h,s)=>(s?.dailyChallengesCompleted||0)>=7},
+];
 
+function checkBadges(history,stats,earnedBadges=[]){
+  return BADGES.filter(b=>!earnedBadges.includes(b.id)&&b.check(history,stats)).map(b=>b.id);
+}
+
+// ─── DB ───────────────────────────────────────────────────────────────────────
+const DB={
+  getUsers:()=>{try{return JSON.parse(localStorage.getItem("lumora_users")||"{}")}catch{return{}}},
+  saveUsers:(u)=>{try{localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
+  getSession:()=>{try{return localStorage.getItem("lumora_session")||null}catch{return null}},
+  saveSession:(e)=>{try{localStorage.setItem("lumora_session",e)}catch{}},
+  clearSession:()=>{try{localStorage.removeItem("lumora_session")}catch{}},
+  getUser:(e)=>{const u=DB.getUsers();return u[e]||null},
+  saveUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
+  getDailyChallenge:()=>{try{return JSON.parse(localStorage.getItem("lumora_daily")||"null")}catch{return null}},
+  saveDailyChallenge:(d)=>{try{localStorage.setItem("lumora_daily",JSON.stringify(d))}catch{}},
+};
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+let API_KEY="";
+try{API_KEY=import.meta.env.VITE_ANTHROPIC_API_KEY||"";}catch{API_KEY="";}
+
+async function callClaude(system,userMsg,maxTokens=1200){
+  if(!API_KEY)throw new Error("No API key configured. Add VITE_ANTHROPIC_API_KEY in Vercel environment variables.");
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages:[{role:"user",content:userMsg}]}),
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||"API error "+res.status);}
+  const data=await res.json();
+  const text=data.content?.map(i=>i.text||"").join("").trim();
+  if(!text)throw new Error("Empty response from API");
+  return text;
+}
+
+function parseJSON(raw){
+  // Remove markdown code fences if present
+  let clean=raw.trim();
+  if(clean.startsWith("```json"))clean=clean.slice(7);
+  else if(clean.startsWith("```"))clean=clean.slice(3);
+  if(clean.endsWith("```"))clean=clean.slice(0,-3);
+  return JSON.parse(clean.trim());
+}
 // ─── LEARN CURRICULUM (Comprehensive Interactive Textbook) ────────────────────
 const LEARN_CURRICULUM = {
   "Logical Reasoning": [
@@ -1613,40 +1675,6 @@ FINAL TIP: On comparative passage questions, always re-check which author the qu
 };
 
 
-// ─── USER STORE ───────────────────────────────────────────────────────────────
-const DB = {
-  getUsers:()=>{try{return JSON.parse(localStorage.getItem("lumora_users")||"{}")}catch{return{}}},
-  saveUsers:(u)=>{try{localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
-  getSession:()=>{try{return localStorage.getItem("lumora_session")||null}catch{return null}},
-  saveSession:(e)=>{try{localStorage.setItem("lumora_session",e)}catch{}},
-  clearSession:()=>{try{localStorage.removeItem("lumora_session")}catch{}},
-  getUser:(e)=>{const u=DB.getUsers();return u[e]||null},
-  saveUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
-  getDailyChallenge:()=>{try{return JSON.parse(localStorage.getItem("lumora_daily")||"null")}catch{return null}},
-  saveDailyChallenge:(d)=>{try{localStorage.setItem("lumora_daily",JSON.stringify(d))}catch{}},
-};
-
-// ─── API ──────────────────────────────────────────────────────────────────────
-let API_KEY="";
-try{API_KEY=import.meta.env.VITE_ANTHROPIC_API_KEY||"";}catch{API_KEY="";}
-
-async function callClaude(system,userMsg,maxTokens=1200){
-  if(!API_KEY)throw new Error("No API key configured. Add VITE_ANTHROPIC_API_KEY in Vercel environment variables.");
-  const res=await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages:[{role:"user",content:userMsg}]}),
-  });
-  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`API error ${res.status}`);}
-  const data=await res.json();
-  const text=data.content?.map(i=>i.text||"").join("").trim();
-  if(!text)throw new Error("Empty response from API");
-  return text;
-}
-function parseJSON(raw){
-  return JSON.parse(raw.replace(/^```json\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/i,"").trim());
-}
-
 // ─── DESIGN ───────────────────────────────────────────────────────────────────
 const C={
   bg:"#06080f",surface:"#0c1220",surfaceHigh:"#131c30",border:"#1c2744",
@@ -1768,143 +1796,74 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
   return `Generate a Level ${level} (1=easiest,4=hardest) LSAT ${sec} question of type: ${qType}. Student targets ${profile?.target_score||"165+"}. Match real LSAT difficulty for Level ${level} exactly. The scenario must be COMPLETELY DIFFERENT from any typical LSAT question — use an original, unexpected context.${avoidStr}`;
 }
 
+
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function Nav({screen,setScreen,user,onLogout}){
-  const pages=[
-    {id:"home",label:"Home",icon:"⌂"},
-    {id:"learn",label:"Learn",icon:"📖"},
-    {id:"practice",label:"Practice",icon:"🎯"},
-    {id:"writing",label:"Writing",icon:"✍️"},
-    {id:"flaw",label:"Flaw Lab",icon:"⚖️"},
-    {id:"fullsection",label:"Full Section",icon:"⏱"},
-    {id:"plan",label:"Plan",icon:"📋"},
-    {id:"dashboard",label:"Progress",icon:"📊"},
-  ];
+  const pages=[{id:"home",label:"Home",icon:"⌂"},{id:"learn",label:"Learn",icon:"📖"},{id:"practice",label:"Practice",icon:"🎯"},{id:"writing",label:"Writing",icon:"✍"},{id:"flaw",label:"Flaw Lab",icon:"⚖"},{id:"fullsection",label:"Full Section",icon:"⏱"},{id:"plan",label:"Plan",icon:"📋"},{id:"dashboard",label:"Progress",icon:"📊"}];
   return(
     <nav role="navigation" aria-label="Main navigation" style={{background:C.surface+"ee",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:100,gap:8}}>
       <button onClick={()=>setScreen("home")} aria-label="Home" style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
-        <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 16px #3a6bff44"}} aria-hidden="true">L</div>
-        <span style={{fontFamily:T.serif,fontSize:17,color:C.text,fontWeight:700,letterSpacing:"0.03em",display:"flex",gap:4}}><span style={{color:C.accent}}>Lumora</span><span>LSAT</span></span>
+        <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 16px #3a6bff44"}}>L</div>
+        <span style={{fontFamily:T.serif,fontSize:17,color:C.text,fontWeight:700,letterSpacing:"0.03em"}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
       </button>
       <div style={{display:"flex",gap:1,alignItems:"center",flexWrap:"wrap"}}>
-        {pages.map(p=><button key={p.id} onClick={()=>setScreen(p.id)} aria-current={screen===p.id?"page":undefined}
-          style={{background:screen===p.id?"linear-gradient(135deg,#3a6bff22,#a78bfa11)":"transparent",border:`1px solid ${screen===p.id?C.accent+"44":"transparent"}`,borderRadius:9,padding:"5px 11px",color:screen===p.id?C.accent:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans,fontWeight:screen===p.id?700:400,transition:"all 0.15s",outline:"none",display:"flex",alignItems:"center",gap:5}}>
-          <span style={{fontSize:12}}>{p.icon}</span>{p.label}
-        </button>)}
+        {pages.map(p=><button key={p.id} onClick={()=>setScreen(p.id)} aria-current={screen===p.id?"page":undefined} style={{background:screen===p.id?"linear-gradient(135deg,#3a6bff22,#a78bfa11)":"transparent",border:`1px solid ${screen===p.id?C.accent+"44":"transparent"}`,borderRadius:9,padding:"5px 11px",color:screen===p.id?C.accent:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans,fontWeight:screen===p.id?700:400,transition:"all 0.15s",outline:"none",display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:12}}>{p.icon}</span>{p.label}</button>)}
       </div>
       {user&&<div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-        {(user.stats?.streak||0)>0&&<div aria-label={`${user.stats.streak} day streak`} style={{display:"flex",alignItems:"center",gap:4,background:"#ff6b0018",border:"1px solid #ff6b0033",borderRadius:20,padding:"3px 10px"}}><span>🔥</span><span style={{fontSize:12,fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span></div>}
-        <button onClick={()=>setScreen("profile")} aria-label="Profile" style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-          <Avatar user={user} size={34}/>
-        </button>
-        <button onClick={onLogout} aria-label="Sign out" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>Out</button>
+        {(user.stats?.streak||0)>0&&<div style={{display:"flex",alignItems:"center",gap:4,background:"#ff6b0018",border:"1px solid #ff6b0033",borderRadius:20,padding:"3px 10px"}}><span>🔥</span><span style={{fontSize:12,fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span></div>}
+        <button onClick={()=>setScreen("profile")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}><Avatar user={user} size={34}/></button>
+        <button onClick={onLogout} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>Out</button>
       </div>}
     </nav>
   );
 }
 
-// ─── LANDING SCREEN ───────────────────────────────────────────────────────────
+// ─── LANDING ──────────────────────────────────────────────────────────────────
 function Landing({onGetStarted}){
   const [tick,setTick]=useState(0);
   useEffect(()=>{const i=setInterval(()=>setTick(t=>t+1),2800);return()=>clearInterval(i);},[]);
-  const taglines=[
-    {line1:"Think Like", line2:"a Lawyer."},
-    {line1:"Argue Like", line2:"a Pro."},
-    {line1:"Score What", line2:"You Deserve."},
-    {line1:"Built to Help You", line2:"Ace the LSAT."},
-  ];
-  const currentTag=taglines[tick%taglines.length];
-  const features=[
-    {icon:"🎯",title:"Infinite Practice",desc:"AI generates fresh questions every session — no question bank, no repeats, ever."},
-    {icon:"📖",title:"Interactive Lessons",desc:"Learn every question type from first principles with guided AI tutoring."},
-    {icon:"⚖️",title:"Flaw Lab",desc:"Spot hidden flaws in AI-generated legal arguments and get scored on your reasoning."},
-    {icon:"🧠",title:"Score Predictor",desc:"Real-time AI analysis projects your LSAT score range as you practice."},
-    {icon:"✍️",title:"2026 Writing",desc:"Full LSAC argumentative writing with guided prewriting and detailed AI feedback."},
-    {icon:"⏱",title:"Full Sections",desc:"35-minute timed simulations that ramp from Level 1 to Level 4."},
-  ];
+  const taglines=[{l1:"Think Like",l2:"a Lawyer."},{l1:"Argue Like",l2:"a Pro."},{l1:"Score What",l2:"You Deserve."},{l1:"Built to Help You",l2:"Ace the LSAT."}];
+  const tag=taglines[tick%taglines.length];
+  const features=[{icon:"🎯",title:"Infinite Practice",desc:"AI generates fresh questions every session — no question bank, no repeats, ever."},{icon:"📖",title:"Interactive Lessons",desc:"Learn every question type from first principles with 4 difficulty levels and AI tutoring."},{icon:"⚖",title:"Flaw Lab",desc:"Spot hidden flaws in AI-generated legal arguments and get scored on your reasoning."},{icon:"🧠",title:"Score Predictor",desc:"Real-time AI analysis projects your LSAT score range as you practice."},{icon:"✍",title:"2026 Writing",desc:"Full LSAC argumentative writing with guided prewriting and detailed AI feedback."},{icon:"⏱",title:"Full Sections",desc:"35-minute timed simulations that ramp from Level 1 to Level 4, starting instantly."}];
   return(
     <div style={{minHeight:"100vh",background:C.bg,overflow:"hidden",position:"relative"}}>
-      {/* Animated background orbs */}
       <div style={{position:"fixed",inset:0,overflow:"hidden",pointerEvents:"none",zIndex:0}}>
         <div style={{position:"absolute",width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,#3a6bff18 0%,transparent 70%)",top:-100,left:-100,animation:"float1 8s ease-in-out infinite"}}/>
         <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,#a78bfa14 0%,transparent 70%)",top:"30%",right:-150,animation:"float2 10s ease-in-out infinite"}}/>
         <div style={{position:"absolute",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,#f5c84210 0%,transparent 70%)",bottom:-50,left:"30%",animation:"float3 12s ease-in-out infinite"}}/>
-        <style>{`
-          @keyframes float1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,30px) scale(1.05)}}
-          @keyframes float2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-30px,40px) scale(0.97)}}
-          @keyframes float3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-30px) scale(1.03)}}
-          @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-          @keyframes tagSwitch{0%{opacity:0;transform:translateY(10px)}15%,85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-10px)}}
-          @keyframes spin{to{transform:rotate(360deg)}}
-          @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-          *:focus-visible{outline:2px solid ${C.accent}!important;outline-offset:2px!important;}
-        `}</style>
+        <style>{`@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,30px)}} @keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-30px,40px)}} @keyframes float3{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-30px)}} @keyframes tagSwitch{0%{opacity:0;transform:translateY(10px)}15%,85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-10px)}} @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}} *:focus-visible{outline:2px solid #4f7fff!important;outline-offset:2px!important;}`}</style>
       </div>
-
       <div style={{position:"relative",zIndex:1,maxWidth:1000,margin:"0 auto",padding:"0 24px"}}>
-        {/* Hero */}
         <div style={{textAlign:"center",paddingTop:"clamp(60px,10vh,120px)",paddingBottom:80,animation:"fadeUp 0.8s ease both"}}>
-          {/* Logo mark */}
           <div style={{display:"inline-flex",alignItems:"center",gap:12,marginBottom:40,padding:"8px 20px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:40}}>
             <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 20px #3a6bff55"}}>L</div>
-            <span style={{fontFamily:T.serif,fontSize:18,fontWeight:700,color:C.text,letterSpacing:"0.03em"}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
+            <span style={{fontFamily:T.serif,fontSize:18,fontWeight:700,color:C.text}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
             <span style={{fontSize:11,fontWeight:700,color:C.accent,background:C.accentSoft,padding:"2px 8px",borderRadius:20,letterSpacing:"0.08em",textTransform:"uppercase"}}>Beta</span>
           </div>
-
-          {/* Headline */}
           <h1 style={{fontFamily:T.serif,fontSize:"clamp(38px,7vw,80px)",fontWeight:700,color:C.text,lineHeight:1.1,marginBottom:20}}>
             <span key={tick} style={{display:"block",animation:"tagSwitch 2.8s ease both"}}>
-              <span style={{display:"block",background:"linear-gradient(135deg,#4f7fff,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{currentTag.line1}</span>
-              <span style={{display:"block",background:"linear-gradient(135deg,#a78bfa,#f472b6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{currentTag.line2}</span>
+              <span style={{display:"block",background:"linear-gradient(135deg,#4f7fff,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{tag.l1}</span>
+              <span style={{display:"block",background:"linear-gradient(135deg,#a78bfa,#f472b6)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{tag.l2}</span>
             </span>
           </h1>
-
-          <p style={{fontSize:"clamp(16px,2.5vw,20px)",color:C.textSub,maxWidth:560,margin:"0 auto 48px",lineHeight:1.8}}>
-            AI-powered adaptive learning, infinite practice questions, interactive lessons for every question type, and real-time score prediction. Built for students who want to win.
-          </p>
-
+          <p style={{fontSize:"clamp(16px,2.5vw,20px)",color:C.textSub,maxWidth:560,margin:"0 auto 48px",lineHeight:1.8}}>AI-powered adaptive learning, infinite practice questions, interactive lessons for every question type, and real-time score prediction. Built for students who want to win.</p>
           <div style={{display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}}>
-            <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"18px 44px",fontSize:17,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55",transition:"all 0.2s",letterSpacing:"0.02em"}}>
-              Start for Free →
-            </button>
-            <button onClick={onGetStarted} style={{background:"transparent",color:C.textSub,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 32px",fontSize:16,cursor:"pointer",fontFamily:T.sans,transition:"all 0.2s"}}>
-              Sign In
-            </button>
+            <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"18px 44px",fontSize:17,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55"}}>Start for Free →</button>
+            <button onClick={onGetStarted} style={{background:"transparent",color:C.textSub,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 32px",fontSize:16,cursor:"pointer",fontFamily:T.sans}}>Sign In</button>
           </div>
-
-          {/* Social proof */}
           <div style={{marginTop:40,display:"flex",alignItems:"center",justifyContent:"center",gap:24,flexWrap:"wrap"}}>
-            {[["∞","Unique Questions"],["17","Question Types"],["2026","LSAC Format"],["AI","Score Predictor"]].map(([v,l])=>(
-              <div key={l} style={{textAlign:"center"}}>
-                <div style={{fontSize:22,fontWeight:900,color:C.accent,fontFamily:T.serif}}>{v}</div>
-                <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{l}</div>
-              </div>
-            ))}
+            {[["∞","Unique Questions"],["17","Question Types"],["2026","LSAC Format"],["AI","Score Predictor"]].map(([v,l])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:22,fontWeight:900,color:C.accent,fontFamily:T.serif}}>{v}</div><div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{l}</div></div>)}
           </div>
         </div>
-
-        {/* Feature grid */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,marginBottom:80,animation:"fadeUp 0.8s ease 0.2s both",opacity:0,animationFillMode:"forwards"}}>
-          {features.map((f,i)=>(
-            <div key={f.title} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:"28px 24px",transition:"all 0.2s",animationDelay:`${i*0.05}s`}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent+"66";e.currentTarget.style.transform="translateY(-2px)";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}>
-              <div style={{fontSize:32,marginBottom:14}}>{f.icon}</div>
-              <div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:8}}>{f.title}</div>
-              <div style={{fontSize:14,color:C.textMuted,lineHeight:1.65}}>{f.desc}</div>
-            </div>
-          ))}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,marginBottom:80}}>
+          {features.map((f,i)=><div key={f.title} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:"28px 24px",transition:"all 0.2s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent+"66";e.currentTarget.style.transform="translateY(-2px)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}><div style={{fontSize:32,marginBottom:14}}>{f.icon}</div><div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:8}}>{f.title}</div><div style={{fontSize:14,color:C.textMuted,lineHeight:1.65}}>{f.desc}</div></div>)}
         </div>
-
-        {/* CTA */}
-        <div style={{textAlign:"center",paddingBottom:80,animation:"fadeUp 0.8s ease 0.4s both",opacity:0,animationFillMode:"forwards"}}>
+        <div style={{textAlign:"center",paddingBottom:80}}>
           <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}33`,borderRadius:24,padding:"48px 32px",maxWidth:600,margin:"0 auto"}}>
-            <div style={{fontSize:32,marginBottom:16}}>⚖️</div>
+            <div style={{fontSize:32,marginBottom:16}}>⚖</div>
             <h2 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginBottom:12,fontWeight:700}}>Ready to dominate the LSAT?</h2>
             <p style={{color:C.textSub,fontSize:15,marginBottom:28,lineHeight:1.7}}>Create your free account and start your personalized prep today. No credit card required.</p>
-            <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"16px 40px",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55"}}>
-              Get Started Free →
-            </button>
+            <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"16px 40px",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55"}}>Get Started Free →</button>
           </div>
         </div>
       </div>
@@ -1928,7 +1887,7 @@ function Auth({onLogin}){
       if(!email.includes("@")){setError("Please enter a valid email.");setLoading(false);return;}
       if(password.length<6){setError("Password must be at least 6 characters.");setLoading(false);return;}
       if(users[email.toLowerCase()]){setError("An account already exists with this email.");setLoading(false);return;}
-      const u={name:name.trim(),email:email.toLowerCase(),password,avatarColor:Math.floor(Math.random()*8),avatarEmoji:"",diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},stats:{xp:0,streak:0,lastDay:null}};
+      const u={name:name.trim(),email:email.toLowerCase(),password,avatarColor:Math.floor(Math.random()*8),avatarEmoji:"",diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},earnedBadges:[],stats:{xp:0,streak:0,lastDay:null}};
       DB.saveUser(email.toLowerCase(),u);DB.saveSession(email.toLowerCase());onLogin(u);
     }else{
       const u=users[email.toLowerCase()];
@@ -1977,33 +1936,21 @@ function Diagnostic({user,onComplete}){
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:520}}>
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>Welcome, {user.name.split(" ")[0]}! 👋</div>
-          <p style={{color:C.textMuted,fontSize:14,marginTop:6,lineHeight:1.6}}>Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you.</p>
-        </div>
-        <div style={{marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12,color:C.textMuted}}><span>Building your profile</span><span>{progress}%</span></div>
-          <div style={{background:C.surfaceHigh,borderRadius:6,height:5}} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-            <div style={{height:"100%",width:`${progress}%`,background:`linear-gradient(90deg,${C.accent},${C.purple})`,borderRadius:6,transition:"width 0.4s ease"}}/>
-          </div>
-        </div>
+        <div style={{textAlign:"center",marginBottom:24}}><div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>Welcome, {user.name.split(" ")[0]}!</div><p style={{color:C.textMuted,fontSize:14,marginTop:6,lineHeight:1.6}}>Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you.</p></div>
+        <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12,color:C.textMuted}}><span>Building your profile</span><span>{progress}%</span></div><div style={{background:C.surfaceHigh,borderRadius:6,height:5}} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div style={{height:"100%",width:`${progress}%`,background:"linear-gradient(90deg,#4f7fff,#a78bfa)",borderRadius:6,transition:"width 0.4s ease"}}/></div></div>
         <Card>
           <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontWeight:700}}>Question {step+1} of {DIAGNOSTIC_QUESTIONS.length}</div>
           <h2 style={{fontSize:17,color:C.text,marginBottom:20,lineHeight:1.45,fontWeight:600}}>{q.q}</h2>
           {q.type==="single"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{q.options.map(opt=><Pill key={opt} active={answers[q.id]===opt} onClick={()=>setAnswers(a=>({...a,[q.id]:opt}))}>{opt}</Pill>)}</div>}
           {q.type==="multi"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{q.options.map(opt=><Pill key={opt} active={(answers[q.id]||[]).includes(opt)} onClick={()=>toggleMulti(q.id,opt)}>{opt}</Pill>)}</div>}
-          {q.type==="scale"&&<div>
-            <div style={{display:"flex",gap:10,marginBottom:8}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setAnswers(a=>({...a,[q.id]:n}))} aria-label={`${n} of 5`} aria-pressed={answers[q.id]===n} style={{flex:1,aspectRatio:"1",borderRadius:12,border:`2px solid ${answers[q.id]===n?C.accent:C.border}`,background:answers[q.id]===n?C.accentSoft:"transparent",color:answers[q.id]===n?C.accent:C.textMuted,fontSize:18,fontWeight:700,cursor:"pointer",transition:"all 0.15s",outline:"none"}}>{n}</button>)}</div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted}}><span>Not comfortable</span><span>Very comfortable</span></div>
-          </div>}
-          <div style={{marginTop:22}}><Btn onClick={next} disabled={!canNext()} style={{width:"100%"}}>{step===DIAGNOSTIC_QUESTIONS.length-1?"Finish & Start Learning →":"Continue →"}</Btn></div>
+          {q.type==="scale"&&<div><div style={{display:"flex",gap:10,marginBottom:8}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setAnswers(a=>({...a,[q.id]:n}))} aria-pressed={answers[q.id]===n} style={{flex:1,aspectRatio:"1",borderRadius:12,border:`2px solid ${answers[q.id]===n?C.accent:C.border}`,background:answers[q.id]===n?C.accentSoft:"transparent",color:answers[q.id]===n?C.accent:C.textMuted,fontSize:18,fontWeight:700,cursor:"pointer",transition:"all 0.15s",outline:"none"}}>{n}</button>)}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted}}><span>Not comfortable</span><span>Very comfortable</span></div></div>}
+          <div style={{marginTop:22}}><Btn onClick={next} disabled={!canNext()} style={{width:"100%"}}>{step===DIAGNOSTIC_QUESTIONS.length-1?"Finish & Enter Lumora LSAT →":"Continue →"}</Btn></div>
         </Card>
       </div>
     </div>
   );
 }
 
-// ─── PROFILE ──────────────────────────────────────────────────────────────────
 function Profile({user,onUpdateUser,onLogout,setScreen}){
   const [name,setName]=useState(user.name);
   const [saved,setSaved]=useState(false);
@@ -2097,6 +2044,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen}){
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 // ─── DAILY CHALLENGE ─────────────────────────────────────────────────────────
+
 function DailyChallenge({user,onUpdateUser}){
   const [challenge,setChallenge]=useState(null);
   const [loading,setLoading]=useState(false);
@@ -2287,6 +2235,7 @@ function Home({user,setScreen,onUpdateUser}){
 }
 
 // ─── LEARN SECTION ────────────────────────────────────────────────────────────
+
 function Learn({user,onUpdateUser}){
   const [selected,setSelected]=useState(null); // {section, typeObj}
   const [activeSection,setActiveSection]=useState("Logical Reasoning");
@@ -2532,6 +2481,7 @@ Respond ONLY with valid JSON (no markdown):
 
 
 // ─── QUEUE HOOK (with streaming delivery + duplicate prevention) ──────────────
+
 function useQueue(user,section,level,qType,adaptive){
   const history=user.history||[];
   const [queue,setQueue]=useState([]);
@@ -2879,6 +2829,7 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
 }
 
 // ─── FLAW LAB (AI-generated fresh arguments) ──────────────────────────────────
+
 function FlawLab({user,onUpdateUser}){
   const [phase,setPhase]=useState("config");
   const [seedIdx,setSeedIdx]=useState(0);
@@ -3060,6 +3011,7 @@ Respond ONLY with valid JSON:
 }
 
 // ─── WRITING (AI-generated fresh prompt variations) ────────────────────────────
+
 function Writing(){
   const [phase,setPhase]=useState("config");
   const [seedIdx,setSeedIdx]=useState(0);
@@ -3266,6 +3218,7 @@ Respond ONLY with valid JSON:
 }
 
 // ─── FULL SECTION (streaming delivery) ────────────────────────────────────────
+
 function FullSection({user,onUpdateUser}){
   const [phase,setPhase]=useState("config");
   const [sel,setSel]=useState("Logical Reasoning");
@@ -3405,6 +3358,7 @@ function FullSection({user,onUpdateUser}){
 }
 
 // ─── STUDY PLAN ───────────────────────────────────────────────────────────────
+
 function StudyPlan({user,onUpdateUser}){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
@@ -3587,6 +3541,7 @@ function Dashboard({user,onUpdateUser}){
 }
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
+
 export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
@@ -3621,32 +3576,39 @@ export default function App(){
     });
   },[]);
 
-  if(!ready)return <div style={{background:C.bg,minHeight:"100vh"}}/>;
+  const autoGenerateStudyPlan=async(u)=>{
+    try{
+      const d=u.diagnostic||{};
+      const weakTypes=(d.weak_types||[]).join(",");
+      const sys="You are an expert LSAT tutor. Respond ONLY with valid JSON — no markdown, no text outside the JSON.";
+      const msg="Create a personalized LSAT study plan. Return ONLY this JSON: {\"summary\":\"3-4 sentence personalized assessment\",\"target_score\":\""+
+        (d.target_score||"165+")+"\",\"timeline\":\""+
+        (d.test_date||"flexible")+"\",\"weekly_hours\":\""+
+        (d.study_hours||"flexible")+"\",\"phases\":[{\"name\":\"Phase 1\",\"duration\":\"2 weeks\",\"focus\":\"Foundation building\",\"tasks\":[\"Complete Learn lessons for weakest types\",\"10 practice questions daily\",\"Review all wrong answers carefully\"]}],\"daily_routine\":[\"Morning: 30 min Learn section\",\"Afternoon: 20 min Practice\",\"Evening: Review notes and wrong answers\"],\"priority_areas\":[\""+
+        (weakTypes||"Identify weak areas through practice")+"\",\"Timed practice under test conditions\",\"Full section simulations\"],\"milestone\":\"At the halfway point you should be consistently scoring above 70% on Level 3 questions\"}. Student: name="+
+        u.name+", target="+(d.target_score||"165+")+", hrs/wk="+(d.study_hours||"unknown")+", challenge="+(d.biggest_challenge||"unknown")+".";
+      const raw=await callClaude(sys,msg,1200);
+      const plan=parseJSON(raw);
+      const updated={...u,studyPlan:plan};
+      try{DB.saveUser(updated.email,updated);}catch{}
+      setUser(updated);
+    }catch(e){console.warn("Auto study plan:",e.message);}
+  };
 
-  // Not logged in
+  if(!ready)return <div style={{background:"#06080f",minHeight:"100vh"}}/>;
+
   if(!user){
     if(screen==="auth")return <Auth onLogin={handleLogin}/>;
     return <Landing onGetStarted={()=>setScreen("auth")}/>;
   }
 
-  // Diagnostic
   if(!user.diagnosticDone){
-    return <Diagnostic user={user} onComplete={async(answers)=>{
+    return <Diagnostic user={user} onComplete={(answers)=>{
       const u={...user,diagnostic:answers,diagnosticDone:true};
       try{DB.saveUser(u.email,u);}catch{}
-      setUser(u);setScreen("home");
-      // Auto-generate study plan in background
-      try{
-        const d=answers||{};
-        const sys=`You are an expert LSAT tutor. Respond ONLY with valid JSON.`;
-        const msg=`Create a personalized LSAT study plan. Profile: name=${u.name}, target=${d.target_score||"165+"}, timeline=${d.test_date||"unknown"}, hrs/wk=${d.study_hours||"unknown"}, challenge=${d.biggest_challenge||"unknown"}, LR=${d.lr_comfort||"?"}/5, RC=${d.rc_comfort||"?"}/5, Writing=${d.writing_comfort||"?"}/5, weak=${(d.weak_types||[]).join(",")||"assessing"}.
-Return ONLY this JSON: {"summary":"3-4 sentence personalized assessment","target_score":"${d.target_score||"165+"}","timeline":"${d.test_date||"flexible"}","weekly_hours":"${d.study_hours||"flexible"}","phases":[{"name":"...","duration":"X weeks","focus":"...","tasks":["...","...","...","..."]}],"daily_routine":["Morning: ...","Afternoon: ...","Evening: ..."],"priority_areas":["most important","second","third"],"milestone":"Specific measurable halfway success description"}`;
-        const raw=await callClaude(sys,msg,1600);
-        const plan=parseJSON(raw);
-        const u2={...u,studyPlan:plan};
-        try{DB.saveUser(u2.email,u2);}catch{}
-        setUser(u2);
-      }catch(e){console.warn("Auto study plan failed:",e.message);}
+      setUser(u);
+      setScreen("home");
+      autoGenerateStudyPlan(u);
     }}/>;
   }
 
@@ -3666,17 +3628,7 @@ Return ONLY this JSON: {"summary":"3-4 sentence personalized assessment","target
 
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans}}>
-      <style>{`
-        *{box-sizing:border-box;}
-        body{margin:0;}
-        *:focus-visible{outline:2px solid ${C.accent}!important;outline-offset:2px!important;}
-        button,input,textarea,select{font-family:${T.sans};}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-        @media(max-width:640px){
-          nav{height:auto!important;flex-wrap:wrap!important;padding:8px 12px!important;}
-        }
-      `}</style>
+      <style>{`*{box-sizing:border-box;}body{margin:0;}button,input,textarea,select{font-family:inherit;}`}</style>
       {screen!=="profile"&&<Nav screen={screen} setScreen={setScreen} user={user} onLogout={handleLogout}/>}
       {pages[screen]||pages.home}
     </div>
