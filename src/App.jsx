@@ -3470,7 +3470,7 @@ function StudyPlan({user,onUpdateUser}){
       "Strong Types: "+(strongTypes.join(", ")||"still assessing"),
     ].join(", ");
     const sys="You are an expert LSAT tutor. Respond ONLY with a valid JSON object. No markdown, no explanation, no text before or after the JSON.";
-    const prompt="Create a personalized LSAT study plan. Student: "+profile+". Return this exact JSON structure with your content filled in: {"summary":"your 3-4 sentence assessment here","target_score":""+( d.target_score||"165+")+"","timeline":""+(d.test_date||"flexible")+"","weekly_hours":""+(d.study_hours||"flexible")+"","phases":[{"name":"Phase name","duration":"X weeks","focus":"what this develops","tasks":["task 1","task 2","task 3"]}],"daily_routine":["Morning routine","Afternoon routine","Evening routine"],"priority_areas":["first priority","second priority","third priority"],"milestone":"halfway success description"}";
+    const prompt="Create a personalized LSAT study plan for this student: "+profile+". Respond with a JSON object containing these exact keys: summary (3-4 sentence assessment), target_score (their target), timeline (their timeline), weekly_hours (their hours), phases (array of objects with name/duration/focus/tasks array), daily_routine (array of 3 strings), priority_areas (array of 3 strings), milestone (string describing halfway success). Make it specific and actionable for this student.";
     try{
       const raw=await callClaude(sys,prompt,1400);
       onUpdateUser({studyPlan:parseJSON(raw)});
