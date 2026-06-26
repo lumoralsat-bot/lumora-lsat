@@ -1844,14 +1844,23 @@ const PRACTICE_SYSTEM=(function(){
 
   s+=" TYPE 8 — EDITORIAL / NORMATIVE CLAIM: An editorial or policy claim with a stated goal and supporting reasoning. Real PT example: 'City leader: If our city adopts the new tourism plan, the amount of money that tourists spend here annually will increase by at least $2 billion, creating as many jobs as a new automobile manufacturing plant would. It would be reasonable for the city to spend the amount of money necessary to convince an automobile manufacturer to build a plant here, but adopting the tourism plan would cost less.' [PT76 Section II Q17]";
 
+  s+=" ===== STIMULUS WORD COUNT — HARD REQUIREMENT =====";
+  s+=" LSAT LR stimuli have a precise, well-documented length range. You MUST stay within it.";
+  s+=" Level 1: 35-55 words. Level 2: 45-65 words. Level 3: 55-75 words. Level 4: 65-90 words MAXIMUM.";
+  s+=" The documented average across official LSAT LR stimuli is 50-70 words. Never exceed 90 words.";
+  s+=" If your draft exceeds 90 words, cut it before responding. Long stimuli are the #1 sign of a fake LSAT question.";
+  s+=" Real PT word counts for reference: 'In the bodies of reptiles...' = 67 words. 'The Asian elephant walks...' = 47 words. 'A study showed that people who live on very busy streets...' = 44 words. 'Owing to global economic forces since 1945...' = 52 words.";
+  s+=" Each answer choice: 10-25 words. No answer choice exceeds 30 words.";
+  s+=" Higher difficulty (Level 4) means subtler logic and trickier distractors — NOT longer text.";
+
   s+=" ===== STIMULUS CONSTRUCTION RULES =====";
-  s+=" - Length: 2-5 sentences for LR. Dense and specific. No padding.";
+  s+=" - Length: 2-4 sentences ONLY. Every word must earn its place. No filler.";
   s+=" - Opening: Begin with a FACT, STATISTIC, OBSERVATION, or LABELED PROFESSIONAL — NEVER with a named person's belief.";
   s+=" - Numbers: Use specific figures when they strengthen realism: '25 percent,' 'three times,' 'over the past decade,' '$30.'";
   s+=" - Quantifiers: Be precise — 'most,' 'some,' 'all,' 'no,' 'only,' 'few,' 'several.' Never vague.";
   s+=" - Conclusion markers: The conclusion follows 'thus,' 'therefore,' 'so,' 'hence,' 'this shows that,' 'consequently.'";
-  s+=" - The LOGICAL GAP is the heart of the question. Evidence → Gap → Conclusion. Make the gap exploitable.";
-  s+=" - Level calibration: Level 1 = simple everyday gap, obvious answer. Level 4 = PT 70-80 density, subtle gap, tricky distractors.";
+  s+=" - The LOGICAL GAP is the heart of the question. Evidence then Gap then Conclusion. Make the gap exploitable.";
+  s+=" - Level calibration: Level 1 = simple everyday gap, obvious answer. Level 4 = subtle gap, tricky distractors — still under 90 words.";
 
   s+=" ===== ANSWER CHOICE CONSTRUCTION RULES =====";
   s+=" - Exactly one correct answer. Four wrong answers that are plausible but fail for precise, nameable reasons.";
@@ -1896,11 +1905,14 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
     stimType=allTypes[Math.floor(Math.random()*allTypes.length)];
   }
 
+  // Word count targets by level
+  var wcTarget=level===1?"35-55":level===2?"45-65":level===3?"55-75":"65-90";
   return "Generate a Level "+level+" (1=simplest, 4=official LSAT difficulty) LSAT "+sec+" question of type: "+qType+
     ". SET THE SCENARIO IN: "+domain+". USE STIMULUS STRUCTURE: "+stimType+"."+domainBlock+topicBlock+
-    " Level 1: simple everyday language, obvious gap, clear conclusion. Level 4: match the exact density, complexity, and subtle logical gaps of official LSAT PrepTests 70-80. Tricky distractors at Level 4."+
+    " WORD COUNT REQUIREMENT: The LR stimulus must be "+wcTarget+" words total. Count words before outputting. Never exceed the upper limit."+
+    " Higher difficulty means subtler logic and trickier distractors, NOT more words. Level 4 is still under 90 words."+
     " Student's target score: "+(profile?.target_score||"165+")+"."+
-    (sec==="Reading Comprehension"?" For RC: write a 200-350 word passage on '"+domain+"' with a clear author stance, structured like real LSAT RC (specific claim + support + nuance). Then create a "+qType+" question with 5 choices. No generic AI passage openings like 'In recent years...' — open with a specific claim or observation instead.":" CRITICAL FOR LR: Your stimulus must NOT open with a named person's belief. Open with a fact, observation, statistic, research finding, or labeled professional making a specific claim. The stimulus must have a clear conclusion marked by 'thus,' 'therefore,' 'so,' or 'hence.' The logical gap between evidence and conclusion is what the question tests.");}
+    (sec==="Reading Comprehension"?" For RC: write a passage of 430-500 words on '"+domain+"'. Open with a specific claim or observation (not 'In recent years...'), develop a clear author stance, include one nuance or complication. Then write a single "+qType+" question with 5 answer choices each 10-25 words.":" CRITICAL FOR LR: Open with a fact, observation, statistic, or labeled professional — NEVER a named person's belief. Include a clear conclusion signaled by 'thus,' 'therefore,' 'so,' or 'hence.' The logical gap between evidence and conclusion is the entire point of the question.");}
 
 
 
