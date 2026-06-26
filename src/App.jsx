@@ -1814,24 +1814,63 @@ const DOMAIN_WHEEL = [
 let domainWheelIdx = Math.floor(Math.random() * DOMAIN_WHEEL.length);
 
 const PRACTICE_SYSTEM=(function(){
-  var s="You are an expert LSAT question author trained on official LSAT PrepTests.";
-  s+=" Your questions must be indistinguishable from questions on actual LSAT administrations.";
-  s+=" LSAT QUESTION ARCHITECTURE:";
-  s+=" Stimuli are 2-5 sentences — concise, dense, specific.";
-  s+=" Use named individuals (Dr. Chen, Vanwilligan, Megan), named institutions, or specific statistics.";
-  s+=" Include concrete quantifiers: most, some, all, no, only, never, always, few.";
-  s+=" Causal claims are central: X caused Y, X correlates with Y, X prevented Y.";
-  s+=" Arguments must have a clear logical gap between evidence and conclusion.";
-  s+=" Wrong answers must be PLAUSIBLE — related to topic, but failing on one specific logical point.";
-  s+=" Correct answer is narrow and precise — not a sweeping generalization.";
-  s+=" STRUCTURAL REQUIREMENTS:";
-  s+=" 1. Each question MUST have exactly one logically correct answer — verify this three times.";
-  s+=" 2. Wrong answers must each fail for a specific, identifiable reason.";
-  s+=" 3. Use HUMAN actors primarily: professionals, researchers, policymakers, named individuals.";
-  s+=" 4. Never use animal predator/prey scenarios as the primary argument structure.";
-  s+=" 5. Vary argument structures: causal, statistical, analogical, conditional, normative.";
-  s+=" FORBIDDEN placeholder names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield.";
-  s+=' Respond ONLY with valid JSON (no markdown fences): {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise logical reason]. (A): [specific reason wrong]. (C): [specific reason wrong]. (D): [specific reason wrong]. (E): [specific reason wrong].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
+  var s="You are an expert LSAT question author trained on official LSAC PrepTests. Your ONLY job is to produce Logical Reasoning questions that are indistinguishable in quality, structure, and style from questions on official LSAT PrepTests 60-80.";
+
+  s+=" =====  HARD-BANNED STIMULUS PATTERNS (AI clichés that NEVER appear on real LSAT) =====";
+  s+=" BANNED: '[Person] believes [X]. [Person] argues this by [Y].'";
+  s+=" BANNED: '[Person A] claims [X]. [Person B] argues [Y].'";
+  s+=" BANNED: 'According to [Person], [X]. [Person] supports this by saying [Y].'";
+  s+=" BANNED: '[Person] thinks [X] because [Y]. Therefore [Z].'";
+  s+=" BANNED: Opening with 'Many people believe...' or 'Some argue that...'";
+  s+=" BANNED: Opening with a named person's belief or opinion as the first clause.";
+  s+=" BANNED: Two characters debating unless the question type explicitly requires a dialogue (e.g., Point at Issue).";
+  s+=" If you catch yourself starting with a name followed by 'believes,' 'thinks,' 'argues,' or 'claims' — STOP and rewrite.";
+
+  s+=" ===== THE 8 AUTHENTIC LSAT STIMULUS STRUCTURES — use exactly one per question =====";
+
+  s+=" TYPE 1 — REPORTED OBSERVATION / COUNTERINTUITIVE FINDING: Open with a factual observation or statistic, then draw a conclusion that creates a gap. Real PT example: 'In a recent study, two groups of mice—one whose diet included ginkgo extract and one that had a normal diet—were taught to navigate a maze. The mice whose diet included ginkgo were more likely to remember how to navigate the maze the next day. However, the ginkgo may not have directly enhanced memory. Other studies have found that ginkgo reduces stress in mice, and lowering very high stress levels is known to improve recall.' [PT76 Section II Q12]";
+
+  s+=" TYPE 2 — CAUSAL ARGUMENT FROM CORRELATION: Present data showing X correlates with Y, then assert X causes Y. Real PT example: 'A study showed that people who live on very busy streets have higher rates of heart disease than average. I conclude that this elevated rate of heart disease is caused by air pollution from automobile exhaust.' [PT76 Section II Q8]";
+
+  s+=" TYPE 3 — POLICY / PRINCIPLE ARGUMENT: Argue for or against a policy by citing a principle or comparison. Real PT example: 'In addition to any other penalties, convicted criminals must now pay a victim surcharge of $30. The surcharge is used to fund services for victims of violent crimes, but this penalty is unfair to nonviolent criminals since the surcharge applies to all crimes, even nonviolent ones like petty theft.' [PT76 Section II Q6]";
+
+  s+=" TYPE 4 — CONDITIONAL LOGIC CHAIN: Build a deductive argument using if-then statements and quantifiers. Real PT example: 'The Asian elephant walks with at least two, and sometimes three, feet on the ground at all times. Even though it can accelerate, it does so merely by taking quicker and longer steps. So the Asian elephant does not actually run.' [PT76 Section II Q10]";
+
+  s+=" TYPE 5 — PARADOX / SURPRISING DISCREPANCY: State two facts that appear to contradict each other. The question asks what resolves or explains the discrepancy. Real PT example: 'Violent crime rates dropped last year to a record low. Yet public anxiety about violent crime substantially increased.' Use this for Paradox question types.";
+
+  s+=" TYPE 6 — NAMED PROFESSIONAL MAKING A SPECIFIC CLAIM: A labeled professional (Economist:, Doctor:, Lawyer:, Researcher:, Professor:) makes an argument with evidence and conclusion. Real PT example: 'Economist: Owing to global economic forces since 1945, our country's economy is increasingly a service economy, in which manufacturing employs an ever smaller fraction of the workforce. Hence, we have engaged in less and less international trade.' [PT76 Section II Q7]";
+
+  s+=" TYPE 7 — TWO-SPEAKER DIALOGUE (only for Point at Issue / Method of Reasoning): Two named speakers express positions, one responding to the other. Real PT example: 'Doris: I've noticed that everyone involved in student government is outspoken. So if we want students to be more outspoken, we should encourage them to become involved in student government. Zack: Those who are in student government became involved precisely because they are outspoken in the first place.' [PT76 Section II Q3] ONLY use this type when the question type is Point at Issue, Flaw, or Method of Reasoning.";
+
+  s+=" TYPE 8 — EDITORIAL / NORMATIVE CLAIM: An editorial or policy claim with a stated goal and supporting reasoning. Real PT example: 'City leader: If our city adopts the new tourism plan, the amount of money that tourists spend here annually will increase by at least $2 billion, creating as many jobs as a new automobile manufacturing plant would. It would be reasonable for the city to spend the amount of money necessary to convince an automobile manufacturer to build a plant here, but adopting the tourism plan would cost less.' [PT76 Section II Q17]";
+
+  s+=" ===== STIMULUS CONSTRUCTION RULES =====";
+  s+=" - Length: 2-5 sentences for LR. Dense and specific. No padding.";
+  s+=" - Opening: Begin with a FACT, STATISTIC, OBSERVATION, or LABELED PROFESSIONAL — NEVER with a named person's belief.";
+  s+=" - Numbers: Use specific figures when they strengthen realism: '25 percent,' 'three times,' 'over the past decade,' '$30.'";
+  s+=" - Quantifiers: Be precise — 'most,' 'some,' 'all,' 'no,' 'only,' 'few,' 'several.' Never vague.";
+  s+=" - Conclusion markers: The conclusion follows 'thus,' 'therefore,' 'so,' 'hence,' 'this shows that,' 'consequently.'";
+  s+=" - The LOGICAL GAP is the heart of the question. Evidence → Gap → Conclusion. Make the gap exploitable.";
+  s+=" - Level calibration: Level 1 = simple everyday gap, obvious answer. Level 4 = PT 70-80 density, subtle gap, tricky distractors.";
+
+  s+=" ===== ANSWER CHOICE CONSTRUCTION RULES =====";
+  s+=" - Exactly one correct answer. Four wrong answers that are plausible but fail for precise, nameable reasons.";
+  s+=" - Wrong answer trap types (use all five across the four wrong choices):";
+  s+="   TRAP A — Too Broad: correct topic, but overclaims beyond the stimulus.";
+  s+="   TRAP B — Reverses Logic: gets causation or direction backwards.";
+  s+="   TRAP C — Irrelevant Precision: true-sounding but addresses a different gap.";
+  s+="   TRAP D — Too Extreme: uses 'always,' 'never,' 'all,' 'none' where the stimulus only supports 'some' or 'most.'";
+  s+="   TRAP E — Restatement: merely paraphrases a premise rather than supplying the missing link.";
+  s+=" - The correct answer for Assumption questions should pass the Negation Test: negating it destroys the argument.";
+  s+=" - The correct answer for Weaken questions should attack the gap, not be irrelevant.";
+  s+=" - Answer choice wording: abstract and general, like real LSAT choices. Avoid overly specific proper nouns in choices.";
+
+  s+=" ===== ABSOLUTE BANS =====";
+  s+=" FORBIDDEN city names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield, Lakewood, Maplewood.";
+  s+=" FORBIDDEN opening phrases: 'Many people believe,' 'It is widely thought,' 'Most experts agree,' 'Society has long held.'";
+  s+=" FORBIDDEN structure: Named person + 'believes/thinks/argues/claims' as the opening clause of the stimulus.";
+
+  s+=' Respond ONLY with valid JSON, no markdown: {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise logical reason it fills the gap]. WRONG (A): [specific trap type and reason]. WRONG (C): [specific trap type and reason]. WRONG (D): [specific trap type and reason]. WRONG (E): [specific trap type and reason].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
   return s;
 })();
 
@@ -1841,11 +1880,27 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
   const domain=DOMAIN_WHEEL[domainWheelIdx];
   const domainBlock=recentTopics.length>0?" Do NOT use these recent domains/structures: "+recentTopics.filter(t=>t.startsWith("DOM:")).map(t=>t.slice(4)).join(", ")+".":"";
   const topicBlock=recentTopics.filter(t=>!t.startsWith("DOM:")).length>0?" Avoid these recent topics: "+recentTopics.filter(t=>!t.startsWith("DOM:")).join(" | ")+".":"";
+
+  // Pick stimulus type based on question type — dialogues only when appropriate
+  var stimType;
+  if(qType==="Method of Reasoning"||qType==="Parallel Reasoning"){
+    const dialogTypes=["TYPE 6 — NAMED PROFESSIONAL","TYPE 7 — TWO-SPEAKER DIALOGUE","TYPE 8 — EDITORIAL"];
+    stimType=dialogTypes[Math.floor(Math.random()*dialogTypes.length)];
+  } else if(qType==="Paradox"){
+    stimType="TYPE 5 — PARADOX";
+  } else if(qType==="Inference"||qType==="Assumption"){
+    const inferTypes=["TYPE 1 — REPORTED OBSERVATION","TYPE 2 — CAUSAL ARGUMENT","TYPE 4 — CONDITIONAL LOGIC CHAIN","TYPE 6 — NAMED PROFESSIONAL"];
+    stimType=inferTypes[Math.floor(Math.random()*inferTypes.length)];
+  } else {
+    const allTypes=["TYPE 1 — REPORTED OBSERVATION","TYPE 2 — CAUSAL ARGUMENT","TYPE 3 — POLICY ARGUMENT","TYPE 4 — CONDITIONAL LOGIC CHAIN","TYPE 6 — NAMED PROFESSIONAL","TYPE 8 — EDITORIAL"];
+    stimType=allTypes[Math.floor(Math.random()*allTypes.length)];
+  }
+
   return "Generate a Level "+level+" (1=simplest, 4=official LSAT difficulty) LSAT "+sec+" question of type: "+qType+
-    ". SET THE SCENARIO IN: "+domain+"."+domainBlock+topicBlock+
-    " For Level 1: use simple everyday language and obvious logical gaps. For Level 4: match the exact density, complexity, and subtlety of questions from official LSAT PrepTests 40-80."+
+    ". SET THE SCENARIO IN: "+domain+". USE STIMULUS STRUCTURE: "+stimType+"."+domainBlock+topicBlock+
+    " Level 1: simple everyday language, obvious gap, clear conclusion. Level 4: match the exact density, complexity, and subtle logical gaps of official LSAT PrepTests 70-80. Tricky distractors at Level 4."+
     " Student's target score: "+(profile?.target_score||"165+")+"."+
-    (sec==="Reading Comprehension"?" For RC: write a 200-350 word passage on that domain with a clear author stance, then create a "+qType+" question about it. Match the structure of official LSAT RC passages.":" For LR: stimulus is 2-5 sentences with a clear conclusion, evidence, and logical gap. Use a named individual or specific institution as the subject.");}
+    (sec==="Reading Comprehension"?" For RC: write a 200-350 word passage on '"+domain+"' with a clear author stance, structured like real LSAT RC (specific claim + support + nuance). Then create a "+qType+" question with 5 choices. No generic AI passage openings like 'In recent years...' — open with a specific claim or observation instead.":" CRITICAL FOR LR: Your stimulus must NOT open with a named person's belief. Open with a fact, observation, statistic, research finding, or labeled professional making a specific claim. The stimulus must have a clear conclusion marked by 'thus,' 'therefore,' 'so,' or 'hence.' The logical gap between evidence and conclusion is what the question tests.");}
 
 
 
