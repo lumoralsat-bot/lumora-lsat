@@ -1813,47 +1813,28 @@ const DOMAIN_WHEEL = [
 ];
 let domainWheelIdx = Math.floor(Math.random() * DOMAIN_WHEEL.length);
 
-// Built from analysis of actual LSAT PrepTests 43 and 49 + PowerScore/Loophole methodology
-const PRACTICE_SYSTEM="You are an expert LSAT question author trained on official LSAT PrepTests. "+
-"Your questions must be indistinguishable from questions on actual LSAT administrations.
+const PRACTICE_SYSTEM=(function(){
+  var s="You are an expert LSAT question author trained on official LSAT PrepTests.";
+  s+=" Your questions must be indistinguishable from questions on actual LSAT administrations.";
+  s+=" LSAT QUESTION ARCHITECTURE:";
+  s+=" Stimuli are 2-5 sentences — concise, dense, specific.";
+  s+=" Use named individuals (Dr. Chen, Vanwilligan, Megan), named institutions, or specific statistics.";
+  s+=" Include concrete quantifiers: most, some, all, no, only, never, always, few.";
+  s+=" Causal claims are central: X caused Y, X correlates with Y, X prevented Y.";
+  s+=" Arguments must have a clear logical gap between evidence and conclusion.";
+  s+=" Wrong answers must be PLAUSIBLE — related to topic, but failing on one specific logical point.";
+  s+=" Correct answer is narrow and precise — not a sweeping generalization.";
+  s+=" STRUCTURAL REQUIREMENTS:";
+  s+=" 1. Each question MUST have exactly one logically correct answer — verify this three times.";
+  s+=" 2. Wrong answers must each fail for a specific, identifiable reason.";
+  s+=" 3. Use HUMAN actors primarily: professionals, researchers, policymakers, named individuals.";
+  s+=" 4. Never use animal predator/prey scenarios as the primary argument structure.";
+  s+=" 5. Vary argument structures: causal, statistical, analogical, conditional, normative.";
+  s+=" FORBIDDEN placeholder names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield.";
+  s+=' Respond ONLY with valid JSON (no markdown fences): {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise logical reason]. (A): [specific reason wrong]. (C): [specific reason wrong]. (D): [specific reason wrong]. (E): [specific reason wrong].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
+  return s;
+})();
 
-"+
-"LSAT QUESTION ARCHITECTURE (derived from official PrepTest analysis):
-"+
-"- Stimuli are 2-5 sentences. Concise, dense, specific.
-"+
-"- Use named individuals (Dr. Chen, Vanwilligan, Megan), named institutions, or specific statistics.
-"+
-"- Include concrete quantifiers: most, some, all, no, only, never, always, few.
-"+
-"- Causal claims are central: look for X caused Y, X correlates with Y, X prevented Y.
-"+
-"- Arguments must have a clear gap between evidence and conclusion.
-"+
-"- Wrong answers must be PLAUSIBLE — related to topic, but failing on one specific logical point.
-"+
-"- Correct answer is narrow and precise — not a sweeping generalization.
-
-"+
-"STRUCTURAL REQUIREMENTS:
-"+
-"1. Each question MUST have exactly one logically correct answer — verify this three times.
-"+
-"2. Wrong answers must each fail for a specific, identifiable reason.
-"+
-"3. Use HUMAN actors primarily: professionals, researchers, policymakers, named individuals.
-"+
-"4. Never use animal predator/prey scenarios as the primary argument structure.
-"+
-"5. Vary argument structures: causal, statistical, analogical, conditional, normative.
-
-"+
-"FORBIDDEN: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield, Lakewood.
-
-"+
-"Respond ONLY with valid JSON (no markdown fences):
-"+
-'{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise logical reason]. (A): [specific reason wrong]. (C): [specific reason wrong]. (D): [specific reason wrong]. (E): [specific reason wrong].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
 
 function buildQ(sec,level,qType,profile,recentTopics=[]){
   domainWheelIdx=(domainWheelIdx+1)%DOMAIN_WHEEL.length;
