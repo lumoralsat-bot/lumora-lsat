@@ -1781,21 +1781,98 @@ const FLAW_SEEDS=[
 // Session-level question history to prevent duplicates
 const sessionQHistory = [];
 
-const PRACTICE_SYSTEM=`You are an expert LSAT question author with 20+ years experience. Write questions indistinguishable from official LSAT content in quality, structure, and rigor.
+// LSAT-calibrated domain pool based on actual PrepTest analysis
+// Real LSAT uses: economics, law, philosophy, sociology, psychology, history,
+// biology (sparingly), literary criticism, science policy, linguistics, ethics
+const DOMAIN_WHEEL = [
+  "an economic policy debate — interest rates, inflation, or trade agreements",
+  "a legal or judicial proceeding — sentencing, evidence rules, or judicial appointments",
+  "a philosophical argument about ethics, consciousness, or moral responsibility",
+  "a sociological study of human behavior — workplace dynamics, crime, or social norms",
+  "a psychological experiment or cognitive research finding",
+  "a medical or public health policy — drug trials, treatment protocols, or epidemiology",
+  "an environmental science debate — climate policy, conservation, or resource management",
+  "a historical claim about ancient or medieval civilizations",
+  "a literary or artistic criticism dispute — aesthetic value, authorship, or interpretation",
+  "a political science argument — democracy, international relations, or governance",
+  "a business ethics scenario — corporate policy, advertising, or labor practices",
+  "a linguistics or language acquisition research finding",
+  "a technology policy debate — intellectual property, regulation, or innovation",
+  "a nutrition or health behavior study — diet, exercise, or lifestyle choices",
+  "a criminal justice policy argument — deterrence, rehabilitation, or sentencing",
+  "an education policy debate — curriculum, assessment, or institutional reform",
+  "an anthropological or archaeological research finding",
+  "a financial regulation or economics argument — market behavior, investment, or banking",
+  "a media ethics debate — journalism standards, press freedom, or public perception",
+  "a scientific philosophy argument — methodology, peer review, or research integrity",
+  "a demographics or population study — migration, birth rates, or social change",
+  "an organizational behavior scenario — management, productivity, or workplace culture",
+  "a constitutional law or civil rights argument",
+  "a public administration policy — urban planning, infrastructure, or taxation",
+  "a bioethics debate — medical consent, research ethics, or life sciences policy",
+];
+let domainWheelIdx = Math.floor(Math.random() * DOMAIN_WHEEL.length);
 
-CRITICAL RULES:
-1. The correct answer must be logically airtight — verify it three times.
-2. Wrong answers must be plausible but clearly eliminable with careful analysis.
-3. NEVER reuse topics, scenarios, or argument structures from previous questions in this session.
-4. Use RADICALLY DIFFERENT scenarios each time: vary the domain (law, science, medicine, business, politics, environment, sports, technology, history, philosophy), the setting (courtroom, lab, hospital, startup, school, government, nonprofit), and the specific subject matter.
-5. FORBIDDEN placeholder names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield. Use real-sounding specific names or real places.
+// Built from analysis of actual LSAT PrepTests 43 and 49 + PowerScore/Loophole methodology
+const PRACTICE_SYSTEM="You are an expert LSAT question author trained on official LSAT PrepTests. "+
+"Your questions must be indistinguishable from questions on actual LSAT administrations.
 
-Respond ONLY with valid JSON (no markdown fences):
-{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [why correct]. (A): [why wrong]. (C): [why wrong]. (D): [why wrong]. (E): [why wrong].","key_concept":"One sentence naming the specific skill tested.","level":2}`;
+"+
+"LSAT QUESTION ARCHITECTURE (derived from official PrepTest analysis):
+"+
+"- Stimuli are 2-5 sentences. Concise, dense, specific.
+"+
+"- Use named individuals (Dr. Chen, Vanwilligan, Megan), named institutions, or specific statistics.
+"+
+"- Include concrete quantifiers: most, some, all, no, only, never, always, few.
+"+
+"- Causal claims are central: look for X caused Y, X correlates with Y, X prevented Y.
+"+
+"- Arguments must have a clear gap between evidence and conclusion.
+"+
+"- Wrong answers must be PLAUSIBLE — related to topic, but failing on one specific logical point.
+"+
+"- Correct answer is narrow and precise — not a sweeping generalization.
+
+"+
+"STRUCTURAL REQUIREMENTS:
+"+
+"1. Each question MUST have exactly one logically correct answer — verify this three times.
+"+
+"2. Wrong answers must each fail for a specific, identifiable reason.
+"+
+"3. Use HUMAN actors primarily: professionals, researchers, policymakers, named individuals.
+"+
+"4. Never use animal predator/prey scenarios as the primary argument structure.
+"+
+"5. Vary argument structures: causal, statistical, analogical, conditional, normative.
+
+"+
+"FORBIDDEN: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield, Lakewood.
+
+"+
+"Respond ONLY with valid JSON (no markdown fences):
+"+
+'{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise logical reason]. (A): [specific reason wrong]. (C): [specific reason wrong]. (D): [specific reason wrong]. (E): [specific reason wrong].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
 
 function buildQ(sec,level,qType,profile,recentTopics=[]){
-  const avoidStr = recentTopics.length>0 ? `\n\nRECENT TOPICS TO AVOID (do not reuse these scenarios or themes): ${recentTopics.join(" | ")}` : "";
-  return `Generate a Level ${level} (1=easiest,4=hardest) LSAT ${sec} question of type: ${qType}. Student targets ${profile?.target_score||"165+"}. Match real LSAT difficulty for Level ${level} exactly. The scenario must be COMPLETELY DIFFERENT from any typical LSAT question — use an original, unexpected context.${avoidStr}`;
+  domainWheelIdx=(domainWheelIdx+1)%DOMAIN_WHEEL.length;
+  const domain=DOMAIN_WHEEL[domainWheelIdx];
+  const domainBlock=recentTopics.length>0?" Do NOT use these recent domains/structures: "+recentTopics.filter(t=>t.startsWith("DOM:")).map(t=>t.slice(4)).join(", ")+".":"";
+  const topicBlock=recentTopics.filter(t=>!t.startsWith("DOM:")).length>0?" Avoid these recent topics: "+recentTopics.filter(t=>!t.startsWith("DOM:")).join(" | ")+".":"";
+  return "Generate a Level "+level+" (1=simplest, 4=official LSAT difficulty) LSAT "+sec+" question of type: "+qType+
+    ". SET THE SCENARIO IN: "+domain+"."+domainBlock+topicBlock+
+    " For Level 1: use simple everyday language and obvious logical gaps. For Level 4: match the exact density, complexity, and subtlety of questions from official LSAT PrepTests 40-80."+
+    " Student's target score: "+(profile?.target_score||"165+")+"."+
+    (sec==="Reading Comprehension"?" For RC: write a 200-350 word passage on that domain with a clear author stance, then create a "+qType+" question about it. Match the structure of official LSAT RC passages.":" For LR: stimulus is 2-5 sentences with a clear conclusion, evidence, and logical gap. Use a named individual or specific institution as the subject.");}
+
+
+function buildQ(sec,level,qType,profile,recentTopics=[]){
+  // Advance domain wheel
+  domainWheelIdx=(domainWheelIdx+1)%DOMAIN_WHEEL.length;
+  const domain=DOMAIN_WHEEL[domainWheelIdx];
+  const avoidStr=recentTopics.length>0?" AVOID these recent topics/structures: "+recentTopics.join(" | ")+".":" ";
+  return "Generate a Level "+level+" (1=easiest,4=hardest) LSAT "+sec+" question of type: "+qType+". Student targets "+(profile?.target_score||"165+")+"."+" The scenario MUST be set in the domain of: "+domain+"."+avoidStr+" Match real LSAT difficulty for Level "+level+". The argument structure must be completely different from a predator/prey, animal behavior, or nature scenario.";
 }
 
 
@@ -2579,11 +2656,21 @@ function useQueue(user,section,level,qType,adaptive){
     generating.current=true;
     const{sec,lv,qt}=getParams();
     try{
-      const recentTopics=sessionTopics.current.slice(-6);
+      // Pass recent fingerprints — DOM: prefixed ones block domain repeats
+      const recentTopics=sessionTopics.current.slice(-8);
       const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
       const parsed=parseJSON(raw);
-      // Extract topic fingerprint from stimulus for future avoidance
-      const topicKey=(parsed.stimulus||"").split(" ").slice(0,8).join(" ");
+      // Extract structural fingerprint to prevent topic and structural repetition
+      const stim=(parsed.stimulus||"").toLowerCase();
+      const words=stim.split(/\s+/).slice(0,10);
+      const domain=stim.includes("animal")||stim.includes("species")||stim.includes("predator")||stim.includes("prey")?"DOM:BIOLOGY":
+                   stim.includes("drug")||stim.includes("medication")||stim.includes("treatment")||stim.includes("patient")?"DOM:MEDICINE":
+                   stim.includes("govern")||stim.includes("legislat")||stim.includes("senator")||stim.includes("congress")?"DOM:POLITICS":
+                   stim.includes("company")||stim.includes("business")||stim.includes("market")||stim.includes("profit")||stim.includes("corporation")?"DOM:BUSINESS":
+                   stim.includes("study")||stim.includes("research")||stim.includes("experiment")||stim.includes("survey")?"DOM:RESEARCH":
+                   stim.includes("crime")||stim.includes("criminal")||stim.includes("prison")||stim.includes("sentence")?"DOM:CRIME":
+                   stim.includes("environment")||stim.includes("climate")||stim.includes("pollution")||stim.includes("conservation")?"DOM:ENVIRONMENT":"DOM:OTHER";
+      const topicKey=domain+":"+words.slice(0,5).join("_");
       sessionTopics.current=[...sessionTopics.current.slice(-9),topicKey];
       generating.current=false;
       return{...parsed,section:sec,qType:qt,assignedLevel:lv};
