@@ -1848,14 +1848,6 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
     (sec==="Reading Comprehension"?" For RC: write a 200-350 word passage on that domain with a clear author stance, then create a "+qType+" question about it. Match the structure of official LSAT RC passages.":" For LR: stimulus is 2-5 sentences with a clear conclusion, evidence, and logical gap. Use a named individual or specific institution as the subject.");}
 
 
-function buildQ(sec,level,qType,profile,recentTopics=[]){
-  // Advance domain wheel
-  domainWheelIdx=(domainWheelIdx+1)%DOMAIN_WHEEL.length;
-  const domain=DOMAIN_WHEEL[domainWheelIdx];
-  const avoidStr=recentTopics.length>0?" AVOID these recent topics/structures: "+recentTopics.join(" | ")+".":" ";
-  return "Generate a Level "+level+" (1=easiest,4=hardest) LSAT "+sec+" question of type: "+qType+". Student targets "+(profile?.target_score||"165+")+"."+" The scenario MUST be set in the domain of: "+domain+"."+avoidStr+" Match real LSAT difficulty for Level "+level+". The argument structure must be completely different from a predator/prey, animal behavior, or nature scenario.";
-}
-
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function Nav({screen,setScreen,user,onLogout}){
