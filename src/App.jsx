@@ -2120,7 +2120,11 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
       const sys=PRACTICE_SYSTEM;
       const prompt="Generate a Level "+lv+" LSAT "+sec+" question of type: "+qt+". This is today's Daily Challenge — make it high quality and engaging. Avoid any placeholder names.";
       const raw=await callClaude(sys,prompt);
-      const q={...parseJSON(raw),section:sec,qType:qt,assignedLevel:lv,dateKey:todayKey,completed:false};
+      const parsed=parseJSON(raw);
+      const choices={};
+      ["A","B","C","D","E"].forEach(l=>{if(parsed.choices&&parsed.choices[l])choices[l]=parsed.choices[l];});
+      const correctAnswer=typeof parsed.correct==="string"&&parsed.correct.length===1?parsed.correct.toUpperCase():"";
+      const q={stimulus:parsed.stimulus,question:parsed.question,choices,correct:correctAnswer,explanation:parsed.explanation,key_concept:parsed.key_concept,level:parsed.level,section:sec,qType:qt,assignedLevel:lv,dateKey:todayKey,completed:false};
       DB.saveDailyChallenge(q);
       setChallenge(q);
     }catch(e){setError("Could not load today's challenge: "+(e.message||"Please try again."));}
@@ -3470,10 +3474,22 @@ function StudyPlan({user,onUpdateUser}){
       "Strong Types: "+(strongTypes.join(", ")||"still assessing"),
     ].join(", ");
     const sys="You are an expert LSAT tutor. Respond ONLY with a valid JSON object. No markdown, no explanation, no text before or after the JSON.";
-    const prompt="Create a personalized LSAT study plan for this student: "+profile+". Respond with a JSON object containing these exact keys: summary (3-4 sentence assessment), target_score (their target), timeline (their timeline), weekly_hours (their hours), phases (array of objects with name/duration/focus/tasks array), daily_routine (array of 3 strings), priority_areas (array of 3 strings), milestone (string describing halfway success). Make it specific and actionable for this student.";
+    const prompt="Write a personalized LSAT study plan for: "+profile+". Return a JSON object with: summary, target_score, timeline, weekly_hours, phases (array with name/duration/focus/tasks), daily_routine (3 items), priority_areas (3 items), milestone. Be specific and concise.";
     try{
-      const raw=await callClaude(sys,prompt,1400);
-      onUpdateUser({studyPlan:parseJSON(raw)});
+      const raw=await callClaude(sys,prompt,1800);
+      const plan=parseJSON(raw);
+      // Ensure required fields exist with fallbacks
+      const safePlan={
+        summary:plan.summary||"Personalized plan generated based on your profile.",
+        target_score:plan.target_score||(d.target_score||"165+"),
+        timeline:plan.timeline||(d.test_date||"flexible"),
+        weekly_hours:plan.weekly_hours||(d.study_hours||"flexible"),
+        phases:Array.isArray(plan.phases)?plan.phases:[{name:"Foundation",duration:"4 weeks",focus:"Build core LR and RC skills",tasks:["Practice 10 questions daily","Complete Learn lessons","Review all wrong answers","Take one full section weekly"]}],
+        daily_routine:Array.isArray(plan.daily_routine)?plan.daily_routine:["Morning: 30 min Learn section","Afternoon: 20 min timed practice","Evening: Review notes"],
+        priority_areas:Array.isArray(plan.priority_areas)?plan.priority_areas:["Weakest question types","Timed practice","Full section stamina"],
+        milestone:plan.milestone||"Scoring consistently above 70% on Level 3 questions",
+      };
+      onUpdateUser({studyPlan:safePlan});
     }catch(e){setError("Could not generate: "+(e.message||"Please try again."));}
     setLoading(false);
   };
