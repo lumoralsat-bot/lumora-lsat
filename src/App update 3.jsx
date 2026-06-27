@@ -1678,7 +1678,15 @@ FINAL TIP: On comparative passage questions, always re-check which author the qu
 
 
 // ─── DESIGN ───────────────────────────────────────────────────────────────────
-const C={
+const LIGHT={
+  bg:"#f0f4fc",surface:"#ffffff",surfaceHigh:"#e8eef8",border:"#d0daea",
+  text:"#0d1526",textMuted:"#7a8aaa",textSub:"#3a4d70",
+  accent:"#3a6bff",accentSoft:"#dce8ff",
+  gold:"#c09000",goldSoft:"#fff8dc",
+  success:"#0f9e72",danger:"#e03a3a",purple:"#7c3aed",pink:"#db2777",
+  teal:"#0891b2",orange:"#ea580c",
+};
+const DARK={
   bg:"#06080f",surface:"#0c1220",surfaceHigh:"#131c30",border:"#1c2744",
   text:"#edf2ff",textMuted:"#4a5c80",textSub:"#7a90bb",
   accent:"#4f7fff",accentSoft:"#162448",
@@ -1686,6 +1694,8 @@ const C={
   success:"#2dd4a0",danger:"#f87171",purple:"#a78bfa",pink:"#f472b6",
   teal:"#22d3ee",orange:"#fb923c",
 };
+let C=DARK;
+let FONT_SCALE=1;
 const T={serif:"'Georgia','Times New Roman',serif",sans:"'Inter',system-ui,-apple-system,sans-serif"};
 
 const AVATAR_COLORS=["#4f7fff","#a78bfa","#f472b6","#22d3ee","#2dd4a0","#fb923c","#f5c842","#f87171"];
@@ -1828,21 +1838,21 @@ const PRACTICE_SYSTEM=(function(){
 
   s+=" ===== THE 8 AUTHENTIC LSAT STIMULUS STRUCTURES — use exactly one per question =====";
 
-  s+=" TYPE 1 — REPORTED OBSERVATION / COUNTERINTUITIVE FINDING: Open with a factual observation or statistic, then draw a conclusion that creates a gap. Real PT example: 'In a recent study, two groups of mice—one whose diet included ginkgo extract and one that had a normal diet—were taught to navigate a maze. The mice whose diet included ginkgo were more likely to remember how to navigate the maze the next day. However, the ginkgo may not have directly enhanced memory. Other studies have found that ginkgo reduces stress in mice, and lowering very high stress levels is known to improve recall.' [PT76 Section II Q12]";
+  s+=" TYPE 1 — REPORTED OBSERVATION / COUNTERINTUITIVE FINDING: Open with a factual observation or statistic, then draw a conclusion that creates a gap. Real PT examples: 'In a recent study, two groups of mice—one whose diet included ginkgo extract and one that had a normal diet—were taught to navigate a maze. The mice whose diet included ginkgo were more likely to remember how to navigate the maze the next day. However, the ginkgo may not have directly enhanced memory.' [PT76 S2 Q12, 62 words] | 'Shark teeth are among the most common vertebrate fossils; yet fossilized shark skeletons are much less common—indeed, comparatively rare among fossilized vertebrate skeletons.' [PT71 S2 Q12, 30 words] | 'The number of automobile thefts has declined steadily during the past five years, and it is more likely now than it was five years ago that someone who steals a car will be convicted of the crime.' [PT71 S4 Q14, 41 words]";
 
-  s+=" TYPE 2 — CAUSAL ARGUMENT FROM CORRELATION: Present data showing X correlates with Y, then assert X causes Y. Real PT example: 'A study showed that people who live on very busy streets have higher rates of heart disease than average. I conclude that this elevated rate of heart disease is caused by air pollution from automobile exhaust.' [PT76 Section II Q8]";
+  s+=" TYPE 2 — CAUSAL ARGUMENT FROM CORRELATION: Present data showing X correlates with Y, then assert X causes Y. Real PT examples: 'A study showed that people who live on very busy streets have higher rates of heart disease than average. I conclude that this elevated rate of heart disease is caused by air pollution from automobile exhaust.' [PT76 S2 Q8, 44 words] | 'In polluted industrial English cities during the Industrial Revolution, two plant diseases—black spot, which infects roses, and tar spot, which infects sycamore trees—disappeared. It is likely that air pollution eradicated these diseases.' [PT71 S4 Q4, 37 words]";
 
-  s+=" TYPE 3 — POLICY / PRINCIPLE ARGUMENT: Argue for or against a policy by citing a principle or comparison. Real PT example: 'In addition to any other penalties, convicted criminals must now pay a victim surcharge of $30. The surcharge is used to fund services for victims of violent crimes, but this penalty is unfair to nonviolent criminals since the surcharge applies to all crimes, even nonviolent ones like petty theft.' [PT76 Section II Q6]";
+  s+=" TYPE 3 — POLICY / PRINCIPLE ARGUMENT: Argue for or against a policy by citing a principle or comparison. Real PT examples: 'In addition to any other penalties, convicted criminals must now pay a victim surcharge of $30. The surcharge is used to fund services for victims of violent crimes, but this penalty is unfair to nonviolent criminals since the surcharge applies to all crimes, even nonviolent ones like petty theft.' [PT76 S2 Q6, 55 words] | 'Many nursing homes have prohibitions against having pets, and these should be lifted. The presence of an animal companion can yield health benefits by reducing a person's stress.' [PT71 S4 Q16, 35 words] | 'The legislature is considering a bill that would prohibit fishing in Eagle Bay. The bay has one of the highest water pollution levels in the nation, and a recent study found that 80 percent of its fish contained toxin levels that exceed governmental safety standards.' [PT71 S2 Q4, 50 words]";
 
   s+=" TYPE 4 — CONDITIONAL LOGIC CHAIN: Build a deductive argument using if-then statements and quantifiers. Real PT example: 'The Asian elephant walks with at least two, and sometimes three, feet on the ground at all times. Even though it can accelerate, it does so merely by taking quicker and longer steps. So the Asian elephant does not actually run.' [PT76 Section II Q10]";
 
-  s+=" TYPE 5 — PARADOX / SURPRISING DISCREPANCY: State two facts that appear to contradict each other. The question asks what resolves or explains the discrepancy. Real PT example: 'Violent crime rates dropped last year to a record low. Yet public anxiety about violent crime substantially increased.' Use this for Paradox question types.";
+  s+=" TYPE 5 — PARADOX / SURPRISING DISCREPANCY: State two facts that appear to contradict each other. The question asks what resolves or explains the discrepancy. Real PT examples: 'After the rush-hour speed limit on the British M25 motorway was lowered from 70 miles per hour to 50 miles per hour, rush-hour travel times decreased by approximately 15 percent.' [PT71 S4 Q12, 37 words — the paradox is implied: slower limit, faster travel] | 'Shark teeth are among the most common vertebrate fossils; yet fossilized shark skeletons are much less common.' [PT71 S2 Q12, 30 words] Use this structure for Paradox question types.";
 
-  s+=" TYPE 6 — NAMED PROFESSIONAL MAKING A SPECIFIC CLAIM: A labeled professional (Economist:, Doctor:, Lawyer:, Researcher:, Professor:) makes an argument with evidence and conclusion. Real PT example: 'Economist: Owing to global economic forces since 1945, our country's economy is increasingly a service economy, in which manufacturing employs an ever smaller fraction of the workforce. Hence, we have engaged in less and less international trade.' [PT76 Section II Q7]";
+  s+=" TYPE 6 — NAMED PROFESSIONAL MAKING A SPECIFIC CLAIM: A labeled professional (Economist:, Musicologist:, Librarian:, Engineer:, Herbalist:, Psychiatrist:) makes an argument with evidence and conclusion. Real PT examples: 'Economist: Owing to global economic forces since 1945, our country's economy is increasingly a service economy, in which manufacturing employs an ever smaller fraction of the workforce. Hence, we have engaged in less and less international trade.' [PT76 S2 Q7, 46 words] | 'Musicologist: Classification of a musical instrument depends on the mechanical action through which it produces music. So the piano is properly called a percussion instrument, not a stringed instrument. Even though the vibration of the piano's strings is what makes its sound, the strings are caused to vibrate by the impact of hammers.' [PT71 S2 Q9, 55 words] | 'Engineer: Thermophotovoltaic generators are devices that convert heat into electricity. The process of manufacturing steel produces huge amounts of heat that currently go to waste. So if steel-manufacturing plants could feed the heat they produce into thermophotovoltaic generators, they would greatly reduce their electric bills.' [PT71 S2 Q16, 51 words]";
 
-  s+=" TYPE 7 — TWO-SPEAKER DIALOGUE (only for Point at Issue / Method of Reasoning): Two named speakers express positions, one responding to the other. Real PT example: 'Doris: I've noticed that everyone involved in student government is outspoken. So if we want students to be more outspoken, we should encourage them to become involved in student government. Zack: Those who are in student government became involved precisely because they are outspoken in the first place.' [PT76 Section II Q3] ONLY use this type when the question type is Point at Issue, Flaw, or Method of Reasoning.";
+  s+=" TYPE 7 — TWO-SPEAKER DIALOGUE (only for Point at Issue / Method of Reasoning): Two named speakers express positions, one responding to the other. Real PT examples: 'Vandenburg: This art museum is not adhering to its purpose. Its founders intended it to devote as much attention to contemporary art as to the art of earlier periods, but its collection of contemporary art is far smaller. Simpson: The relatively small size of the contemporary art collection is appropriate. Its curators believe that there is little high-quality contemporary art.' [PT71 S2 Q5, 68 words] | 'Wong: Although all countries are better off as democracies, a transitional autocratic stage is sometimes required before a country can become democratic. Tate: The freedom and autonomy that democracy provides are of genuine value, but the simple material needs of people are more important.' [PT71 S4 Q18, 51 words] ONLY use this type when the question type is Point at Issue, Flaw, or Method of Reasoning.";
 
-  s+=" TYPE 8 — EDITORIAL / NORMATIVE CLAIM: An editorial or policy claim with a stated goal and supporting reasoning. Real PT example: 'City leader: If our city adopts the new tourism plan, the amount of money that tourists spend here annually will increase by at least $2 billion, creating as many jobs as a new automobile manufacturing plant would. It would be reasonable for the city to spend the amount of money necessary to convince an automobile manufacturer to build a plant here, but adopting the tourism plan would cost less.' [PT76 Section II Q17]";
+  s+=" TYPE 8 — EDITORIAL / NORMATIVE CLAIM: An editorial or normative claim with supporting reasoning. Real PT examples: 'City leader: If our city adopts the new tourism plan, the amount of money that tourists spend here annually will increase by at least $2 billion, creating as many jobs as a new automobile manufacturing plant would. It would be reasonable for the city to spend the amount of money necessary to convince an automobile manufacturer to build a plant here, but adopting the tourism plan would cost less.' [PT76 S2 Q17, 76 words] | 'Columnist: Although much has been learned, we are still largely ignorant of the intricate interrelationships among species of living organisms. We should therefore try to preserve the maximum number of species if we have an interest in preserving any, since allowing species toward which we are indifferent to perish might undermine the viability of other species.' [PT71 S4 Q23, 60 words]";
 
   s+=" ===== STIMULUS WORD COUNT — HARD REQUIREMENT =====";
   s+=" LSAT LR stimuli have a precise, well-documented length range. You MUST stay within it.";
@@ -1916,9 +1926,215 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
 
 
 
+
+// ─── STREAK CELEBRATION ───────────────────────────────────────────────────────
+function StreakCelebration({streak,onDismiss}){
+  useEffect(()=>{const t=setTimeout(onDismiss,3500);return()=>clearTimeout(t);},[onDismiss]);
+  const msg=streak>=30?"30 days straight. You're unstoppable.":streak>=14?"Two weeks of consistent prep. Impressive.":streak>=7?"One week strong. This is how scores improve.":streak>=3?"3 days in a row. The habit is forming.":"Keep this going every day.";
+  return(
+    <div onClick={onDismiss} style={{position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,background:"#00000088",cursor:"pointer"}}>
+      <div style={{background:`linear-gradient(135deg,${C.surface},${C.surfaceHigh})`,border:`2px solid ${C.gold}66`,borderRadius:28,padding:"40px 48px",textAlign:"center",maxWidth:340,animation:"fadeUp 0.4s ease both"}}>
+        <div style={{fontSize:64,marginBottom:8,animation:"pulse 0.8s ease infinite"}}>🔥</div>
+        <div style={{fontFamily:T.serif,fontSize:36,fontWeight:900,color:C.gold,marginBottom:6}}>{streak} Day Streak!</div>
+        <p style={{color:C.textSub,fontSize:15,lineHeight:1.6,marginBottom:16}}>{msg}</p>
+        <div style={{fontSize:12,color:C.textMuted}}>Tap to continue</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ANSWER RESULT CELEBRATION ────────────────────────────────────────────────
+function AnswerFlash({correct}){
+  const [show,setShow]=useState(true);
+  useEffect(()=>{const t=setTimeout(()=>setShow(false),700);return()=>clearTimeout(t);},[]);
+  if(!show)return null;
+  return(
+    <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:500,pointerEvents:"none",animation:"fadeUp 0.2s ease both"}}>
+      <div style={{fontSize:56}}>{correct?"✅":"❌"}</div>
+    </div>
+  );
+}
+
+// ─── QUICK 5 MODE ─────────────────────────────────────────────────────────────
+function Quick5({user,onUpdateUser,onDone}){
+  const [phase,setPhase]=useState("loading"); // loading | active | done
+  const [questions,setQuestions]=useState([]);
+  const [idx,setIdx]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [submitted,setSubmitted]=useState(false);
+  const [results,setResults]=useState([]);
+  const [flash,setFlash]=useState(null);
+  const [timer,setTimer]=useState(90);
+  const timerRef=useRef(null);
+  const secs=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
+
+  useEffect(()=>{generate();},[]);
+
+  const generate=async()=>{
+    setPhase("loading");
+    const generated=[];
+    const types=QUESTION_TYPES[secs];
+    for(let i=0;i<5;i++){
+      const lv=i<2?2:i<4?3:4;
+      const qt=types[i%types.length];
+      try{
+        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic));
+        generated.push({...parseJSON(raw),section:secs,qType:qt,assignedLevel:lv});
+        if(generated.length===1){setQuestions([...generated]);setPhase("active");startTimer();}
+        else setQuestions([...generated]);
+      }catch{}
+    }
+    if(generated.length===0)onDone();
+  };
+
+  const startTimer=()=>{
+    setTimer(90);
+    timerRef.current=setInterval(()=>setTimer(t=>{
+      if(t<=1){clearInterval(timerRef.current);autoSubmit();return 0;}
+      return t-1;
+    }),1000);
+  };
+
+  const autoSubmit=()=>{
+    if(!submitted)doSubmit(null);
+  };
+
+  const doSubmit=(sel)=>{
+    clearInterval(timerRef.current);
+    const q=questions[idx];
+    if(!q)return;
+    const correct=(sel||selected)===q.correct;
+    setFlash(correct?"correct":"wrong");
+    setTimeout(()=>setFlash(null),700);
+    setSubmitted(true);
+    const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,xp:correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()};
+    const newResults=[...results,record];
+    setResults(newResults);
+    onUpdateUser({history:[...(user.history||[]),record],stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
+    if(idx>=4||(idx===questions.length-1&&questions.length>=5)){
+      setTimeout(()=>setPhase("done"),800);
+    }
+  };
+
+  const next=()=>{
+    if(idx>=4){setPhase("done");return;}
+    const nextIdx=idx+1;
+    setIdx(nextIdx);setSelected(null);setSubmitted(false);
+    if(questions[nextIdx]){startTimer();}
+  };
+
+  const q=questions[idx];
+  const correct_count=results.filter(r=>r.correct).length;
+
+  if(phase==="loading")return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"ee",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
+      <Spinner label="Building your Quick 5…"/>
+      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>5 questions · ~7 minutes · starts immediately</p>
+    </div>
+  );
+
+  if(phase==="done"){
+    const pct=Math.round(correct_count/Math.max(results.length,1)*100);
+    const totalXP=results.reduce((s,r)=>s+r.xp,0);
+    return(
+      <div style={{position:"fixed",inset:0,background:C.bg+"ee",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:36,maxWidth:400,width:"100%",textAlign:"center"}}>
+          <div style={{fontSize:52,marginBottom:12}}>{pct>=80?"🏆":pct>=60?"🎯":"📈"}</div>
+          <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:8}}>Quick 5 Done!</h2>
+          <div style={{fontSize:40,fontWeight:900,color:pct>=70?C.success:pct>=50?C.gold:C.danger,fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
+          <p style={{color:C.textSub,fontSize:14,marginBottom:6}}>{correct_count} of {results.length} correct</p>
+          {totalXP>0&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:10,padding:"8px 14px",marginBottom:16,display:"inline-block"}}><span style={{color:C.gold,fontWeight:700}}>+{totalXP} XP earned</span></div>}
+          <div style={{marginBottom:20}}>
+            {results.map((r,i)=><span key={i} style={{fontSize:20,margin:"0 3px"}}>{r.correct?"✅":"❌"}</span>)}
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+            <Btn ghost onClick={onDone}>Back to Home</Btn>
+            <Btn onClick={()=>{setIdx(0);setResults([]);setSelected(null);setSubmitted(false);generate();}}>Play Again</Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if(!q)return null;
+  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===q.correct)return"ok";if(l===selected)return"bad";return"def";};
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:Math.round(14*FONT_SCALE)+"px",marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+
+  return(
+    <div style={{position:"fixed",inset:0,background:C.bg,overflowY:"auto",zIndex:300}}>
+      {flash&&<AnswerFlash correct={flash==="correct"}/>}
+      <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px"}}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontWeight:800,color:C.accent,fontSize:15}}>Quick 5</span>
+            <div style={{display:"flex",gap:5}}>
+              {[0,1,2,3,4].map(i=><div key={i} style={{width:28,height:6,borderRadius:3,background:i<results.length?(results[i].correct?C.success:C.danger):i===idx?C.accent:C.border,transition:"background 0.3s"}}/>)}
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:timer<=15?C.danger:timer<=30?C.gold:C.text}}>{timer}s</div>
+            <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>Exit</button>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div style={{background:C.surfaceHigh,borderRadius:4,height:4,marginBottom:16,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${timer/90*100}%`,background:timer<=15?C.danger:timer<=30?C.gold:C.accent,borderRadius:4,transition:"width 1s linear"}}/>
+        </div>
+        <Card style={{marginBottom:12}}>
+          <div style={{marginBottom:10}}><Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag><Tag color={C.accent}>{q.qType}</Tag></div>
+          <p style={{lineHeight:1.85,fontSize:Math.round(15*FONT_SCALE)+"px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
+          <p style={{fontWeight:600,fontSize:Math.round(15*FONT_SCALE)+"px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{q.question}</p>
+          <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>{if(submitted)return;setSelected(l);}} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
+          {!submitted&&<Btn onClick={()=>doSubmit(selected)} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit →</Btn>}
+        </Card>
+        {submitted&&(
+          <div>
+            <Card style={{borderColor:selected===q.correct?C.success:C.danger,marginBottom:12}}>
+              <div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:8}}>
+                {selected===q.correct?"✓ Correct!":"✗ Incorrect — let's learn from this"}
+              </div>
+              {selected!==q.correct&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"12px 14px",marginBottom:10,fontSize:13,color:C.textSub,lineHeight:1.7}}>
+                <strong style={{color:C.text,display:"block",marginBottom:4}}>Why {q.correct} is correct:</strong>
+                {q.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/,"").trim()}
+              </div>}
+              {selected!==q.correct&&<div style={{background:`${C.danger}10`,border:`1px solid ${C.danger}33`,borderRadius:10,padding:"12px 14px",fontSize:13,color:C.textSub,lineHeight:1.7}}>
+                <strong style={{color:C.danger,display:"block",marginBottom:4}}>Why {selected} is wrong:</strong>
+                {q.explanation?.match(new RegExp("WRONG \("+selected+"\)[^.]*\.([^(]*)","i"))?.[1]?.trim()||"This answer doesn't fill the logical gap."}
+              </div>}
+              {selected===q.correct&&<div style={{fontSize:13,color:C.textSub,lineHeight:1.7}}>{q.key_concept}</div>}
+            </Card>
+            {idx<4&&questions[idx+1]
+              ?<Btn onClick={next} style={{width:"100%"}}>Next Question ({idx+2}/5) →</Btn>
+              :<Btn onClick={next} style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>See Results ✓</Btn>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ACCESSIBILITY BAR ────────────────────────────────────────────────────────
+function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
+  return(
+    <div style={{position:"fixed",bottom:16,right:16,zIndex:400,display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"8px 10px",display:"flex",gap:8,alignItems:"center",boxShadow:"0 4px 24px #00000044"}}>
+        {/* Font size */}
+        <button onClick={()=>setFontScale(f=>Math.max(0.85,f-0.1))} title="Smaller text" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>A-</button>
+        <button onClick={()=>setFontScale(1)} title="Reset text size" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>A</button>
+        <button onClick={()=>setFontScale(f=>Math.min(1.3,f+0.1))} title="Larger text" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>A+</button>
+        {/* Divider */}
+        <div style={{width:1,height:20,background:C.border}}/>
+        {/* Dark/light */}
+        <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to light mode":"Switch to dark mode"} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>{darkMode?"☀️":"🌙"}</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function Nav({screen,setScreen,user,onLogout}){
-  const pages=[{id:"home",label:"Home",icon:"⌂"},{id:"learn",label:"Learn",icon:"📖"},{id:"practice",label:"Practice",icon:"🎯"},{id:"writing",label:"Writing",icon:"✍"},{id:"flaw",label:"Flaw Lab",icon:"⚖"},{id:"fullsection",label:"Full Section",icon:"⏱"},{id:"plan",label:"Plan",icon:"📋"},{id:"dashboard",label:"Progress",icon:"📊"}];
+  const pages=[{id:"home",label:"Home",icon:"⌂"},{id:"quick5",label:"Quick 5",icon:"⚡"},{id:"learn",label:"Learn",icon:"📖"},{id:"practice",label:"Practice",icon:"🎯"},{id:"writing",label:"Writing",icon:"✍"},{id:"flaw",label:"Flaw Lab",icon:"⚖"},{id:"fullsection",label:"Full Section",icon:"⏱"},{id:"plan",label:"Plan",icon:"📋"},{id:"dashboard",label:"Progress",icon:"📊"}];
   return(
     <nav role="navigation" aria-label="Main navigation" style={{background:C.surface+"ee",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:100,gap:8}}>
       <button onClick={()=>setScreen("home")} aria-label="Home" style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
@@ -2360,6 +2576,11 @@ function Home({user,setScreen,onUpdateUser}){
     {id:"notes",icon:"📝",label:"Notes",desc:`${(user.notes||[]).length} notes saved`,color:C.textSub},
   ];
 
+  // Today's goal
+  const dailyGoal=5;
+  const goalPct=Math.min(100,Math.round(todayCount/dailyGoal*100));
+  const goalDone=todayCount>=dailyGoal;
+
   return(
     <main style={{maxWidth:820,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:16,flexWrap:"wrap"}}>
@@ -2404,6 +2625,31 @@ function Home({user,setScreen,onUpdateUser}){
         <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted,marginBottom:5}}><span style={{fontWeight:600,color:C.purple}}>📖 Learn Progress</span><span>{learnedTypes}/{totalTypes} mastered</span></div>
         <div style={{background:C.surfaceHigh,borderRadius:4,height:5}}><div style={{height:"100%",width:`${learnedTypes/totalTypes*100}%`,background:`linear-gradient(90deg,${C.purple},#c084fc)`,borderRadius:4,transition:"width 0.6s"}}/></div>
       </Card>}
+
+      {/* Quick 5 + Today's Goal row */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div onClick={()=>setScreen("quick5")} style={{background:`linear-gradient(135deg,#7c3aed,#a78bfa)`,border:"none",borderRadius:18,padding:"18px 18px",cursor:"pointer",transition:"all 0.2s",display:"flex",flexDirection:"column",justifyContent:"space-between"}}
+          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px #7c3aed44";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}>
+          <div style={{fontSize:28,marginBottom:8}}>⚡</div>
+          <div style={{fontWeight:800,fontSize:15,color:"#fff",marginBottom:3}}>Quick 5</div>
+          <div style={{fontSize:12,color:"#e0d4ff",lineHeight:1.55}}>5 questions · ~7 min · instant start</div>
+          <div style={{marginTop:10,background:"#ffffff22",borderRadius:7,padding:"4px 10px",display:"inline-block",fontSize:11,fontWeight:700,color:"#fff",width:"fit-content"}}>Play Now →</div>
+        </div>
+        <Card style={{display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:11,color:goalDone?C.success:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontWeight:700}}>{goalDone?"✓ Today's Goal Done!":"Today's Goal"}</div>
+            <div style={{fontSize:26,fontWeight:900,color:goalDone?C.success:C.text,fontFamily:T.serif}}>{todayCount}<span style={{fontSize:14,fontWeight:400,color:C.textMuted}}>/{dailyGoal}</span></div>
+            <div style={{fontSize:12,color:C.textMuted,marginBottom:8}}>questions answered</div>
+          </div>
+          <div>
+            <div style={{background:C.surfaceHigh,borderRadius:6,height:7,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${goalPct}%`,background:goalDone?`linear-gradient(90deg,${C.success},#4ade80)`:`linear-gradient(90deg,${C.accent},#a78bfa)`,borderRadius:6,transition:"width 0.6s"}}/>
+            </div>
+            {!goalDone&&<div style={{fontSize:11,color:C.textMuted,marginTop:4}}>{dailyGoal-todayCount} more to hit your goal</div>}
+          </div>
+        </Card>
+      </div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {quickActions.map(c=>(
@@ -2864,11 +3110,14 @@ function Practice({user,onUpdateUser,initialWeakType}){
   const bottomRef=useRef(null);
   const {current:q,loading,error,start,advance}=useQueue(user,section,level,qType,adaptive);
 
+  const [ansFlash,setAnsFlash]=useState(null);
   const submit=()=>{
     if(!selected||!q)return;
     if(timedMode)clearInterval(questionTimerRef.current);
     setSubmitted(true);
     const correct=selected===q.correct;
+    setAnsFlash(correct?"correct":"wrong");
+    setTimeout(()=>setAnsFlash(null),700);
     const xp=correct?XP_PER_CORRECT[q.assignedLevel||2]:0;
     setXpEarned(xp);
     setSessionCount(c=>c+1);
@@ -2884,7 +3133,7 @@ function Practice({user,onUpdateUser,initialWeakType}){
 
   const nextQ=()=>{
     setSelected(null);setSubmitted(false);setSparring(false);setSparMsgs([]);
-    setXpEarned(null);setNote("");setNoteOpen(false);
+    setXpEarned(null);setNote("");setNoteOpen(false);setAnsFlash(null);
     if(timedMode){
       setQuestionTimer(90);
       clearInterval(questionTimerRef.current);
@@ -2978,6 +3227,7 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
 
   return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"22px 20px"}}>
+      {ansFlash&&<AnswerFlash correct={ansFlash==="correct"}/>}
       {showDebrief&&<SessionDebrief sessionHistory={sessionHistory} user={user} onDismiss={()=>{setShowDebrief(false);setConfigured(false);setSessionHistory([]);setSessionCount(0);setSessionCorrect(0);}} onRecord={onUpdateUser}/>}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18,flexWrap:"wrap",gap:8}}>
         <div>
@@ -2997,18 +3247,32 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
       {q&&!loading&&(
         <div>
           <Card style={{marginBottom:12}}>
-            <p style={{lineHeight:1.85,fontSize:15,color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
-            <p style={{fontWeight:600,fontSize:15,color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{q.question}</p>
-            <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
+            <p style={{lineHeight:1.85,fontSize:Math.round(15*FONT_SCALE)+"px",color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
+            <p style={{fontWeight:600,fontSize:Math.round(15*FONT_SCALE)+"px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{q.question}</p>
+            <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} style={{...cStyle(cs(l)),fontSize:Math.round(14*FONT_SCALE)+"px"}} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
             {!submitted&&<Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit Answer</Btn>}
           </Card>
           {submitted&&(
             <div ref={bottomRef}>
               {xpEarned>0&&<div role="status" style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10}}><span>⭐</span><span style={{color:C.gold,fontWeight:700}}>+{xpEarned} XP!</span></div>}
               <Card style={{borderColor:selected===q.correct?C.success:C.danger,marginBottom:12}}>
-                <div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:6}}>{selected===q.correct?"✓ Correct!":`✗ Incorrect — Answer: ${q.correct}`}</div>
-                {q.key_concept&&<div style={{fontSize:13,color:C.purple,marginBottom:10}}>🔑 {q.key_concept}</div>}
-                <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{q.explanation}</div>
+                <div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:8}}>
+                  {selected===q.correct?"✓ Correct!":"✗ Incorrect — here's what happened"}
+                </div>
+                {q.key_concept&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"9px 13px",marginBottom:10,fontSize:13,color:C.purple,display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{flexShrink:0}}>🔑</span><span>{q.key_concept}</span>
+                </div>}
+                {selected!==q.correct&&<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
+                  <div style={{background:"#052e16",border:`1px solid ${C.success}44`,borderRadius:10,padding:"11px 14px"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:C.success,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {q.correct} is correct</div>
+                    <div style={{fontSize:14,color:"#86efac",lineHeight:1.75}}>{q.explanation?.split(/WRONG\s*\(/)[0]?.replace(/^CORRECT[^:]*:/i,"").trim()}</div>
+                  </div>
+                  <div style={{background:"#2d0a0a",border:`1px solid ${C.danger}44`,borderRadius:10,padding:"11px 14px"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {selected} misses the mark</div>
+                    <div style={{fontSize:14,color:"#fca5a5",lineHeight:1.75}}>{(()=>{const m=q.explanation?.match(new RegExp("WRONG\s*\("+selected+"\)[^)]*\)\s*:?\s*([^(]{10,})","i"));return m?m[1].split(".")[0]+".":"This answer doesn't correctly fill the logical gap in the argument.";})()}</div>
+                  </div>
+                </div>}
+                {selected===q.correct&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{q.explanation?.split(/WRONG\s*\(/)[0]?.replace(/^CORRECT[^:]*:/i,"").trim()}</div>}
               </Card>
               {!sparring&&selected!==q.correct&&<Card style={{marginBottom:12,borderColor:C.purple+"44"}}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:24}}>🥊</span><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,marginBottom:3}}>Think you're right? Argue your case.</div><div style={{fontSize:13,color:C.textMuted}}>Debate Lumora LSAT in Socratic dialogue.</div></div><Btn onClick={startSpar} small style={{background:"linear-gradient(135deg,#7c3aed,#a78bfa)",flexShrink:0}}>Spar →</Btn></div>
@@ -3786,6 +4050,16 @@ export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
   const [ready,setReady]=useState(false);
+  const [darkMode,setDarkMode]=useState(true);
+  const [fontScale,setFontScale]=useState(1);
+  const [streakCelebrate,setStreakCelebrate]=useState(false);
+  const [showQuick5,setShowQuick5]=useState(false);
+  
+  // Apply theme globally
+  useEffect(()=>{
+    C=darkMode?DARK:LIGHT;
+    FONT_SCALE=fontScale;
+  },[darkMode,fontScale]);
 
   useEffect(()=>{
     try{const email=DB.getSession();if(email){const u=DB.getUser(email);if(u){setUser(u);setScreen("home");}}}catch{}
@@ -3801,6 +4075,8 @@ export default function App(){
     const updated={...user,stats:{...user.stats,streak,lastDay:today}};
     setUser(updated);
     try{DB.saveUser(updated.email,updated);}catch{}
+    // Celebrate milestones
+    if([3,7,14,30,60,100].includes(streak))setStreakCelebrate(true);
   },[user?.email]);
 
   const handleLogin=(u)=>{setUser(u);setScreen("home");};
@@ -3852,8 +4128,13 @@ export default function App(){
     }}/>;
   }
 
+  const handleSetScreen=(s)=>{
+    if(s==="quick5"){setShowQuick5(true);return;}
+    setScreen(s);
+  };
+
   const pages={
-    home:<Home user={user} setScreen={setScreen} onUpdateUser={handleUpdateUser}/>,
+    home:<Home user={user} setScreen={handleSetScreen} onUpdateUser={handleUpdateUser}/>,
     daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
     learn:<Learn user={user} onUpdateUser={handleUpdateUser}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser}/>,
@@ -3864,14 +4145,17 @@ export default function App(){
     upload:<Upload/>,
     notes:<Notes user={user} onUpdateUser={handleUpdateUser}/>,
     dashboard:<Dashboard user={user} onUpdateUser={handleUpdateUser}/>,
-    profile:<Profile user={user} onUpdateUser={handleUpdateUser} onLogout={handleLogout} setScreen={setScreen}/>,
+    profile:<Profile user={user} onUpdateUser={handleUpdateUser} onLogout={handleLogout} setScreen={handleSetScreen}/>,
   };
 
   return(
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans}}>
-      <style>{`*{box-sizing:border-box;}body{margin:0;}button,input,textarea,select{font-family:inherit;}`}</style>
-      {screen!=="profile"&&<Nav screen={screen} setScreen={setScreen} user={user} onLogout={handleLogout}/>}
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px"}}>
+      <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
+      {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
+      {showQuick5&&user&&<Quick5 user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
+      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout}/>}
       {pages[screen]||pages.home}
+      {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
     </div>
   );
 }
