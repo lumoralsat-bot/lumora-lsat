@@ -67,13 +67,9 @@ const DB={
 let API_KEY="";
 try{API_KEY=import.meta.env.VITE_ANTHROPIC_API_KEY||"";}catch{API_KEY="";}
 
-async function callClaude(system,userMsg,maxTokens=1200,forceJson=false){
+async function callClaude(system,userMsg,maxTokens=1200){
   if(!API_KEY)throw new Error("No API key configured. Add VITE_ANTHROPIC_API_KEY in Vercel environment variables.");
-  // When forceJson=true, prefill the assistant turn with "{" so the model CANNOT
-  // start with conversational text — it must continue the JSON object.
-  const messages=forceJson
-    ?[{role:"user",content:userMsg},{role:"assistant",content:"{"}]
-    :[{role:"user",content:userMsg}];
+  const messages=[{role:"user",content:userMsg}];
   const res=await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
     headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
@@ -84,7 +80,7 @@ async function callClaude(system,userMsg,maxTokens=1200,forceJson=false){
   const text=data.content?.map(i=>i.text||"").join("").trim();
   if(!text)throw new Error("Empty response from API");
   // When we prefilled "{", prepend it back so parseJSON gets valid JSON
-  return forceJson?"{"+text:text;
+  return text;
 }
 
 function parseJSON(raw){
@@ -2005,7 +2001,7 @@ function Quick5({user,onUpdateUser,onDone}){
       const lv=i<2?2:i<4?3:4;
       const qt=types[i%types.length];
       try{
-        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic),1200,true);
+        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic),1200);
         generated.push({...parseJSON(raw),section:secs,qType:qt,assignedLevel:lv});
         if(generated.length===1){setQuestions([...generated]);setPhase("active");startTimer();}
         else setQuestions([...generated]);
@@ -2775,7 +2771,7 @@ Generate a ${typeObj.type} question for the ${section} section.
 Respond ONLY with valid JSON (no markdown):
 {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"D","explanation":"CORRECT (D): [clear explanation of why D is right and directly connects to the ${typeObj.type} framework]. (A): [why wrong]. (B): [why wrong]. (C): [why wrong]. (E): [why wrong].","teaching_point":"One specific insight about ${typeObj.type} questions illustrated by this question.","level":${level}}` + " CRITICAL: The correct field must be whichever letter is actually correct — A, B, C, D, or E. Never always pick the same letter.";
     try{
-      const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question. Use a varied, original scenario — avoid placeholder names like Millbrook or Westview. Use diverse settings: universities, hospitals, companies, policy debates, scientific research. Keep the question type pure — this must be a clear ${typeObj.type} question.`,1200,true);
+      const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question. Use a varied, original scenario — avoid placeholder names like Millbrook or Westview. Use diverse settings: universities, hospitals, companies, policy debates, scientific research. Keep the question type pure — this must be a clear ${typeObj.type} question.`,1200);
       setQuestion(parseJSON(raw));
     }catch(e){setError("Could not generate question: "+(e.message||"Please try again."));}
     setLoadingQ(false);
@@ -2967,7 +2963,7 @@ function useQueue(user,section,level,qType,adaptive){
   const genRaw=useCallback(async()=>{
     const{sec,lv,qt}=getParams();
     const recentTopics=sessionTopics.current.slice(-8);
-    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics),1200,true);
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics),1200);
     const parsed=parseJSON(raw);
     const stim=(parsed.stimulus||"").toLowerCase();
     const words=stim.split(/\s+/).slice(0,10);
@@ -3181,7 +3177,7 @@ function Practice({user,onUpdateUser,initialWeakType}){
       qt=scored[0].t;
     }
     const recentTopics=sessionTopics.current.slice(-6);
-    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics),1200,true);
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics),1200);
     const parsed=parseJSON(raw);
     // track topic to avoid repeats
     const stim=(parsed.stimulus||"").toLowerCase();
@@ -3828,7 +3824,7 @@ function FullSection({user,onUpdateUser}){
   const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
   const genOne=async(lv,qt)=>{
-    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sel,lv,qt,user.diagnostic),1200,true);
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sel,lv,qt,user.diagnostic),1200);
     return{...parseJSON(raw),section:sel,qType:qt,assignedLevel:lv};
   };
 
