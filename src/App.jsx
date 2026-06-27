@@ -1946,11 +1946,23 @@ function StreakCelebration({streak,onDismiss}){
 // ─── ANSWER RESULT CELEBRATION ────────────────────────────────────────────────
 function AnswerFlash({correct}){
   const [show,setShow]=useState(true);
-  useEffect(()=>{const t=setTimeout(()=>setShow(false),700);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{const t=setTimeout(()=>setShow(false),600);return()=>clearTimeout(t);},[]);
   if(!show)return null;
   return(
-    <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:500,pointerEvents:"none",animation:"fadeUp 0.2s ease both"}}>
-      <div style={{fontSize:56}}>{correct?"✅":"❌"}</div>
+    <div style={{position:"fixed",top:72,right:20,zIndex:500,pointerEvents:"none",animation:"fadeUp 0.15s ease both"}}>
+      <div style={{
+        background:correct?"#052e16":"#2d0a0a",
+        border:`2px solid ${correct?"#2dd4a0":"#f87171"}`,
+        borderRadius:14,
+        padding:"10px 18px",
+        display:"flex",
+        alignItems:"center",
+        gap:8,
+        boxShadow:`0 4px 20px ${correct?"#2dd4a044":"#f8717144"}`
+      }}>
+        <span style={{fontSize:20}}>{correct?"✅":"❌"}</span>
+        <span style={{fontSize:14,fontWeight:700,color:correct?"#86efac":"#fca5a5"}}>{correct?"Correct!":"Incorrect"}</span>
+      </div>
     </div>
   );
 }
@@ -2241,7 +2253,7 @@ function Auth({onLogin}){
         </div>
         <Card>
           <h1 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:6,fontWeight:700}}>{mode==="login"?"Welcome back":"Create your account"}</h1>
-          <p style={{color:C.textMuted,fontSize:14,marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":"Your progress saves automatically every session."}</p>
+          <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":"Your progress saves automatically every session."}</p>
           <ErrBanner message={error} onDismiss={()=>setError("")}/>
           <form onSubmit={submit} noValidate>
             {mode==="signup"&&<Finput id="name" label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Smith" required autoFocus/>}
@@ -2271,7 +2283,7 @@ function Diagnostic({user,onComplete}){
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:520}}>
-        <div style={{textAlign:"center",marginBottom:24}}><div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>Welcome, {user.name.split(" ")[0]}!</div><p style={{color:C.textMuted,fontSize:14,marginTop:6,lineHeight:1.6}}>Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you.</p></div>
+        <div style={{textAlign:"center",marginBottom:24}}><div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>Welcome, {user.name.split(" ")[0]}!</div><p style={{color:C.textSub,fontSize:14,marginTop:6,lineHeight:1.6}}>Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you.</p></div>
         <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12,color:C.textMuted}}><span>Building your profile</span><span>{progress}%</span></div><div style={{background:C.surfaceHigh,borderRadius:6,height:5}} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div style={{height:"100%",width:`${progress}%`,background:"linear-gradient(90deg,#4f7fff,#a78bfa)",borderRadius:6,transition:"width 0.4s ease"}}/></div></div>
         <Card>
           <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontWeight:700}}>Question {step+1} of {DIAGNOSTIC_QUESTIONS.length}</div>
@@ -2585,9 +2597,9 @@ function Home({user,setScreen,onUpdateUser}){
     <main style={{maxWidth:820,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:16,flexWrap:"wrap"}}>
         <div>
-          <div style={{fontSize:13,color:C.textMuted,marginBottom:4}}>{greeting}</div>
+          <div style={{fontSize:13,color:C.textSub,marginBottom:4}}>{greeting}</div>
           <h1 style={{fontFamily:T.serif,fontSize:"clamp(24px,4vw,34px)",color:C.text,lineHeight:1.15,marginBottom:6}}>{user.name.split(" ")[0]}.</h1>
-          <p style={{color:C.textMuted,fontSize:14,lineHeight:1.6}}>
+          <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>
             {history.length===0?"Your LSAT journey starts here.":todayCount===0?"Pick up where you left off.":`${todayCount} question${todayCount!==1?"s":""} answered today.`}
           </p>
         </div>
@@ -2681,7 +2693,7 @@ function Learn({user,onUpdateUser}){
   return(
     <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Learn</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:22,lineHeight:1.6}}>Master every LSAT question type from first principles. Each lesson starts simple and builds to full test difficulty — guided by AI throughout.</p>
+      <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>Master every LSAT question type from first principles. Each lesson starts simple and builds to full test difficulty — guided by AI throughout.</p>
 
       <div style={{display:"flex",gap:8,marginBottom:20}}>
         {SECTIONS.map(s=><button key={s} onClick={()=>setActiveSection(s)} style={{padding:"8px 18px",borderRadius:10,border:`1.5px solid ${activeSection===s?C.accent:C.border}`,background:activeSection===s?C.accentSoft:"transparent",color:activeSection===s?C.accent:C.textMuted,fontSize:13,fontWeight:activeSection===s?700:400,cursor:"pointer",fontFamily:T.sans,transition:"all 0.15s",outline:"none"}}>{s}</button>)}
@@ -2902,7 +2914,7 @@ Respond ONLY with valid JSON (no markdown):
           <div style={{fontSize:56,marginBottom:16}}>🎓</div>
           <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:10}}>Lesson Complete!</h2>
           <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:8}}>You've worked through all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
-          <p style={{color:C.textMuted,fontSize:13,lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
+          <p style={{color:C.textSub,fontSize:13,lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
             <Btn onClick={onBack}>← Back to Learn</Btn>
             <Btn ghost onClick={()=>{setView("practice");setLevelIdx(0);setQuestion(null);setSubmitted(false);setSelected(null);genQuestion();}}>Practice More</Btn>
@@ -3190,7 +3202,7 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Practice</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>Lumora generates a fresh question for you every time — no repeats, ever. The next one loads in the background.</p>
+      <p style={{color:C.textSub,fontSize:14,marginBottom:16}}>Lumora generates a fresh question for you every time — no repeats, ever. The next one loads in the background.</p>
       <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);start();}}/>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(s);setQType(null);}}>{s}</Pill>)}</div></Card>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>{[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}</div></Card>
