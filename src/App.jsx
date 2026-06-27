@@ -67,29 +67,44 @@ const DB={
 let API_KEY="";
 try{API_KEY=import.meta.env.VITE_ANTHROPIC_API_KEY||"";}catch{API_KEY="";}
 
-async function callClaude(system,userMsg,maxTokens=1200){
+async function callClaude(system,userMsg,maxTokens=1200,forceJson=false){
   if(!API_KEY)throw new Error("No API key configured. Add VITE_ANTHROPIC_API_KEY in Vercel environment variables.");
+  // When forceJson=true, prefill the assistant turn with "{" so the model CANNOT
+  // start with conversational text — it must continue the JSON object.
+  const messages=forceJson
+    ?[{role:"user",content:userMsg},{role:"assistant",content:"{"}]
+    :[{role:"user",content:userMsg}];
   const res=await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
     headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages:[{role:"user",content:userMsg}]}),
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages}),
   });
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||"API error "+res.status);}
   const data=await res.json();
   const text=data.content?.map(i=>i.text||"").join("").trim();
   if(!text)throw new Error("Empty response from API");
-  return text;
+  // When we prefilled "{", prepend it back so parseJSON gets valid JSON
+  return forceJson?"{"+text:text;
 }
 
 function parseJSON(raw){
-  // Remove markdown code fences (avoid backtick chars in source via charCode)
-  const BT=String.fromCharCode(96); // backtick character
+  const BT=String.fromCharCode(96);
   let clean=raw.trim();
+  // Strip markdown fences
   const fence3=BT+BT+BT;
   if(clean.startsWith(fence3+"json"))clean=clean.slice(7);
   else if(clean.startsWith(fence3))clean=clean.slice(3);
   if(clean.endsWith(fence3))clean=clean.slice(0,-3);
-  return JSON.parse(clean.trim());
+  clean=clean.trim();
+  // If response doesn't start with { find the first { and try from there
+  if(!clean.startsWith("{")){
+    const idx=clean.indexOf("{");
+    if(idx!==-1)clean=clean.slice(idx);
+  }
+  // Trim any trailing content after the last }
+  const lastBrace=clean.lastIndexOf("}");
+  if(lastBrace!==-1)clean=clean.slice(0,lastBrace+1);
+  return JSON.parse(clean);
 }
 // ─── LEARN CURRICULUM (Comprehensive Interactive Textbook) ────────────────────
 const LEARN_CURRICULUM = {
@@ -1990,7 +2005,7 @@ function Quick5({user,onUpdateUser,onDone}){
       const lv=i<2?2:i<4?3:4;
       const qt=types[i%types.length];
       try{
-        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic));
+        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic),1200,true);
         generated.push({...parseJSON(raw),section:secs,qType:qt,assignedLevel:lv});
         if(generated.length===1){setQuestions([...generated]);setPhase("active");startTimer();}
         else setQuestions([...generated]);
@@ -2760,7 +2775,7 @@ Generate a ${typeObj.type} question for the ${section} section.
 Respond ONLY with valid JSON (no markdown):
 {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"D","explanation":"CORRECT (D): [clear explanation of why D is right and directly connects to the ${typeObj.type} framework]. (A): [why wrong]. (B): [why wrong]. (C): [why wrong]. (E): [why wrong].","teaching_point":"One specific insight about ${typeObj.type} questions illustrated by this question.","level":${level}}` + " CRITICAL: The correct field must be whichever letter is actually correct — A, B, C, D, or E. Never always pick the same letter.";
     try{
-      const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question. Use a varied, original scenario — avoid placeholder names like Millbrook or Westview. Use diverse settings: universities, hospitals, companies, policy debates, scientific research. Keep the question type pure — this must be a clear ${typeObj.type} question.`);
+      const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question. Use a varied, original scenario — avoid placeholder names like Millbrook or Westview. Use diverse settings: universities, hospitals, companies, policy debates, scientific research. Keep the question type pure — this must be a clear ${typeObj.type} question.`,1200,true);
       setQuestion(parseJSON(raw));
     }catch(e){setError("Could not generate question: "+(e.message||"Please try again."));}
     setLoadingQ(false);
@@ -2952,7 +2967,7 @@ function useQueue(user,section,level,qType,adaptive){
   const genRaw=useCallback(async()=>{
     const{sec,lv,qt}=getParams();
     const recentTopics=sessionTopics.current.slice(-8);
-    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics),1200,true);
     const parsed=parseJSON(raw);
     const stim=(parsed.stimulus||"").toLowerCase();
     const words=stim.split(/\s+/).slice(0,10);
@@ -3166,7 +3181,7 @@ function Practice({user,onUpdateUser,initialWeakType}){
       qt=scored[0].t;
     }
     const recentTopics=sessionTopics.current.slice(-6);
-    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics),1200,true);
     const parsed=parseJSON(raw);
     // track topic to avoid repeats
     const stim=(parsed.stimulus||"").toLowerCase();
@@ -3813,7 +3828,7 @@ function FullSection({user,onUpdateUser}){
   const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
   const genOne=async(lv,qt)=>{
-    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sel,lv,qt,user.diagnostic));
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sel,lv,qt,user.diagnostic),1200,true);
     return{...parseJSON(raw),section:sel,qType:qt,assignedLevel:lv};
   };
 
