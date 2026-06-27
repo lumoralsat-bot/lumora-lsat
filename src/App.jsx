@@ -1911,7 +1911,11 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
   const domainBlock=recentTopics.length>0?" Do NOT use these recent domains/structures: "+recentTopics.filter(t=>t.startsWith("DOM:")).map(t=>t.slice(4)).join(", ")+".":"";
   const topicBlock=recentTopics.filter(t=>!t.startsWith("DOM:")).length>0?" Avoid these recent topics: "+recentTopics.filter(t=>!t.startsWith("DOM:")).join(" | ")+".":"";
 
-  // Pick stimulus type based on question type — dialogues only when appropriate
+  // Rotate correct answer letter to prevent B-always bias
+  const ANSWER_LETTERS=["A","B","C","D","E"];
+  const correctLetter=ANSWER_LETTERS[Math.floor(Math.random()*5)];
+
+    // Pick stimulus type based on question type — dialogues only when appropriate
   var stimType;
   if(qType==="Method of Reasoning"||qType==="Parallel Reasoning"){
     const dialogTypes=["TYPE 6 — NAMED PROFESSIONAL","TYPE 7 — TWO-SPEAKER DIALOGUE","TYPE 8 — EDITORIAL"];
@@ -1928,7 +1932,7 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
 
   // Word count targets by level
   var wcTarget=level===1?"35-55":level===2?"45-65":level===3?"55-75":"65-90";
-  return "Generate a Level "+level+" (1=simplest, 4=official LSAT difficulty) LSAT "+sec+" question of type: "+qType+
+  return "Generate a Level "+level+" (1=simplest, 4=official LSAT difficulty) LSAT "+sec+" question of type: "+qType+" — IMPORTANT: Make answer choice "+correctLetter+" the correct answer. Write the question so that "+correctLetter+" is correct, then write four wrong answer choices for the other letters."+
     ". SET THE SCENARIO IN: "+domain+". USE STIMULUS STRUCTURE: "+stimType+"."+domainBlock+topicBlock+
     " WORD COUNT REQUIREMENT: The LR stimulus must be "+wcTarget+" words total. Count words before outputting. Never exceed the upper limit."+
     " Higher difficulty means subtler logic and trickier distractors, NOT more words. Level 4 is still under 90 words."+
