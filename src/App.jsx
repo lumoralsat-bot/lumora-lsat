@@ -1985,105 +1985,132 @@ function AnswerFlash({correct}){
 // ─── QUICK 5 MODE ─────────────────────────────────────────────────────────────
 function Quick5({user,onUpdateUser,onDone}){
   const TOTAL=5;
-  const [phase,setPhase]=useState("loading"); // loading | active | done
-  const [questions,setQuestions]=useState([]);
+  const LR_TYPES=QUESTION_TYPES["Logical Reasoning"];
+
+  const [phase,setPhase]=useState("loading");
+  const [questions,setQuestions]=useState([]);    // all 5 slots, some may be null initially
   const [idx,setIdx]=useState(0);
   const [selected,setSelected]=useState(null);
   const [submitted,setSubmitted]=useState(false);
   const [results,setResults]=useState([]);
   const [flash,setFlash]=useState(null);
-  const [timer,setTimer]=useState(90);
-  const timerRef=useRef(null);
-  const sectionRef=useRef(SECTIONS[Math.floor(Math.random()*SECTIONS.length)]);
-  const secs=sectionRef.current;
+  const [timer,setTimer]=useState(75);
 
-  useEffect(()=>{generate();},[]);
+  // Refs to avoid stale closure in timer
+  const timerRef=useRef(null);
+  const submittedRef=useRef(false);
+  const selectedRef=useRef(null);
+
+  // Keep refs in sync
+  useEffect(()=>{submittedRef.current=submitted;},[submitted]);
+  useEffect(()=>{selectedRef.current=selected;},[selected]);
+
+  useEffect(()=>{startSession();},[]);
   useEffect(()=>()=>clearInterval(timerRef.current),[]);
 
-  const generate=async()=>{
-    setPhase("loading");setQuestions([]);setIdx(0);setResults([]);setSelected(null);setSubmitted(false);
-    const generated=[];
-    const types=QUESTION_TYPES[secs];
-    for(let i=0;i<TOTAL;i++){
-      const lv=i<2?2:i<4?3:4;
-      const qt=types[i%types.length];
-      try{
-        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic,[]),1200);
-        const parsed={...parseJSON(raw),section:secs,qType:qt,assignedLevel:lv};
-        generated.push(parsed);
-        if(generated.length===1){
-          setQuestions([...generated]);
-          setPhase("active");
-          startTimer();
-        } else {
-          setQuestions(prev=>[...prev,parsed]);
-        }
-      }catch(e){console.warn("Q gen failed",e);}
+  const genOne=async(i)=>{
+    const lv=i<2?2:i<4?3:4;
+    const qt=LR_TYPES[i%LR_TYPES.length];
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ("Logical Reasoning",lv,qt,user.diagnostic,[]),1200);
+    const parsed=parseJSON(raw);
+    // Validate — must have stimulus, question, and choices
+    if(!parsed.stimulus||!parsed.question||!parsed.choices)throw new Error("Incomplete question");
+    return{...parsed,section:"Logical Reasoning",qType:qt,assignedLevel:lv};
+  };
+
+  const startSession=async()=>{
+    setPhase("loading");
+    setQuestions(new Array(TOTAL).fill(null));
+    setIdx(0);setResults([]);setSelected(null);setSubmitted(false);
+    submittedRef.current=false;selectedRef.current=null;
+    clearInterval(timerRef.current);
+
+    // Generate all 5 in parallel — much faster than sequential
+    const promises=Array.from({length:TOTAL},(_,i)=>genOne(i).catch(()=>null));
+    
+    // Show first question as soon as it arrives
+    let firstShown=false;
+    promises[0].then(q=>{
+      if(q){
+        setQuestions(prev=>{const a=[...prev];a[0]=q;return a;});
+        if(!firstShown){firstShown=true;setPhase("active");startTimer();}
+      }
+    });
+
+    // Fill in the rest as they arrive
+    const all=await Promise.allSettled(promises);
+    const loaded=all.map(r=>r.status==="fulfilled"?r.value:null);
+    setQuestions(loaded);
+    if(!firstShown){
+      const first=loaded.find(q=>q!=null);
+      if(first){setPhase("active");startTimer();}
+      else{onDone();}
     }
-    if(generated.length===0){onDone();}
   };
 
   const startTimer=()=>{
     clearInterval(timerRef.current);
-    setTimer(90);
-    timerRef.current=setInterval(()=>setTimer(t=>{
-      if(t<=1){clearInterval(timerRef.current);handleAutoSubmit();return 0;}
-      return t-1;
-    }),1000);
-  };
-
-  const handleAutoSubmit=()=>{
-    // auto-submit with no selection = mark wrong, show explanation, wait for Next
-    setSubmitted(true);
-    setFlash("wrong");
-    setTimeout(()=>setFlash(null),700);
+    setTimer(75);
+    timerRef.current=setInterval(()=>{
+      setTimer(t=>{
+        if(t<=1){
+          clearInterval(timerRef.current);
+          // Use refs — not stale closures
+          if(!submittedRef.current){
+            submittedRef.current=true;
+            setSubmitted(true);
+            setFlash("wrong");
+            setTimeout(()=>setFlash(null),700);
+          }
+          return 0;
+        }
+        return t-1;
+      });
+    },1000);
   };
 
   const doSubmit=()=>{
-    if(submitted||!selected)return;
+    if(submittedRef.current||!selectedRef.current)return;
     clearInterval(timerRef.current);
     const q=questions[idx];
     if(!q)return;
-    const correct=selected===q.correct;
+    const correct=selectedRef.current===q.correct;
+    submittedRef.current=true;
+    setSubmitted(true);
     setFlash(correct?"correct":"wrong");
     setTimeout(()=>setFlash(null),700);
-    setSubmitted(true);
-    const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,xp:correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()};
+    const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,
+      xp:correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()};
     setResults(prev=>[...prev,record]);
-    onUpdateUser({history:[...(user.history||[]),record],stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
+    onUpdateUser({history:[...(user.history||[]),record],
+      stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
   };
 
   const next=()=>{
-    const nextIdx=idx+1;
-    // Record a miss if they ran out of time and never selected
-    if(submitted&&!selected){
+    // Record time-out miss
+    if(submittedRef.current&&!selectedRef.current){
       const q=questions[idx];
       if(q){
-        const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct:false,xp:0,timestamp:Date.now()};
-        setResults(prev=>{
-          const updated=[...prev,record];
-          onUpdateUser({history:[...(user.history||[]),record]});
-          return updated;
-        });
+        const record={section:q.section,qType:q.qType,level:q.assignedLevel,
+          correct:false,xp:0,timestamp:Date.now()};
+        setResults(prev=>[...prev,record]);
+        onUpdateUser({history:[...(user.history||[]),record]});
       }
     }
+    const nextIdx=idx+1;
     if(nextIdx>=TOTAL){setPhase("done");return;}
+    submittedRef.current=false;selectedRef.current=null;
     setIdx(nextIdx);setSelected(null);setSubmitted(false);
-    if(questions[nextIdx])startTimer();
-    // else wait — useEffect below will start timer once question loads
+    // Start timer for next question (it should already be loaded since parallel)
+    startTimer();
   };
 
-  // Start timer when a new question becomes available and we're waiting for it
+  // If we advanced to a question slot that finished loading after we got there, start timer
   useEffect(()=>{
-    if(phase==="active"&&!submitted&&questions[idx]&&timer===90){
-      // timer already started by startTimer() — nothing to do
+    if(phase==="active"&&!submittedRef.current&&questions[idx]&&timer===75){
+      // already started
     }
-    if(phase==="active"&&!submitted&&questions[idx]&&idx>0){
-      // question just loaded for a slot we already advanced to
-      const hasTimer=timer>0&&timer<90;
-      if(!hasTimer)startTimer();
-    }
-  },[questions.length,idx,phase]);
+  },[questions[idx]?.stimulus]);
 
   const q=questions[idx];
   const correct_count=results.filter(r=>r.correct).length;
@@ -2094,50 +2121,71 @@ function Quick5({user,onUpdateUser,onDone}){
     if(l===selected)return"bad";
     return"def";
   };
-  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",marginBottom:9,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",
+    borderRadius:12,padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",
+    marginBottom:9,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,
+    boxSizing:"border-box",outline:"none",
+    ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
+      :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
+      :s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}
+      :{background:"transparent",borderColor:C.border,color:C.textSub})});
 
-  // ── Loading screen ────────────────────────────────────────────────────────
   if(phase==="loading")return(
-    <div style={{position:"fixed",inset:0,background:C.bg+"f0",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
-      <Spinner label="Building your Quick 5…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>5 questions · adaptive difficulty · starts when ready</p>
+    <div style={{position:"fixed",inset:0,background:C.bg+"f2",display:"flex",flexDirection:"column",
+      alignItems:"center",justifyContent:"center",zIndex:300}}>
+      <Spinner label="Generating 5 questions in parallel…"/>
+      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>LR only · adaptive difficulty · starting soon</p>
     </div>
   );
 
-  // ── Done screen ───────────────────────────────────────────────────────────
   if(phase==="done"){
-    const total=results.length;
-    const pct=total>0?Math.round(correct_count/total*100):0;
+    const total=Math.max(results.length,1);
+    const pct=Math.round(correct_count/total*100);
     const totalXP=results.reduce((s,r)=>s+r.xp,0);
     return(
-      <div style={{position:"fixed",inset:0,background:C.bg+"f0",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:36,maxWidth:400,width:"100%",textAlign:"center"}}>
+      <div style={{position:"fixed",inset:0,background:C.bg+"f2",display:"flex",alignItems:"center",
+        justifyContent:"center",zIndex:300,padding:20}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
+          padding:36,maxWidth:400,width:"100%",textAlign:"center"}}>
           <div style={{fontSize:52,marginBottom:12}}>{pct>=80?"🏆":pct>=60?"🎯":"📈"}</div>
           <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:8}}>Quick 5 Done!</h2>
-          <div style={{fontSize:44,fontWeight:900,color:pct>=70?C.success:pct>=50?C.gold:C.danger,fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
-          <p style={{color:C.textSub,fontSize:14,marginBottom:8}}>{correct_count} of {total} correct</p>
-          {totalXP>0&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:10,padding:"8px 14px",marginBottom:16,display:"inline-block"}}><span style={{color:C.gold,fontWeight:700}}>+{totalXP} XP earned</span></div>}
+          <div style={{fontSize:44,fontWeight:900,
+            color:pct>=70?C.success:pct>=50?C.gold:C.danger,
+            fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
+          <p style={{color:C.textSub,fontSize:14,marginBottom:8}}>{correct_count} of {results.length} correct</p>
+          {totalXP>0&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,
+            borderRadius:10,padding:"8px 14px",marginBottom:16,display:"inline-block"}}>
+            <span style={{color:C.gold,fontWeight:700}}>+{totalXP} XP earned</span>
+          </div>}
           <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24}}>
-            {results.map((r,i)=><div key={i} style={{width:32,height:32,borderRadius:"50%",background:r.correct?C.success+"22":C.danger+"22",border:`2px solid ${r.correct?C.success:C.danger}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{r.correct?"✓":"✗"}</div>)}
+            {results.map((r,i)=>(
+              <div key={i} style={{width:32,height:32,borderRadius:"50%",
+                background:r.correct?C.success+"22":C.danger+"22",
+                border:`2px solid ${r.correct?C.success:C.danger}`,
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                {r.correct?"✓":"✗"}
+              </div>
+            ))}
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
             <Btn ghost onClick={onDone}>Back to Home</Btn>
-            <Btn onClick={()=>{sectionRef.current=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];generate();}}>Play Again ⚡</Btn>
+            <Btn onClick={startSession}>Play Again ⚡</Btn>
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Active question ───────────────────────────────────────────────────────
-  // If question hasn't loaded yet for this index, show a mini spinner
-  if(!q)return(
-    <div style={{position:"fixed",inset:0,background:C.bg+"f0",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
+  // Question loading mid-session (parallel gen still catching up)
+  if(!q||!q.stimulus)return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"f2",display:"flex",
+      flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
       <Spinner label={`Loading question ${idx+1}…`}/>
     </div>
   );
 
   const isTimedOut=submitted&&!selected;
+  const timerColor=timer<=10?C.danger:timer<=25?C.gold:C.accent;
 
   return(
     <div style={{position:"fixed",inset:0,background:C.bg,overflowY:"auto",zIndex:300}}>
@@ -2145,41 +2193,67 @@ function Quick5({user,onUpdateUser,onDone}){
       <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px 40px"}}>
 
         {/* Header */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontWeight:800,color:C.purple,fontSize:15}}>⚡ Quick 5</span>
-            <div style={{display:"flex",gap:5}}>
+            <div style={{display:"flex",gap:4}}>
               {[0,1,2,3,4].map(i=>(
-                <div key={i} style={{width:28,height:6,borderRadius:3,
-                  background:i<results.length?(results[i]?.correct?C.success:C.danger):i===idx?C.accent:C.surfaceHigh,
+                <div key={i} style={{width:26,height:6,borderRadius:3,
+                  background:i<results.length
+                    ?(results[i]?.correct?C.success:C.danger)
+                    :i===idx?C.accent:C.surfaceHigh,
                   transition:"background 0.3s"}}/>
               ))}
             </div>
-            <span style={{color:C.textMuted,fontSize:13}}>{idx+1}/5</span>
+            <span style={{color:C.textMuted,fontSize:12}}>{idx+1}/5</span>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {!submitted&&<div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:timer<=15?C.danger:timer<=30?C.gold:C.text,minWidth:36,textAlign:"center"}}>{timer}s</div>}
-            <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Exit</button>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {!submitted&&(
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:32,height:32,position:"relative"}}>
+                  <svg width="32" height="32" viewBox="0 0 32 32">
+                    <circle cx="16" cy="16" r="13" fill="none" stroke={C.surfaceHigh} strokeWidth="3"/>
+                    <circle cx="16" cy="16" r="13" fill="none" stroke={timerColor} strokeWidth="3"
+                      strokeDasharray={2*Math.PI*13}
+                      strokeDashoffset={2*Math.PI*13*(1-timer/75)}
+                      strokeLinecap="round"
+                      style={{transform:"rotate(-90deg)",transformOrigin:"50% 50%",transition:"stroke-dashoffset 1s linear,stroke 0.3s"}}/>
+                  </svg>
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
+                    justifyContent:"center",fontSize:9,fontWeight:700,color:timerColor}}>{timer}</div>
+                </div>
+              </div>
+            )}
+            <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,
+              borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>
+              Exit
+            </button>
           </div>
         </div>
 
         {/* Timer bar */}
-        {!submitted&&<div style={{background:C.surfaceHigh,borderRadius:4,height:4,marginBottom:14,overflow:"hidden"}}>
-          <div style={{height:"100%",width:`${timer/90*100}%`,background:timer<=15?C.danger:timer<=30?C.gold:C.accent,borderRadius:4,transition:"width 1s linear"}}/>
-        </div>}
+        {!submitted&&(
+          <div style={{background:C.surfaceHigh,borderRadius:4,height:3,marginBottom:14,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${timer/75*100}%`,background:timerColor,
+              borderRadius:4,transition:"width 1s linear,background 0.3s"}}/>
+          </div>
+        )}
 
-        {/* Question card */}
+        {/* Question */}
         <Card style={{marginBottom:12}}>
           <div style={{marginBottom:10}}>
             <Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag>
             <Tag color={C.accent}>{q.qType}</Tag>
-            {questions.length<TOTAL&&<span style={{fontSize:11,color:C.textMuted,marginLeft:6}}>({questions.length}/{TOTAL} loaded)</span>}
           </div>
-          <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
-          <p style={{fontWeight:600,fontSize:"15px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{q.question}</p>
+          <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,
+            whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
+          <p style={{fontWeight:600,fontSize:"15px",color:C.text,
+            borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{q.question}</p>
           <div role="radiogroup">
             {Object.entries(q.choices||{}).map(([l,t])=>(
-              <button key={l} style={cStyle(cs(l))} onClick={()=>{if(submitted)return;setSelected(l);}} role="radio" aria-checked={selected===l}>
+              <button key={l} style={cStyle(cs(l))}
+                onClick={()=>{if(submitted)return;setSelected(l);}}
+                role="radio" aria-checked={selected===l}>
                 <span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}
               </button>
             ))}
@@ -2194,19 +2268,39 @@ function Quick5({user,onUpdateUser,onDone}){
         {/* Feedback */}
         {submitted&&(
           <div>
-            {isTimedOut&&<div style={{background:C.danger+"15",border:`1px solid ${C.danger}33`,borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,color:C.danger,fontWeight:600}}>⏱ Time's up! The correct answer was <strong>{q.correct}</strong>.</div>}
-            <Card style={{borderColor:(!isTimedOut&&selected===q.correct)?C.success:C.danger,marginBottom:12}}>
-              {!isTimedOut&&<div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:10}}>
-                {selected===q.correct?"✓ Correct!":"✗ Incorrect — correct answer: "+q.correct}
-              </div>}
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
-                {q.explanation?.split(/WRONG\s*\([A-E]\)/)[0]?.replace(/CORRECT\s*\([A-E]\):\s*/,"")?.trim()||q.explanation}
+            {isTimedOut&&(
+              <div style={{background:C.danger+"18",border:`1px solid ${C.danger}44`,
+                borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,
+                color:C.danger,fontWeight:600}}>
+                ⏱ Time's up — correct answer: <strong>{q.correct}</strong>
               </div>
-              {q.key_concept&&<div style={{marginTop:10,fontSize:13,color:C.purple,fontStyle:"italic"}}>🔑 {q.key_concept}</div>}
+            )}
+            <Card style={{borderColor:(!isTimedOut&&selected===q.correct)?C.success:C.danger,marginBottom:12}}>
+              {!isTimedOut&&(
+                <div style={{fontSize:15,fontWeight:700,
+                  color:selected===q.correct?C.success:C.danger,marginBottom:10}}>
+                  {selected===q.correct?"✓ Correct!":"✗ Incorrect — correct answer: "+q.correct}
+                </div>
+              )}
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,
+                padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                {(q.explanation||"").split(/WRONG\s*\([A-E]\)/)[0]
+                  .replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()||q.explanation}
+              </div>
+              {q.key_concept&&(
+                <div style={{marginTop:10,fontSize:13,color:C.purple,fontStyle:"italic"}}>
+                  🔑 {q.key_concept}
+                </div>
+              )}
             </Card>
             {idx<TOTAL-1
-              ?<Btn onClick={next} style={{width:"100%"}}>Next Question ({idx+2}/{TOTAL}) →</Btn>
-              :<Btn onClick={()=>setPhase("done")} style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>See Results ✓</Btn>
+              ?<Btn onClick={next} style={{width:"100%"}}>
+                  Next Question ({idx+2}/{TOTAL}) →
+                </Btn>
+              :<Btn onClick={()=>setPhase("done")}
+                  style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>
+                  See Results ✓
+                </Btn>
             }
           </div>
         )}
@@ -2214,6 +2308,7 @@ function Quick5({user,onUpdateUser,onDone}){
     </div>
   );
 }
+
 
 // ─── ACCESSIBILITY BAR ────────────────────────────────────────────────────────
 function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
