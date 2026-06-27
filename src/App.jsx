@@ -1889,7 +1889,7 @@ const PRACTICE_SYSTEM=(function(){
   s+=" FORBIDDEN opening phrases: 'Many people believe,' 'It is widely thought,' 'Most experts agree,' 'Society has long held.'";
   s+=" FORBIDDEN structure: Named person + 'believes/thinks/argues/claims' as the opening clause of the stimulus.";
 
-  s+=' Respond ONLY with valid JSON, no markdown: {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise logical reason it fills the gap]. WRONG (A): [specific trap type and reason]. WRONG (C): [specific trap type and reason]. WRONG (D): [specific trap type and reason]. WRONG (E): [specific trap type and reason].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
+  s+=' CRITICAL: The "correct" field must be whichever letter (A, B, C, D, or E) is actually the correct answer for the question you wrote. Do NOT default to B. Across questions, correct answers must be distributed across A, B, C, D, and E — roughly 20% each. Pick the correct answer first, then build wrong answers around it. Respond ONLY with valid JSON, no markdown: {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"C","explanation":"CORRECT (C): [precise logical reason it fills the gap]. WRONG (A): [specific trap type and reason]. WRONG (B): [specific trap type and reason]. WRONG (D): [specific trap type and reason]. WRONG (E): [specific trap type and reason].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
   return s;
 })();
 
@@ -2758,7 +2758,7 @@ Level guidelines:
 Generate a ${typeObj.type} question for the ${section} section.
 
 Respond ONLY with valid JSON (no markdown):
-{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [clear explanation of why B is right and directly connects to the ${typeObj.type} framework]. (A): [why wrong]. (C): [why wrong]. (D): [why wrong]. (E): [why wrong].","teaching_point":"One specific insight about ${typeObj.type} questions illustrated by this question.","level":${level}}`;
+{"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"D","explanation":"CORRECT (D): [clear explanation of why D is right and directly connects to the ${typeObj.type} framework]. (A): [why wrong]. (B): [why wrong]. (C): [why wrong]. (E): [why wrong].","teaching_point":"One specific insight about ${typeObj.type} questions illustrated by this question.","level":${level}}` + " CRITICAL: The correct field must be whichever letter is actually correct — A, B, C, D, or E. Never always pick the same letter.";
     try{
       const raw=await callClaude(sys,`Generate a Level ${level} ${typeObj.type} question. Use a varied, original scenario — avoid placeholder names like Millbrook or Westview. Use diverse settings: universities, hospitals, companies, policy debates, scientific research. Keep the question type pure — this must be a clear ${typeObj.type} question.`);
       setQuestion(parseJSON(raw));
@@ -2949,31 +2949,32 @@ function useQueue(user,section,level,qType,adaptive){
     return{sec,lv,qt};
   },[section,level,qType,adaptive,history]);
 
+  const genRaw=useCallback(async()=>{
+    const{sec,lv,qt}=getParams();
+    const recentTopics=sessionTopics.current.slice(-8);
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
+    const parsed=parseJSON(raw);
+    const stim=(parsed.stimulus||"").toLowerCase();
+    const words=stim.split(/\s+/).slice(0,10);
+    const domain=stim.includes("animal")||stim.includes("species")||stim.includes("predator")||stim.includes("prey")?"DOM:BIOLOGY":
+                 stim.includes("drug")||stim.includes("medication")||stim.includes("treatment")||stim.includes("patient")?"DOM:MEDICINE":
+                 stim.includes("govern")||stim.includes("legislat")||stim.includes("senator")||stim.includes("congress")?"DOM:POLITICS":
+                 stim.includes("company")||stim.includes("business")||stim.includes("market")||stim.includes("profit")||stim.includes("corporation")?"DOM:BUSINESS":
+                 stim.includes("study")||stim.includes("research")||stim.includes("experiment")||stim.includes("survey")?"DOM:RESEARCH":
+                 stim.includes("crime")||stim.includes("criminal")||stim.includes("prison")||stim.includes("sentence")?"DOM:CRIME":
+                 stim.includes("environment")||stim.includes("climate")||stim.includes("pollution")||stim.includes("conservation")?"DOM:ENVIRONMENT":"DOM:OTHER";
+    const topicKey=domain+":"+words.slice(0,5).join("_");
+    sessionTopics.current=[...sessionTopics.current.slice(-9),topicKey];
+    return{...parsed,section:sec,qType:qt,assignedLevel:lv};
+  },[getParams,user]);
+
+  // genOne: guards against concurrent background fills only
   const genOne=useCallback(async()=>{
     if(generating.current)return null;
     generating.current=true;
-    const{sec,lv,qt}=getParams();
-    try{
-      // Pass recent fingerprints — DOM: prefixed ones block domain repeats
-      const recentTopics=sessionTopics.current.slice(-8);
-      const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
-      const parsed=parseJSON(raw);
-      // Extract structural fingerprint to prevent topic and structural repetition
-      const stim=(parsed.stimulus||"").toLowerCase();
-      const words=stim.split(/\s+/).slice(0,10);
-      const domain=stim.includes("animal")||stim.includes("species")||stim.includes("predator")||stim.includes("prey")?"DOM:BIOLOGY":
-                   stim.includes("drug")||stim.includes("medication")||stim.includes("treatment")||stim.includes("patient")?"DOM:MEDICINE":
-                   stim.includes("govern")||stim.includes("legislat")||stim.includes("senator")||stim.includes("congress")?"DOM:POLITICS":
-                   stim.includes("company")||stim.includes("business")||stim.includes("market")||stim.includes("profit")||stim.includes("corporation")?"DOM:BUSINESS":
-                   stim.includes("study")||stim.includes("research")||stim.includes("experiment")||stim.includes("survey")?"DOM:RESEARCH":
-                   stim.includes("crime")||stim.includes("criminal")||stim.includes("prison")||stim.includes("sentence")?"DOM:CRIME":
-                   stim.includes("environment")||stim.includes("climate")||stim.includes("pollution")||stim.includes("conservation")?"DOM:ENVIRONMENT":"DOM:OTHER";
-      const topicKey=domain+":"+words.slice(0,5).join("_");
-      sessionTopics.current=[...sessionTopics.current.slice(-9),topicKey];
-      generating.current=false;
-      return{...parsed,section:sec,qType:qt,assignedLevel:lv};
-    }catch(e){generating.current=false;throw e;}
-  },[getParams,user]);
+    try{const q=await genRaw();generating.current=false;return q;}
+    catch(e){generating.current=false;throw e;}
+  },[genRaw]);
 
   const fill=useCallback(async()=>{
     if(queue.length>=2||generating.current)return;
@@ -2982,21 +2983,25 @@ function useQueue(user,section,level,qType,adaptive){
 
   const start=useCallback(async()=>{
     setLoading(true);setError(null);setCurrent(null);setQueue([]);
-    sessionTopics.current=[];
-    try{const q=await genOne();setCurrent(q);setLoading(false);setTimeout(fill,300);}
+    sessionTopics.current=[];generating.current=false;
+    try{const q=await genRaw();setCurrent(q);setLoading(false);setTimeout(fill,300);}
     catch(e){setError(e.message||"Failed to generate. Check your API key.");setLoading(false);}
-  },[genOne,fill]);
+  },[genRaw,fill]);
 
+  // advance: ALWAYS generates — bypasses the generating lock so Next Question never hangs
   const advance=useCallback(async()=>{
     if(queue.length>0){
-      setCurrent(queue[0]);setQueue(prev=>prev.slice(1));
+      const next=queue[0];
+      setQueue(prev=>prev.slice(1));
+      setCurrent(next);
       setTimeout(fill,200);
     }else{
-      setLoading(true);
-      try{const q=await genOne();setCurrent(q);setLoading(false);setTimeout(fill,300);}
-      catch(e){setError(e.message||"Failed to generate.");setLoading(false);}
+      setLoading(true);setError(null);
+      generating.current=false; // release any stale lock so genRaw can run
+      try{const q=await genRaw();setCurrent(q);setLoading(false);setTimeout(fill,300);}
+      catch(e){setError(e.message||"Failed to generate. Try again.");setLoading(false);}
     }
-  },[queue,genOne,fill]);
+  },[queue,genRaw,fill]);
 
   useEffect(()=>{if(current&&queue.length<2&&!generating.current)fill();},[current,queue.length,fill]);
   return{current,loading,error,start,advance};
