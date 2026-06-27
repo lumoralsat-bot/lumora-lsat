@@ -4780,15 +4780,6 @@ function Onboarding({user,onUpdateUser,onDone}){
     setLoading(false);
   };
 
-  const fetchQ=async()=>{
-    setLoading(true);setSelected(null);setSubmitted(false);
-    const s=STEPS[step-1];
-    try{
-      const raw=await callClaude(PRACTICE_SYSTEM,buildQ("Logical Reasoning",s.level,s.type,user.diagnostic,[]),1200);
-      setQuestion({...parseJSON(raw),section:"Logical Reasoning",qType:s.type,assignedLevel:s.level});
-    }catch(e){console.warn(e);}
-    setLoading(false);
-  };
 
   const skip=()=>{onUpdateUser({onboardingDone:true});onDone();};
 
