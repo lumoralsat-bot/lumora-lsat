@@ -61,7 +61,33 @@ const DB={
   saveUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
   getDailyChallenge:()=>{try{return JSON.parse(localStorage.getItem("lumora_daily")||"null")}catch{return null}},
   saveDailyChallenge:(d)=>{try{localStorage.setItem("lumora_daily",JSON.stringify(d))}catch{}},
+  getScoreHistory:(email)=>{try{const k="lumora_scores_"+email;return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}},
+  saveScoreHistory:(email,h)=>{try{const k="lumora_scores_"+email;localStorage.setItem(k,JSON.stringify(h.slice(-60)))}catch{}},
+  getMistakes:(email)=>{try{const k="lumora_mistakes_"+email;return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}},
+  saveMistakes:(email,m)=>{try{const k="lumora_mistakes_"+email;localStorage.setItem(k,JSON.stringify(m.slice(-200)))}catch{}},
+  getSRS:(email)=>{try{const k="lumora_srs_"+email;return JSON.parse(localStorage.getItem(k)||"{}")}catch{return{}}},
+  saveSRS:(email,s)=>{try{const k="lumora_srs_"+email;localStorage.setItem(k,JSON.stringify(s))}catch{}},
 };
+
+// ─── SRS ENGINE (SM-2 simplified) ─────────────────────────────────────────────
+// For each question type, track interval and ease factor
+// Due date is stored as a timestamp
+function srsUpdate(srsData, qType, correct){
+  const now=Date.now();
+  const entry=srsData[qType]||{interval:1,ease:2.5,due:now,reps:0};
+  if(correct){
+    const newReps=entry.reps+1;
+    const newEase=Math.max(1.3,entry.ease+(0.1-(1-0.5)*0.08));
+    const newInterval=newReps===1?1:newReps===2?6:Math.round(entry.interval*newEase);
+    return{...entry,interval:newInterval,ease:newEase,reps:newReps,due:now+newInterval*86400000};
+  }else{
+    return{...entry,interval:1,ease:Math.max(1.3,entry.ease-0.2),reps:0,due:now+86400000};
+  }
+}
+function srsDueTypes(srsData){
+  const now=Date.now();
+  return Object.entries(srsData).filter(([,v])=>v.due<=now).map(([k])=>k);
+}
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 let API_KEY="";
@@ -2330,7 +2356,7 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function Nav({screen,setScreen,user,onLogout}){
-  const pages=[{id:"home",label:"Home",icon:"⌂"},{id:"quick5",label:"Quick 5",icon:"⚡"},{id:"learn",label:"Learn",icon:"📖"},{id:"practice",label:"Practice",icon:"🎯"},{id:"writing",label:"Writing",icon:"✍"},{id:"flaw",label:"Flaw Lab",icon:"⚖"},{id:"fullsection",label:"Full Section",icon:"⏱"},{id:"plan",label:"Plan",icon:"📋"},{id:"dashboard",label:"Progress",icon:"📊"}];
+  const pages=[{id:"home",label:"Home",icon:"⌂"},{id:"quick5",label:"Quick 5",icon:"⚡"},{id:"learn",label:"Learn",icon:"📖"},{id:"practice",label:"Practice",icon:"🎯"},{id:"writing",label:"Writing",icon:"✍"},{id:"flaw",label:"Flaw Lab",icon:"⚖"},{id:"fullsection",label:"Full Section",icon:"⏱"},{id:"mistakes",label:"Mistakes",icon:"❌"},{id:"srs",label:"SRS",icon:"🔁"},{id:"plan",label:"Plan",icon:"📋"},{id:"dashboard",label:"Progress",icon:"📊"}];
   return(
     <nav role="navigation" aria-label="Main navigation" style={{background:C.surface+"ee",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:100,gap:8}}>
       <button onClick={()=>setScreen("home")} aria-label="Home" style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
@@ -2558,6 +2584,20 @@ function Profile({user,onUpdateUser,onLogout,setScreen}){
         </div>
       </Card>
 
+      {/* Streak Freeze */}
+      <Card style={{marginBottom:14,borderColor:C.teal+"44"}}>
+        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.teal,marginBottom:12,fontWeight:600}}>Streak Freeze</div>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{fontSize:32}}>🧊</div>
+          <div>
+            <div style={{fontSize:14,color:C.text,fontWeight:600,marginBottom:2}}>
+              {(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}})()}  freeze{(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}})()!==1?"s":""} remaining
+            </div>
+            <div style={{fontSize:12,color:C.textMuted,lineHeight:1.5}}>If you miss a day, a freeze automatically saves your streak. You get 1 free freeze. Earn more by maintaining long streaks.</div>
+          </div>
+        </div>
+      </Card>
+
       {/* Account info */}
       <Card style={{marginBottom:24}}>
         <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12,fontWeight:600}}>Account</div>
@@ -2770,6 +2810,8 @@ function Home({user,setScreen,onUpdateUser}){
     {id:"dashboard",icon:"📊",label:"Progress",desc:"Lumora score predictor + analytics",color:C.pink},
     {id:"plan",icon:"📋",label:"Study Plan",desc:"Your personalized roadmap",color:C.orange},
     {id:"notes",icon:"📝",label:"Notes",desc:`${(user.notes||[]).length} notes saved`,color:C.textSub},
+    {id:"mistakes",icon:"❌",label:"Mistakes",desc:`Review wrong answers · Teach It Back`,color:C.danger},
+    {id:"srs",icon:"🔁",label:"SRS Review",desc:"Spaced repetition — due today",color:C.gold},
   ];
 
   // Today's goal
@@ -3427,6 +3469,27 @@ function Practice({user,onUpdateUser,initialWeakType}){
     const newStats={...user.stats,xp:(user.stats?.xp||0)+xp};
     const newBadges=checkBadges(newHistory,newStats,user.earnedBadges||[]);
     onUpdateUser({history:newHistory,stats:newStats,earnedBadges:[...(user.earnedBadges||[]),...newBadges]});
+    if(!correct&&question.stimulus&&user.email){
+      const mistake={id:Date.now(),stimulus:question.stimulus,question:question.question,
+        choices:question.choices,correct:question.correct,userAnswer:selected,
+        explanation:question.explanation,key_concept:question.key_concept,
+        section:question.section,qType:question.qType,level:question.assignedLevel,
+        timestamp:Date.now(),reviewed:false};
+      const existing=DB.getMistakes(user.email);
+      DB.saveMistakes(user.email,[...existing,mistake]);
+    }
+    if(user.email){
+      const srs=DB.getSRS(user.email);
+      const updatedSRS={...srs,[question.qType]:srsUpdate(srs,question.qType,correct)};
+      DB.saveSRS(user.email,updatedSRS);
+    }
+    if(newHistory.length>0&&newHistory.length%25===0&&user.email){
+      const pred=computeScore(newHistory);
+      if(pred){
+        const sh=DB.getScoreHistory(user.email);
+        DB.saveScoreHistory(user.email,[...sh,{date:Date.now(),score:pred.mid,total:newHistory.length}]);
+      }
+    }
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),150);
   },[selected,question,timedMode,user,onUpdateUser]);
 
@@ -4248,6 +4311,656 @@ function Notes({user,onUpdateUser}){
 }
 
 // ─── DASHBOARD + SCORE PREDICTOR ─────────────────────────────────────────────
+// ─── MISTAKE JOURNAL ─────────────────────────────────────────────────────────
+function MistakeJournal({user,onUpdateUser}){
+  const [mistakes,setMistakes]=useState([]);
+  const [active,setActive]=useState(null); // index of expanded mistake
+  const [filter,setFilter]=useState("all"); // all | unreviewed
+  const [teachMode,setTeachMode]=useState(null); // mistake id
+  const [teachInput,setTeachInput]=useState("");
+  const [teachFeedback,setTeachFeedback]=useState(null);
+  const [teachLoading,setTeachLoading]=useState(false);
+
+  useEffect(()=>{
+    if(user.email){
+      const m=DB.getMistakes(user.email);
+      setMistakes(m.slice().reverse()); // newest first
+    }
+  },[]);
+
+  const markReviewed=(id)=>{
+    if(!user.email)return;
+    const all=DB.getMistakes(user.email);
+    const updated=all.map(m=>m.id===id?{...m,reviewed:true}:m);
+    DB.saveMistakes(user.email,updated);
+    setMistakes(updated.slice().reverse());
+  };
+
+  const deleteMistake=(id)=>{
+    if(!user.email)return;
+    const all=DB.getMistakes(user.email);
+    const updated=all.filter(m=>m.id!==id);
+    DB.saveMistakes(user.email,updated);
+    setMistakes(updated.slice().reverse());
+    if(active===id)setActive(null);
+  };
+
+  const submitTeach=async()=>{
+    if(!teachInput.trim()||teachLoading)return;
+    setTeachLoading(true);setTeachFeedback(null);
+    const m=mistakes.find(x=>x.id===teachMode);
+    if(!m){setTeachLoading(false);return;}
+    try{
+      const sys="You are an expert LSAT tutor evaluating a student's understanding of why an answer is correct. "+
+        "Be encouraging but precise. Respond ONLY with valid JSON: "+
+        '{"correct":true,"score":85,"feedback":"Your explanation...","missing":"What they missed (or null if nothing)","tip":"One actionable improvement"}';
+      const msg="Question type: "+m.qType+". Correct answer: "+m.correct+
+        ". Official explanation: "+m.explanation+
+        ". Student's explanation: "+teachInput.trim()+
+        ". Does the student correctly explain WHY "+m.correct+" is right? Grade their understanding 0-100.";
+      const raw=await callClaude(sys,msg,600);
+      const fb=parseJSON(raw);
+      setTeachFeedback(fb);
+      if(fb.score>=70)markReviewed(teachMode);
+    }catch(e){setTeachFeedback({correct:false,score:0,feedback:"Could not evaluate — try again.",missing:null,tip:null});}
+    setTeachLoading(false);
+  };
+
+  const shown=filter==="unreviewed"?mistakes.filter(m=>!m.reviewed):mistakes;
+  const unrevCount=mistakes.filter(m=>!m.reviewed).length;
+
+  const cs=(l,m)=>{
+    if(l===m.correct)return"ok";
+    if(l===m.userAnswer)return"bad";
+    return"def";
+  };
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:10,
+    padding:"10px 14px",fontSize:13,marginBottom:8,fontFamily:T.sans,lineHeight:1.5,boxSizing:"border-box",
+    ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
+      :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
+      :{background:"transparent",borderColor:C.border,color:C.textSub})});
+
+  return(
+    <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
+        <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text}}>Mistake Journal</h1>
+        <div style={{display:"flex",gap:8}}>
+          {["all","unreviewed"].map(f=>(
+            <button key={f} onClick={()=>setFilter(f)}
+              style={{padding:"6px 14px",borderRadius:10,border:`1.5px solid ${filter===f?C.accent:C.border}`,
+                background:filter===f?C.accentSoft:"transparent",color:filter===f?C.accent:C.textMuted,
+                fontSize:13,cursor:"pointer",fontFamily:T.sans,fontWeight:filter===f?700:400}}>
+              {f==="all"?`All (${mistakes.length})`:`Unreviewed (${unrevCount})`}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:20,lineHeight:1.6}}>
+        Every question you got wrong is saved here. Review each one, then test your understanding with "Teach It Back."
+      </p>
+
+      {shown.length===0&&(
+        <Card style={{textAlign:"center",padding:48}}>
+          <div style={{fontSize:48,marginBottom:12}}>{filter==="unreviewed"?"✅":"📖"}</div>
+          <h3 style={{color:C.text,marginBottom:8}}>{filter==="unreviewed"?"All caught up!":"No mistakes yet"}</h3>
+          <p style={{color:C.textMuted,fontSize:14}}>{filter==="unreviewed"?"Every mistake has been reviewed. Keep practicing.":"Mistakes from Practice and Quick 5 will appear here."}</p>
+        </Card>
+      )}
+
+      {shown.map((m)=>(
+        <Card key={m.id} style={{marginBottom:12,borderColor:m.reviewed?C.success+"33":C.border,
+          transition:"all 0.2s"}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,marginBottom:10}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                <Tag color={LEVEL_COLORS[m.level]||C.accent}>Level {m.level}</Tag>
+                <Tag color={C.accent}>{m.qType}</Tag>
+                {m.reviewed&&<Tag color={C.success}>✓ Reviewed</Tag>}
+              </div>
+              <p style={{color:C.text,fontSize:14,lineHeight:1.7,margin:0,
+                display:active===m.id?"block":"-webkit-box",WebkitLineClamp:2,
+                WebkitBoxOrient:"vertical",overflow:"hidden"}}>
+                {m.stimulus}
+              </p>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>setActive(active===m.id?null:m.id)}
+                style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,
+                  padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>
+                {active===m.id?"Collapse":"Review"}
+              </button>
+              <button onClick={()=>deleteMistake(m.id)}
+                style={{background:"none",border:`1px solid ${C.danger}44`,borderRadius:8,
+                  padding:"4px 8px",color:C.danger,fontSize:12,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>
+
+          {active===m.id&&(
+            <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14,marginTop:4}}>
+              <p style={{color:C.text,fontSize:14,lineHeight:1.8,marginBottom:14,whiteSpace:"pre-wrap"}}>{m.stimulus}</p>
+              <p style={{fontWeight:600,fontSize:14,color:C.text,marginBottom:12}}>{m.question}</p>
+              <div style={{marginBottom:14}}>
+                {Object.entries(m.choices||{}).map(([l,t])=>(
+                  <div key={l} style={cStyle(cs(l,m))}><span style={{fontWeight:700,marginRight:8}}>{l}.</span>{t}</div>
+                ))}
+              </div>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                <strong style={{color:C.text,display:"block",marginBottom:4}}>Why {m.correct} is correct:</strong>
+                {(m.explanation||"").split(/WRONG\s*\([A-E]\)/)[0].replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()}
+              </div>
+              {m.key_concept&&<div style={{fontSize:13,color:C.purple,fontStyle:"italic",marginBottom:14}}>🔑 {m.key_concept}</div>}
+
+              {teachMode===m.id?(
+                <div style={{background:C.surfaceHigh,borderRadius:12,padding:16,marginBottom:10}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>
+                    ✍️ Teach It Back — explain why {m.correct} is correct in your own words:
+                  </div>
+                  <textarea value={teachInput} onChange={e=>setTeachInput(e.target.value)}
+                    placeholder={"The correct answer is "+m.correct+" because…"}
+                    rows={3} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,
+                      borderRadius:8,padding:"10px 12px",color:C.text,fontSize:13,
+                      fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",outline:"none"}}/>
+                  {teachFeedback&&(
+                    <div style={{marginTop:10,padding:12,borderRadius:10,
+                      background:teachFeedback.score>=70?C.success+"15":C.danger+"15",
+                      border:`1px solid ${teachFeedback.score>=70?C.success:C.danger}33`}}>
+                      <div style={{fontWeight:700,color:teachFeedback.score>=70?C.success:C.danger,marginBottom:6}}>
+                        {teachFeedback.score>=70?"✓ Good understanding!":"✗ Keep working on this"}
+                        {" "}({teachFeedback.score}/100)
+                      </div>
+                      <div style={{fontSize:13,color:C.textSub,lineHeight:1.7}}>{teachFeedback.feedback}</div>
+                      {teachFeedback.missing&&<div style={{fontSize:13,color:C.gold,marginTop:6}}>Missing: {teachFeedback.missing}</div>}
+                      {teachFeedback.tip&&<div style={{fontSize:13,color:C.accent,marginTop:6}}>→ {teachFeedback.tip}</div>}
+                    </div>
+                  )}
+                  <div style={{display:"flex",gap:8,marginTop:10}}>
+                    <Btn onClick={submitTeach} disabled={!teachInput.trim()||teachLoading} small>
+                      {teachLoading?"Evaluating…":"Submit Explanation"}
+                    </Btn>
+                    <Btn ghost onClick={()=>{setTeachMode(null);setTeachInput("");setTeachFeedback(null);}} small>Cancel</Btn>
+                  </div>
+                </div>
+              ):(
+                <div style={{display:"flex",gap:8}}>
+                  <Btn ghost onClick={()=>{setTeachMode(m.id);setTeachInput("");setTeachFeedback(null);}} small>
+                    ✍️ Teach It Back
+                  </Btn>
+                  {!m.reviewed&&<Btn ghost onClick={()=>markReviewed(m.id)} small>Mark Reviewed ✓</Btn>}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      ))}
+    </main>
+  );
+}
+
+// ─── SRS REVIEW SCREEN ────────────────────────────────────────────────────────
+function SRSReview({user,onUpdateUser,onDone}){
+  const [dueTypes,setDueTypes]=useState([]);
+  const [current,setCurrent]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [selected,setSelected]=useState(null);
+  const [submitted,setSubmitted]=useState(false);
+  const [doneCount,setDoneCount]=useState(0);
+  const [error,setError]=useState(null);
+
+  useEffect(()=>{
+    if(!user.email)return;
+    const srs=DB.getSRS(user.email);
+    const due=srsDueTypes(srs);
+    setDueTypes(due);
+    if(due.length>0)fetchQuestion(due[0]);
+    else setLoading(false);
+  },[]);
+
+  const fetchQuestion=async(qType)=>{
+    setLoading(true);setError(null);setSelected(null);setSubmitted(false);
+    const sec=QUESTION_TYPES["Logical Reasoning"].includes(qType)?"Logical Reasoning":"Reading Comprehension";
+    try{
+      const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,3,qType,user.diagnostic,[]),1200);
+      const parsed=parseJSON(raw);
+      setCurrent({...parsed,section:sec,qType,assignedLevel:3});
+    }catch(e){setError("Could not load question.");}
+    setLoading(false);
+  };
+
+  const submit=()=>{
+    if(!selected||!current||submitted)return;
+    setSubmitted(true);
+    const correct=selected===current.correct;
+    if(user.email){
+      const srs=DB.getSRS(user.email);
+      DB.saveSRS(user.email,{...srs,[current.qType]:srsUpdate(srs,current.qType,correct)});
+    }
+    const record={section:current.section,qType:current.qType,level:3,correct,
+      xp:correct?XP_PER_CORRECT[3]:0,timestamp:Date.now()};
+    onUpdateUser({history:[...(user.history||[]),record],stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
+  };
+
+  const next=()=>{
+    const newDone=doneCount+1;
+    setDoneCount(newDone);
+    const remaining=dueTypes.slice(newDone);
+    if(remaining.length===0){onDone();return;}
+    fetchQuestion(remaining[0]);
+  };
+
+  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===current?.correct)return"ok";if(l===selected)return"bad";return"def";};
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,
+    padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",marginBottom:9,
+    transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",
+    ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
+      :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
+      :s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}
+      :{background:"transparent",borderColor:C.border,color:C.textSub})});
+
+  if(dueTypes.length===0)return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"f2",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:40,maxWidth:400,width:"100%",textAlign:"center"}}>
+        <div style={{fontSize:48,marginBottom:12}}>✅</div>
+        <h2 style={{fontFamily:T.serif,fontSize:24,color:C.text,marginBottom:8}}>All Caught Up!</h2>
+        <p style={{color:C.textSub,fontSize:14,lineHeight:1.7,marginBottom:24}}>No question types are due for review today. Keep practicing to build your SRS queue.</p>
+        <Btn onClick={onDone}>Back to Home</Btn>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{position:"fixed",inset:0,background:C.bg,overflowY:"auto",zIndex:300}}>
+      <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px 40px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div>
+            <span style={{fontWeight:800,color:C.gold,fontSize:15}}>🔁 SRS Review</span>
+            <span style={{color:C.textMuted,fontSize:13,marginLeft:10}}>{doneCount}/{dueTypes.length} done</span>
+          </div>
+          <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Exit</button>
+        </div>
+        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 14px",marginBottom:16,fontSize:13,color:C.textSub}}>
+          <strong style={{color:C.gold}}>Due for review: </strong>{dueTypes[doneCount]} — answer correctly to extend the interval.
+        </div>
+        {loading&&<Spinner label="Generating review question…"/>}
+        <ErrBanner message={error} onDismiss={()=>setError(null)}/>
+        {current&&!loading&&(
+          <div>
+            <Card style={{marginBottom:12}}>
+              <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{current.stimulus}</p>
+              <p style={{fontWeight:600,fontSize:"15px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{current.question}</p>
+              <div role="radiogroup">
+                {Object.entries(current.choices||{}).map(([l,t])=>(
+                  <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
+                    <span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}
+                  </button>
+                ))}
+              </div>
+              {!submitted&&<Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit →</Btn>}
+            </Card>
+            {submitted&&(
+              <div>
+                <Card style={{borderColor:selected===current.correct?C.success:C.danger,marginBottom:12}}>
+                  <div style={{fontSize:15,fontWeight:700,color:selected===current.correct?C.success:C.danger,marginBottom:10}}>
+                    {selected===current.correct?"✓ Correct — interval extended!":"✗ Incorrect — back to tomorrow"}
+                  </div>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                    {(current.explanation||"").split(/WRONG\s*\([A-E]\)/)[0].replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()}
+                  </div>
+                </Card>
+                {doneCount+1<dueTypes.length
+                  ?<Btn onClick={next} style={{width:"100%"}}>Next Review →</Btn>
+                  :<Btn onClick={onDone} style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>All Done ✓</Btn>
+                }
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SCORE TRAJECTORY CHART ───────────────────────────────────────────────────
+function ScoreTrajectory({user}){
+  const history=user.history||[];
+  if(!user.email||history.length<10)return null;
+
+  const saved=DB.getScoreHistory(user.email);
+  // Build trajectory from history in chunks of 25
+  const points=[];
+  const chunk=25;
+  for(let i=chunk;i<=history.length;i+=chunk){
+    const slice=history.slice(0,i);
+    const pred=computeScore(slice);
+    if(pred)points.push({n:i,score:pred.mid,low:pred.low,high:pred.high});
+  }
+  // Always include current
+  const curPred=computeScore(history);
+  if(curPred&&(points.length===0||points[points.length-1].n!==history.length)){
+    points.push({n:history.length,score:curPred.mid,low:curPred.low,high:curPred.high});
+  }
+  if(points.length<2)return null;
+
+  const minScore=Math.max(120,Math.min(...points.map(p=>p.low))-5);
+  const maxScore=Math.min(180,Math.max(...points.map(p=>p.high))+5);
+  const W=320,H=120,PAD=28;
+  const xScale=(n)=>PAD+(n-points[0].n)/(points[points.length-1].n-points[0].n||1)*(W-PAD*2);
+  const yScale=(s)=>H-PAD-(s-minScore)/(maxScore-minScore)*(H-PAD*2);
+
+  const linePath=points.map((p,i)=>`${i===0?"M":"L"} ${xScale(p.n)} ${yScale(p.score)}`).join(" ");
+  const areaPath=`M ${xScale(points[0].n)} ${yScale(points[0].high)} `+
+    points.map(p=>`L ${xScale(p.n)} ${yScale(p.high)}`).join(" ")+
+    ` L ${xScale(points[points.length-1].n)} ${yScale(points[points.length-1].low)} `+
+    points.slice().reverse().map(p=>`L ${xScale(p.n)} ${yScale(p.low)}`).join(" ")+" Z";
+
+  const trend=points.length>=2?points[points.length-1].score-points[0].score:0;
+
+  return(
+    <Card style={{marginBottom:14}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,fontWeight:700}}>
+          📈 Score Trajectory
+        </div>
+        <div style={{fontSize:13,color:trend>=0?C.success:C.danger,fontWeight:700}}>
+          {trend>=0?"+":""}{trend} pts since start
+        </div>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}}>
+        {/* Grid lines */}
+        {[130,140,150,160,170].filter(s=>s>=minScore&&s<=maxScore).map(s=>(
+          <g key={s}>
+            <line x1={PAD} y1={yScale(s)} x2={W-PAD} y2={yScale(s)} stroke={C.border} strokeWidth="0.5" strokeDasharray="3,3"/>
+            <text x={PAD-4} y={yScale(s)+4} textAnchor="end" fontSize="8" fill={C.textMuted}>{s}</text>
+          </g>
+        ))}
+        {/* Confidence band */}
+        <path d={areaPath} fill={C.accent} fillOpacity="0.08"/>
+        {/* Score line */}
+        <path d={linePath} fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* Data points */}
+        {points.map((p,i)=>(
+          <circle key={i} cx={xScale(p.n)} cy={yScale(p.score)} r="3"
+            fill={C.accent} stroke={C.surface} strokeWidth="1.5"/>
+        ))}
+        {/* Current score label */}
+        {points.length>0&&(
+          <text x={xScale(points[points.length-1].n)} y={yScale(points[points.length-1].score)-8}
+            textAnchor="middle" fontSize="10" fontWeight="700" fill={C.accent}>
+            {points[points.length-1].score}
+          </text>
+        )}
+      </svg>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textMuted,marginTop:4}}>
+        <span>{points[0].n} questions</span>
+        <span>{points[points.length-1].n} questions</span>
+      </div>
+    </Card>
+  );
+}
+
+// ─── ONBOARDING WALKTHROUGH ───────────────────────────────────────────────────
+function Onboarding({user,onUpdateUser,onDone}){
+  // phase: "tour" | "practice"
+  const [phase,setPhase]=useState("tour");
+  const [tourStep,setTourStep]=useState(0);
+  const [practiceStep,setPracticeStep]=useState(0); // 0-2 = three questions, 3 = done
+  const [question,setQuestion]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [selected,setSelected]=useState(null);
+  const [submitted,setSubmitted]=useState(false);
+
+  const TOUR_CARDS=[
+    {
+      icon:"🎯",color:"#4f7fff",
+      title:"Practice",
+      desc:"Lumora generates fresh, unique LSAT questions every session — no question bank, no repeats. It adapts to your weak areas automatically and adjusts difficulty as you improve. Use Adaptive Mode for smart targeting, or pick a specific type to drill.",
+    },
+    {
+      icon:"📖",color:"#a78bfa",
+      title:"Learn",
+      desc:"A comprehensive interactive textbook covering all 17 LSAT question types. Each lesson explains the concept, gives you a step-by-step framework, shows common traps, and then walks you through practice at four difficulty levels. Think of it as having a tutor explain each type from scratch.",
+    },
+    {
+      icon:"⚡",color:"#f5c842",
+      title:"Quick 5",
+      desc:"Five timed LR questions — 75 seconds each — in a focused burst session. Great for warming up before a study session or squeezing in practice when you're short on time. Questions generate in parallel so there's almost no wait.",
+    },
+    {
+      icon:"📅",color:"#f5c842",
+      title:"Daily Challenge",
+      desc:"One question per day, the same for every Lumora user. It resets at 2am and earns double XP. Building the habit of doing at least one question daily is one of the most reliable predictors of score improvement.",
+    },
+    {
+      icon:"⚖",color:"#22d3ee",
+      title:"Flaw Lab",
+      desc:"Lumora generates a unique, realistic legal argument containing a hidden logical flaw. Your job: identify the flaw precisely, explain why the reasoning fails, and construct a counter-argument. Scored on four dimensions including precision and writing quality.",
+    },
+    {
+      icon:"✍",color:"#2dd4a0",
+      title:"Argumentative Writing",
+      desc:"Full 2026 LSAC-format writing practice. A unique prompt is generated each session with four perspectives on a debatable issue. You have 15 minutes to prewrite, 35 minutes to write. Lumora scores your thesis, perspective engagement, argumentation, and mechanics.",
+    },
+    {
+      icon:"⏱",color:"#f5c842",
+      title:"Full Section",
+      desc:"A 35-minute timed simulation of a full LSAT section — 25 questions ramping from Level 1 to Level 4. The first question appears instantly; the rest generate in the background while you work. Your pacing and level-by-level accuracy are tracked.",
+    },
+    {
+      icon:"❌",color:"#f87171",
+      title:"Mistake Journal",
+      desc:"Every question you get wrong is automatically saved here with the full explanation. Review your mistakes, then use Teach It Back to write your own explanation of why the correct answer is right — Lumora evaluates your understanding and gives feedback.",
+    },
+    {
+      icon:"🔁",color:"#f5c842",
+      title:"SRS Review",
+      desc:"Spaced Repetition System — the same technique used by Anki and medical schools worldwide. Lumora tracks which question types you struggle with and schedules them for review at optimal intervals: tomorrow if you got it wrong, longer if you got it right.",
+    },
+    {
+      icon:"📊",color:"#f472b6",
+      title:"Progress",
+      desc:"Your Lumora Score Predictor projects your current LSAT score range based on your accuracy across difficulty levels. The score trajectory chart shows how your projected score has changed over time. Your weakness breakdown by question type shows exactly where to focus.",
+    },
+  ];
+
+  const PRACTICE_STEPS=[
+    {type:"Assumption",level:1,msg:"Let's try three quick questions to get you started. First: an Assumption question — the most common type on the LSAT. Find the gap between the evidence and the conclusion. The correct answer bridges that gap."},
+    {type:"Weaken",level:1,msg:"Now a Weaken question. Your job is to find the answer that most damages this argument. Think about what the argument silently assumes, then find an answer that attacks that assumption."},
+    {type:"Flaw",level:1,msg:"Finally, a Flaw question. The argument contains a specific logical error. Name it precisely — don't just say it 'seems wrong.' Look for the exact moment where the reasoning makes an illegitimate jump."},
+  ];
+
+  useEffect(()=>{
+    if(phase==="practice"&&practiceStep<3)fetchQ(PRACTICE_STEPS[practiceStep]);
+  },[phase,practiceStep]);
+
+  const fetchQ=async(s)=>{
+    setLoading(true);setSelected(null);setSubmitted(false);setQuestion(null);
+    try{
+      const raw=await callClaude(PRACTICE_SYSTEM,buildQ("Logical Reasoning",s.level,s.type,user.diagnostic,[]),1200);
+      setQuestion({...parseJSON(raw),section:"Logical Reasoning",qType:s.type,assignedLevel:s.level});
+    }catch(e){console.warn(e);}
+    setLoading(false);
+  };
+
+  const fetchQ=async()=>{
+    setLoading(true);setSelected(null);setSubmitted(false);
+    const s=STEPS[step-1];
+    try{
+      const raw=await callClaude(PRACTICE_SYSTEM,buildQ("Logical Reasoning",s.level,s.type,user.diagnostic,[]),1200);
+      setQuestion({...parseJSON(raw),section:"Logical Reasoning",qType:s.type,assignedLevel:s.level});
+    }catch(e){console.warn(e);}
+    setLoading(false);
+  };
+
+  const skip=()=>{onUpdateUser({onboardingDone:true});onDone();};
+
+  const submitPractice=()=>{
+    if(!selected||!question||submitted)return;
+    setSubmitted(true);
+    const correct=selected===question.correct;
+    const record={section:"Logical Reasoning",qType:question.qType,level:1,correct,
+      xp:correct?XP_PER_CORRECT[1]:0,timestamp:Date.now(),source:"onboarding"};
+    onUpdateUser({history:[...(user.history||[]),record],stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
+  };
+
+  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===question?.correct)return"ok";if(l===selected)return"bad";return"def";};
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,
+    padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",marginBottom:9,
+    transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",
+    ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
+      :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
+      :s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}
+      :{background:"transparent",borderColor:C.border,color:C.textSub})});
+
+  // ── FEATURE TOUR ─────────────────────────────────────────────────────────
+  if(phase==="tour"){
+    const card=TOUR_CARDS[tourStep];
+    const isLast=tourStep===TOUR_CARDS.length-1;
+    return(
+      <div style={{position:"fixed",inset:0,background:C.bg+"fa",zIndex:400,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+        {/* Skip button top-right */}
+        <button onClick={skip} style={{position:"absolute",top:20,right:20,background:"none",border:`1px solid ${C.border}`,borderRadius:10,padding:"6px 14px",color:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans}}>
+          Skip tour
+        </button>
+
+        {/* Welcome header (only on first card) */}
+        {tourStep===0&&(
+          <div style={{textAlign:"center",marginBottom:24,maxWidth:480}}>
+            <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:900,color:"#fff",fontFamily:T.serif,margin:"0 auto 14px",boxShadow:"0 0 28px #3a6bff44"}}>L</div>
+            <h2 style={{fontFamily:T.serif,fontSize:24,color:C.text,marginBottom:6}}>Welcome to Lumora LSAT</h2>
+            <p style={{color:C.textMuted,fontSize:14,lineHeight:1.6}}>Here's a quick tour of what's available. You can skip any time.</p>
+          </div>
+        )}
+
+        {/* Feature card */}
+        <div style={{background:C.surface,border:`2px solid ${card.color}33`,borderRadius:24,padding:32,maxWidth:480,width:"100%",textAlign:"center",boxShadow:`0 8px 40px ${card.color}18`}}>
+          <div style={{width:64,height:64,borderRadius:18,background:`${card.color}20`,border:`2px solid ${card.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 16px"}}>
+            {card.icon}
+          </div>
+          <h3 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:10,fontWeight:700}}>{card.title}</h3>
+          <p style={{color:C.textSub,fontSize:14,lineHeight:1.8,marginBottom:24}}>{card.desc}</p>
+
+          {/* Dot indicators */}
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:20}}>
+            {TOUR_CARDS.map((_,i)=>(
+              <button key={i} onClick={()=>setTourStep(i)}
+                style={{width:i===tourStep?20:8,height:8,borderRadius:4,background:i===tourStep?card.color:C.surfaceHigh,border:"none",cursor:"pointer",transition:"all 0.3s",padding:0}}/>
+            ))}
+          </div>
+
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+            {tourStep>0&&(
+              <Btn ghost onClick={()=>setTourStep(t=>t-1)} small>← Back</Btn>
+            )}
+            {!isLast?(
+              <Btn onClick={()=>setTourStep(t=>t+1)} style={{minWidth:140}}>Next →</Btn>
+            ):(
+              <Btn onClick={()=>setPhase("practice")} style={{minWidth:180,background:"linear-gradient(135deg,#a78bfa,#7c3aed)"}}>
+                Try 3 Practice Questions →
+              </Btn>
+            )}
+            {isLast&&(
+              <Btn ghost onClick={skip} small>Skip practice</Btn>
+            )}
+          </div>
+        </div>
+
+        {/* Counter */}
+        <div style={{marginTop:16,color:C.textMuted,fontSize:13}}>{tourStep+1} of {TOUR_CARDS.length}</div>
+      </div>
+    );
+  }
+
+  // ── PRACTICE DONE ─────────────────────────────────────────────────────────
+  if(phase==="practice"&&practiceStep===3){
+    return(
+      <div style={{position:"fixed",inset:0,background:C.bg+"f8",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:20}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:40,maxWidth:440,width:"100%",textAlign:"center"}}>
+          <div style={{fontSize:52,marginBottom:16}}>🎯</div>
+          <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:12}}>You're ready.</h2>
+          <p style={{color:C.textSub,fontSize:15,lineHeight:1.8,marginBottom:24}}>
+            You've seen the three most important question types. Lumora adapts to your weaknesses as you practice — the more you do, the smarter it gets.
+          </p>
+          <Btn onClick={()=>{onUpdateUser({onboardingDone:true});onDone();}} style={{width:"100%"}}>
+            Enter Lumora LSAT →
+          </Btn>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PRACTICE QUESTIONS ────────────────────────────────────────────────────
+  const stepInfo=PRACTICE_STEPS[practiceStep];
+  return(
+    <div style={{position:"fixed",inset:0,background:C.bg,overflowY:"auto",zIndex:400}}>
+      <div style={{maxWidth:680,margin:"0 auto",padding:"24px 20px 40px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{display:"flex",gap:5}}>{[0,1,2].map(i=>(
+              <div key={i} style={{width:28,height:6,borderRadius:3,
+                background:i<practiceStep?C.success:i===practiceStep?C.accent:C.surfaceHigh,
+                transition:"background 0.3s"}}/>
+            ))}</div>
+            <span style={{color:C.textMuted,fontSize:13}}>Question {practiceStep+1} of 3</span>
+          </div>
+          <button onClick={skip} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Skip</button>
+        </div>
+        <Card style={{marginBottom:14,background:`linear-gradient(135deg,${C.accentSoft},${C.surface})`,borderColor:C.accent+"44"}}>
+          <div style={{fontSize:12,color:C.accent,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Lumora says</div>
+          <p style={{color:C.text,fontSize:14,lineHeight:1.75,margin:0}}>{stepInfo.msg}</p>
+        </Card>
+        {loading&&<Spinner label="Generating your question…"/>}
+        {question&&!loading&&(
+          <div>
+            <Card style={{marginBottom:12}}>
+              <div style={{marginBottom:10}}><Tag color={C.purple}>Walkthrough</Tag><Tag color={C.accent}>{question.qType}</Tag></div>
+              <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
+              <p style={{fontWeight:600,fontSize:"15px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{question.question}</p>
+              <div role="radiogroup">
+                {Object.entries(question.choices||{}).map(([l,t])=>(
+                  <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
+                    <span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}
+                  </button>
+                ))}
+              </div>
+              {!submitted&&<Btn onClick={submitPractice} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit →</Btn>}
+            </Card>
+            {submitted&&(
+              <div>
+                <Card style={{borderColor:selected===question.correct?C.success:C.danger,marginBottom:12}}>
+                  <div style={{fontSize:15,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:10}}>
+                    {selected===question.correct?"✓ Correct!":"✗ Not quite — here's why:"}
+                  </div>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                    {(question.explanation||"").split(/WRONG\s*\([A-E]\)/)[0].replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()}
+                  </div>
+                  {question.key_concept&&<div style={{marginTop:10,fontSize:13,color:C.purple,fontStyle:"italic"}}>🔑 {question.key_concept}</div>}
+                </Card>
+                <Btn onClick={()=>{if(practiceStep<2){setPracticeStep(s=>s+1);setQuestion(null);}else{setPracticeStep(3);}}} style={{width:"100%"}}>
+                  {practiceStep<2?"Next Question →":"See Results →"}
+                </Btn>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── STREAK FREEZE ────────────────────────────────────────────────────────────
+// Handled in root App — see handleStreakFreeze
+
+function computeScore(history){
+  if(!history||history.length<10)return null;
+  const weights={1:0.1,2:0.25,3:0.35,4:0.3};
+  const ov=history.filter(h=>h.correct).length/history.length;
+  let wa=0;[1,2,3,4].forEach(l=>{const items=history.filter(h=>h.level===l);wa+=(items.length>0?items.filter(h=>h.correct).length/items.length:ov)*weights[l];});
+  const base=120+Math.round(wa*60);
+  const v=Math.max(3,Math.round(8-history.length/10));
+  return{low:Math.max(120,base-v),mid:Math.min(180,base),high:Math.min(180,base+v),
+    confidence:history.length>=40?"High":history.length>=20?"Moderate":"Low",
+    needed:Math.max(0,40-history.length)};
+}
+
 function Dashboard({user,onUpdateUser}){
   const history=user.history||[];
   const overall=history.length>0?Math.round(history.filter(h=>h.correct).length/history.length*100):null;
@@ -4257,26 +4970,27 @@ function Dashboard({user,onUpdateUser}){
   const lvData=[1,2,3,4].map(l=>{const items=history.filter(h=>h.level===l);return{l,t:items.length,c:items.filter(h=>h.correct).length};});
   const sc=p=>p>=70?C.success:p>=50?C.gold:C.danger;
 
-  const predictScore=()=>{
-    if(history.length<10)return null;
-    const weights={1:0.1,2:0.25,3:0.35,4:0.3};
-    const ov=history.filter(h=>h.correct).length/history.length;
-    let wa=0;[1,2,3,4].forEach(l=>{const items=history.filter(h=>h.level===l);wa+=(items.length>0?items.filter(h=>h.correct).length/items.length:ov)*weights[l];});
-    const base=120+Math.round(wa*60);
-    const v=Math.max(3,Math.round(8-history.length/10));
-    return{low:Math.max(120,base-v),mid:Math.min(180,base),high:Math.min(180,base+v),confidence:history.length>=40?"High":history.length>=20?"Moderate":"Low",needed:Math.max(0,40-history.length)};
-  };
-  const pred=predictScore();
+  const pred=computeScore(history);
+
+  const srsData=user.email?DB.getSRS(user.email):{};
+  const srsDue=srsDueTypes(srsData);
 
   return(
     <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Progress</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:22}}>{history.length} total questions answered.</p>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
+        <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text}}>Progress</h1>
+        {srsDue.length>0&&<div style={{background:C.gold+"20",border:`1px solid ${C.gold}44`,borderRadius:12,padding:"6px 14px",fontSize:13,color:C.gold,fontWeight:600}}>
+          🔁 {srsDue.length} type{srsDue.length!==1?"s":""} due for review
+        </div>}
+      </div>
+      <p style={{color:C.textMuted,fontSize:14,marginBottom:14}}>{history.length} total questions answered.</p>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:10,marginBottom:14}}>
         <Card style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={overall} size={86} color={overall>=70?C.success:overall>=50?C.gold:C.danger} label={`Overall: ${overall}%`}/><div style={{fontSize:12,color:C.textMuted,marginTop:8}}>Overall</div></Card>
         {sData.map(({s,score,total})=><Card key={s} style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={score} size={72} color={score>=70?C.success:score>=50?C.gold:C.danger} label={`${s}: ${score}%`}/><div style={{fontSize:12,color:C.textMuted,marginTop:8}}>{s.split(" ")[0]}</div><div style={{fontSize:11,color:C.textMuted}}>{total} q's</div></Card>)}
       </div>
+
+      <ScoreTrajectory user={user}/>
 
       {/* Score Predictor */}
       <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
@@ -4342,6 +5056,9 @@ export default function App(){
   const [streakCelebrate,setStreakCelebrate]=useState(false);
   const [showQuick5,setShowQuick5]=useState(false);
   const [quick5Key,setQuick5Key]=useState(0);
+  const [showSRS,setShowSRS]=useState(false);
+  const [showOnboarding,setShowOnboarding]=useState(false);
+  const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme globally
   useEffect(()=>{
@@ -4359,7 +5076,19 @@ export default function App(){
     const today=new Date().toDateString();
     if(user.stats?.lastDay===today)return;
     const yesterday=new Date(Date.now()-86400000).toDateString();
-    const streak=user.stats?.lastDay===yesterday?(user.stats?.streak||0)+1:1;
+    const wasMissed=user.stats?.lastDay&&user.stats.lastDay!==yesterday&&user.stats.lastDay!==today;
+    let streak;
+    if(user.stats?.lastDay===yesterday){
+      streak=(user.stats?.streak||0)+1;
+    }else if(wasMissed&&streakFreezes>0){
+      // Use a streak freeze to preserve the streak
+      streak=user.stats?.streak||1;
+      const newFreezes=streakFreezes-1;
+      setStreakFreezes(newFreezes);
+      try{localStorage.setItem("lumora_freezes",String(newFreezes));}catch{}
+    }else{
+      streak=1;
+    }
     const updated={...user,stats:{...user.stats,streak,lastDay:today}};
     setUser(updated);
     try{DB.saveUser(updated.email,updated);}catch{}
@@ -4367,7 +5096,10 @@ export default function App(){
     if([3,7,14,30,60,100].includes(streak))setStreakCelebrate(true);
   },[user?.email]);
 
-  const handleLogin=(u)=>{setUser(u);setScreen("home");};
+  const handleLogin=(u)=>{
+    setUser(u);setScreen("home");
+    if(!u.onboardingDone&&(!u.history||u.history.length===0))setShowOnboarding(true);
+  };
   const handleLogout=()=>{DB.clearSession();setUser(null);setScreen("landing");};
 
   const handleUpdateUser=useCallback((updates)=>{
@@ -4413,17 +5145,21 @@ export default function App(){
       setUser(u);
       setScreen("home");
       autoGenerateStudyPlan(u);
+      // Show onboarding for brand new accounts
+      if(!u.onboardingDone)setShowOnboarding(true);
     }}/>;
   }
 
   const handleSetScreen=(s)=>{
     if(s==="quick5"){setQuick5Key(k=>k+1);setShowQuick5(true);return;}
+    if(s==="srs"){setShowSRS(true);return;}
     setScreen(s);
   };
 
   const pages={
     home:<Home user={user} setScreen={handleSetScreen} onUpdateUser={handleUpdateUser}/>,
     daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
+    mistakes:<MistakeJournal user={user} onUpdateUser={handleUpdateUser}/>,
     learn:<Learn user={user} onUpdateUser={handleUpdateUser}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser}/>,
     writing:<Writing/>,
@@ -4441,6 +5177,8 @@ export default function App(){
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
+      {showSRS&&user&&<SRSReview user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowSRS(false)}/>}
+      {showOnboarding&&user&&!user.onboardingDone&&<Onboarding user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowOnboarding(false)}/>}
       {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout}/>}
       {pages[screen]||pages.home}
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
