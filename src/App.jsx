@@ -1984,6 +1984,7 @@ function AnswerFlash({correct}){
 
 // ─── QUICK 5 MODE ─────────────────────────────────────────────────────────────
 function Quick5({user,onUpdateUser,onDone}){
+  const TOTAL=5;
   const [phase,setPhase]=useState("loading"); // loading | active | done
   const [questions,setQuestions]=useState([]);
   const [idx,setIdx]=useState(0);
@@ -1993,147 +1994,220 @@ function Quick5({user,onUpdateUser,onDone}){
   const [flash,setFlash]=useState(null);
   const [timer,setTimer]=useState(90);
   const timerRef=useRef(null);
-  const secs=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
+  const sectionRef=useRef(SECTIONS[Math.floor(Math.random()*SECTIONS.length)]);
+  const secs=sectionRef.current;
 
   useEffect(()=>{generate();},[]);
+  useEffect(()=>()=>clearInterval(timerRef.current),[]);
 
   const generate=async()=>{
-    setPhase("loading");
+    setPhase("loading");setQuestions([]);setIdx(0);setResults([]);setSelected(null);setSubmitted(false);
     const generated=[];
     const types=QUESTION_TYPES[secs];
-    for(let i=0;i<5;i++){
+    for(let i=0;i<TOTAL;i++){
       const lv=i<2?2:i<4?3:4;
       const qt=types[i%types.length];
       try{
-        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic),1200);
-        generated.push({...parseJSON(raw),section:secs,qType:qt,assignedLevel:lv});
-        if(generated.length===1){setQuestions([...generated]);setPhase("active");startTimer();}
-        else setQuestions([...generated]);
-      }catch{}
+        const raw=await callClaude(PRACTICE_SYSTEM,buildQ(secs,lv,qt,user.diagnostic,[]),1200);
+        const parsed={...parseJSON(raw),section:secs,qType:qt,assignedLevel:lv};
+        generated.push(parsed);
+        if(generated.length===1){
+          setQuestions([...generated]);
+          setPhase("active");
+          startTimer();
+        } else {
+          setQuestions(prev=>[...prev,parsed]);
+        }
+      }catch(e){console.warn("Q gen failed",e);}
     }
-    if(generated.length===0)onDone();
+    if(generated.length===0){onDone();}
   };
 
   const startTimer=()=>{
+    clearInterval(timerRef.current);
     setTimer(90);
     timerRef.current=setInterval(()=>setTimer(t=>{
-      if(t<=1){clearInterval(timerRef.current);autoSubmit();return 0;}
+      if(t<=1){clearInterval(timerRef.current);handleAutoSubmit();return 0;}
       return t-1;
     }),1000);
   };
 
-  const autoSubmit=()=>{
-    if(!submitted)doSubmit(null);
+  const handleAutoSubmit=()=>{
+    // auto-submit with no selection = mark wrong, show explanation, wait for Next
+    setSubmitted(true);
+    setFlash("wrong");
+    setTimeout(()=>setFlash(null),700);
   };
 
-  const doSubmit=(sel)=>{
+  const doSubmit=()=>{
+    if(submitted||!selected)return;
     clearInterval(timerRef.current);
     const q=questions[idx];
     if(!q)return;
-    const correct=(sel||selected)===q.correct;
+    const correct=selected===q.correct;
     setFlash(correct?"correct":"wrong");
     setTimeout(()=>setFlash(null),700);
     setSubmitted(true);
     const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,xp:correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()};
-    const newResults=[...results,record];
-    setResults(newResults);
+    setResults(prev=>[...prev,record]);
     onUpdateUser({history:[...(user.history||[]),record],stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
-    if(idx>=4||(idx===questions.length-1&&questions.length>=5)){
-      setTimeout(()=>setPhase("done"),800);
-    }
   };
 
   const next=()=>{
-    if(idx>=4){setPhase("done");return;}
     const nextIdx=idx+1;
+    // Record a miss if they ran out of time and never selected
+    if(submitted&&!selected){
+      const q=questions[idx];
+      if(q){
+        const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct:false,xp:0,timestamp:Date.now()};
+        setResults(prev=>{
+          const updated=[...prev,record];
+          onUpdateUser({history:[...(user.history||[]),record]});
+          return updated;
+        });
+      }
+    }
+    if(nextIdx>=TOTAL){setPhase("done");return;}
     setIdx(nextIdx);setSelected(null);setSubmitted(false);
-    if(questions[nextIdx]){startTimer();}
+    if(questions[nextIdx])startTimer();
+    // else wait — useEffect below will start timer once question loads
   };
+
+  // Start timer when a new question becomes available and we're waiting for it
+  useEffect(()=>{
+    if(phase==="active"&&!submitted&&questions[idx]&&timer===90){
+      // timer already started by startTimer() — nothing to do
+    }
+    if(phase==="active"&&!submitted&&questions[idx]&&idx>0){
+      // question just loaded for a slot we already advanced to
+      const hasTimer=timer>0&&timer<90;
+      if(!hasTimer)startTimer();
+    }
+  },[questions.length,idx,phase]);
 
   const q=questions[idx];
   const correct_count=results.filter(r=>r.correct).length;
 
+  const cs=(l)=>{
+    if(!submitted)return selected===l?"sel":"def";
+    if(l===q?.correct)return"ok";
+    if(l===selected)return"bad";
+    return"def";
+  };
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",marginBottom:9,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+
+  // ── Loading screen ────────────────────────────────────────────────────────
   if(phase==="loading")return(
-    <div style={{position:"fixed",inset:0,background:C.bg+"ee",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
+    <div style={{position:"fixed",inset:0,background:C.bg+"f0",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
       <Spinner label="Building your Quick 5…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>5 questions · ~7 minutes · starts immediately</p>
+      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>5 questions · adaptive difficulty · starts when ready</p>
     </div>
   );
 
+  // ── Done screen ───────────────────────────────────────────────────────────
   if(phase==="done"){
-    const pct=Math.round(correct_count/Math.max(results.length,1)*100);
+    const total=results.length;
+    const pct=total>0?Math.round(correct_count/total*100):0;
     const totalXP=results.reduce((s,r)=>s+r.xp,0);
     return(
-      <div style={{position:"fixed",inset:0,background:C.bg+"ee",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
+      <div style={{position:"fixed",inset:0,background:C.bg+"f0",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:36,maxWidth:400,width:"100%",textAlign:"center"}}>
           <div style={{fontSize:52,marginBottom:12}}>{pct>=80?"🏆":pct>=60?"🎯":"📈"}</div>
           <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:8}}>Quick 5 Done!</h2>
-          <div style={{fontSize:40,fontWeight:900,color:pct>=70?C.success:pct>=50?C.gold:C.danger,fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
-          <p style={{color:C.textSub,fontSize:14,marginBottom:6}}>{correct_count} of {results.length} correct</p>
+          <div style={{fontSize:44,fontWeight:900,color:pct>=70?C.success:pct>=50?C.gold:C.danger,fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
+          <p style={{color:C.textSub,fontSize:14,marginBottom:8}}>{correct_count} of {total} correct</p>
           {totalXP>0&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:10,padding:"8px 14px",marginBottom:16,display:"inline-block"}}><span style={{color:C.gold,fontWeight:700}}>+{totalXP} XP earned</span></div>}
-          <div style={{marginBottom:20}}>
-            {results.map((r,i)=><span key={i} style={{fontSize:20,margin:"0 3px"}}>{r.correct?"✅":"❌"}</span>)}
+          <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24}}>
+            {results.map((r,i)=><div key={i} style={{width:32,height:32,borderRadius:"50%",background:r.correct?C.success+"22":C.danger+"22",border:`2px solid ${r.correct?C.success:C.danger}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{r.correct?"✓":"✗"}</div>)}
           </div>
-          <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
             <Btn ghost onClick={onDone}>Back to Home</Btn>
-            <Btn onClick={()=>{setIdx(0);setResults([]);setSelected(null);setSubmitted(false);generate();}}>Play Again</Btn>
+            <Btn onClick={()=>{sectionRef.current=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];generate();}}>Play Again ⚡</Btn>
           </div>
         </div>
       </div>
     );
   }
 
-  if(!q)return null;
-  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===q.correct)return"ok";if(l===selected)return"bad";return"def";};
-  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:Math.round(14*FONT_SCALE)+"px",marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+  // ── Active question ───────────────────────────────────────────────────────
+  // If question hasn't loaded yet for this index, show a mini spinner
+  if(!q)return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"f0",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:300}}>
+      <Spinner label={`Loading question ${idx+1}…`}/>
+    </div>
+  );
+
+  const isTimedOut=submitted&&!selected;
 
   return(
     <div style={{position:"fixed",inset:0,background:C.bg,overflowY:"auto",zIndex:300}}>
       {flash&&<AnswerFlash correct={flash==="correct"}/>}
-      <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px"}}>
+      <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px 40px"}}>
+
         {/* Header */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontWeight:800,color:C.accent,fontSize:15}}>Quick 5</span>
+            <span style={{fontWeight:800,color:C.purple,fontSize:15}}>⚡ Quick 5</span>
             <div style={{display:"flex",gap:5}}>
-              {[0,1,2,3,4].map(i=><div key={i} style={{width:28,height:6,borderRadius:3,background:i<results.length?(results[i].correct?C.success:C.danger):i===idx?C.accent:C.border,transition:"background 0.3s"}}/>)}
+              {[0,1,2,3,4].map(i=>(
+                <div key={i} style={{width:28,height:6,borderRadius:3,
+                  background:i<results.length?(results[i]?.correct?C.success:C.danger):i===idx?C.accent:C.surfaceHigh,
+                  transition:"background 0.3s"}}/>
+              ))}
             </div>
+            <span style={{color:C.textMuted,fontSize:13}}>{idx+1}/5</span>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            <div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:timer<=15?C.danger:timer<=30?C.gold:C.text}}>{timer}s</div>
-            <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>Exit</button>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {!submitted&&<div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:timer<=15?C.danger:timer<=30?C.gold:C.text,minWidth:36,textAlign:"center"}}>{timer}s</div>}
+            <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Exit</button>
           </div>
         </div>
-        {/* Progress bar */}
-        <div style={{background:C.surfaceHigh,borderRadius:4,height:4,marginBottom:16,overflow:"hidden"}}>
+
+        {/* Timer bar */}
+        {!submitted&&<div style={{background:C.surfaceHigh,borderRadius:4,height:4,marginBottom:14,overflow:"hidden"}}>
           <div style={{height:"100%",width:`${timer/90*100}%`,background:timer<=15?C.danger:timer<=30?C.gold:C.accent,borderRadius:4,transition:"width 1s linear"}}/>
-        </div>
+        </div>}
+
+        {/* Question card */}
         <Card style={{marginBottom:12}}>
-          <div style={{marginBottom:10}}><Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag><Tag color={C.accent}>{q.qType}</Tag></div>
-          <p style={{lineHeight:1.85,fontSize:Math.round(15*FONT_SCALE)+"px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
-          <p style={{fontWeight:600,fontSize:Math.round(15*FONT_SCALE)+"px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{q.question}</p>
-          <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>{if(submitted)return;setSelected(l);}} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
-          {!submitted&&<Btn onClick={()=>doSubmit(selected)} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit →</Btn>}
+          <div style={{marginBottom:10}}>
+            <Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag>
+            <Tag color={C.accent}>{q.qType}</Tag>
+            {questions.length<TOTAL&&<span style={{fontSize:11,color:C.textMuted,marginLeft:6}}>({questions.length}/{TOTAL} loaded)</span>}
+          </div>
+          <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
+          <p style={{fontWeight:600,fontSize:"15px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{q.question}</p>
+          <div role="radiogroup">
+            {Object.entries(q.choices||{}).map(([l,t])=>(
+              <button key={l} style={cStyle(cs(l))} onClick={()=>{if(submitted)return;setSelected(l);}} role="radio" aria-checked={selected===l}>
+                <span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}
+              </button>
+            ))}
+          </div>
+          {!submitted&&(
+            <Btn onClick={doSubmit} disabled={!selected} style={{width:"100%",marginTop:8}}>
+              Submit →
+            </Btn>
+          )}
         </Card>
+
+        {/* Feedback */}
         {submitted&&(
           <div>
-            <Card style={{borderColor:selected===q.correct?C.success:C.danger,marginBottom:12}}>
-              <div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:8}}>
-                {selected===q.correct?"✓ Correct!":"✗ Incorrect — let's learn from this"}
+            {isTimedOut&&<div style={{background:C.danger+"15",border:`1px solid ${C.danger}33`,borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,color:C.danger,fontWeight:600}}>⏱ Time's up! The correct answer was <strong>{q.correct}</strong>.</div>}
+            <Card style={{borderColor:(!isTimedOut&&selected===q.correct)?C.success:C.danger,marginBottom:12}}>
+              {!isTimedOut&&<div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:10}}>
+                {selected===q.correct?"✓ Correct!":"✗ Incorrect — correct answer: "+q.correct}
+              </div>}
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                {q.explanation?.split(/WRONG\s*\([A-E]\)/)[0]?.replace(/CORRECT\s*\([A-E]\):\s*/,"")?.trim()||q.explanation}
               </div>
-              {selected!==q.correct&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"12px 14px",marginBottom:10,fontSize:13,color:C.textSub,lineHeight:1.7}}>
-                <strong style={{color:C.text,display:"block",marginBottom:4}}>Why {q.correct} is correct:</strong>
-                {q.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/,"").trim()}
-              </div>}
-              {selected!==q.correct&&<div style={{background:`${C.danger}10`,border:`1px solid ${C.danger}33`,borderRadius:10,padding:"12px 14px",fontSize:13,color:C.textSub,lineHeight:1.7}}>
-                <strong style={{color:C.danger,display:"block",marginBottom:4}}>Why {selected} is wrong:</strong>
-                {q.explanation?.match(new RegExp("WRONG \("+selected+"\)[^.]*\.([^(]*)","i"))?.[1]?.trim()||"This answer doesn't fill the logical gap."}
-              </div>}
-              {selected===q.correct&&<div style={{fontSize:13,color:C.textSub,lineHeight:1.7}}>{q.key_concept}</div>}
+              {q.key_concept&&<div style={{marginTop:10,fontSize:13,color:C.purple,fontStyle:"italic"}}>🔑 {q.key_concept}</div>}
             </Card>
-            {idx<4&&questions[idx+1]
-              ?<Btn onClick={next} style={{width:"100%"}}>Next Question ({idx+2}/5) →</Btn>
-              :<Btn onClick={next} style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>See Results ✓</Btn>}
+            {idx<TOTAL-1
+              ?<Btn onClick={next} style={{width:"100%"}}>Next Question ({idx+2}/{TOTAL}) →</Btn>
+              :<Btn onClick={()=>setPhase("done")} style={{width:"100%",background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>See Results ✓</Btn>
+            }
           </div>
         )}
       </div>
@@ -4172,6 +4246,7 @@ export default function App(){
   const [fontScale,setFontScale]=useState(1);
   const [streakCelebrate,setStreakCelebrate]=useState(false);
   const [showQuick5,setShowQuick5]=useState(false);
+  const [quick5Key,setQuick5Key]=useState(0);
   
   // Apply theme globally
   useEffect(()=>{
@@ -4247,7 +4322,7 @@ export default function App(){
   }
 
   const handleSetScreen=(s)=>{
-    if(s==="quick5"){setShowQuick5(true);return;}
+    if(s==="quick5"){setQuick5Key(k=>k+1);setShowQuick5(true);return;}
     setScreen(s);
   };
 
@@ -4270,7 +4345,7 @@ export default function App(){
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px"}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
-      {showQuick5&&user&&<Quick5 user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
+      {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
       {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout}/>}
       {pages[screen]||pages.home}
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
