@@ -3103,112 +3103,190 @@ function SessionDebrief({sessionHistory,user,onDismiss,onRecord}){
 }
 
 function Practice({user,onUpdateUser,initialWeakType}){
+  // ── Config state ──
   const [section,setSection]=useState(initialWeakType?.section||null);
   const [level,setLevel]=useState(null);
   const [qType,setQType]=useState(initialWeakType?.type||null);
   const [adaptive,setAdaptive]=useState(true);
   const [timedMode,setTimedMode]=useState(false);
-  const [questionTimer,setQuestionTimer]=useState(90);
   const [configured,setConfigured]=useState(!!initialWeakType);
+
+  // ── Question state — never null while a question is shown ──
+  const [question,setQuestion]=useState(null);      // currently displayed question
+  const [nextQuestion,setNextQuestion]=useState(null); // prefetched next question
+  const [loadingQ,setLoadingQ]=useState(false);     // true only on initial load / hard retry
+  const [prefetching,setPrefetching]=useState(false); // silent background fetch
+  const [error,setError]=useState(null);
+
+  // ── Answer state ──
   const [selected,setSelected]=useState(null);
   const [submitted,setSubmitted]=useState(false);
+  const [ansFlash,setAnsFlash]=useState(null);
+  const [xpEarned,setXpEarned]=useState(null);
+
+  // ── Session state ──
+  const [sessionCount,setSessionCount]=useState(0);
+  const [sessionCorrect,setSessionCorrect]=useState(0);
+  const [sessionHistory,setSessionHistory]=useState([]);
+  const [showDebrief,setShowDebrief]=useState(false);
+
+  // ── Extras ──
   const [sparring,setSparring]=useState(false);
   const [sparMsgs,setSparMsgs]=useState([]);
   const [sparInput,setSparInput]=useState("");
   const [sparLoading,setSparLoading]=useState(false);
   const [note,setNote]=useState("");
   const [noteOpen,setNoteOpen]=useState(false);
-  const [xpEarned,setXpEarned]=useState(null);
-  const [sessionCount,setSessionCount]=useState(0);
-  const [sessionCorrect,setSessionCorrect]=useState(0);
-  const [sessionHistory,setSessionHistory]=useState([]);
-  const [showDebrief,setShowDebrief]=useState(false);
+  const [questionTimer,setQuestionTimer]=useState(90);
   const questionTimerRef=useRef(null);
   const bottomRef=useRef(null);
-  const {current:q,loading,error,start,advance}=useQueue(user,section,level,qType,adaptive);
+  const domainWheelRef=useRef(0);
+  const sessionTopics=useRef([]);
 
-  const [ansFlash,setAnsFlash]=useState(null);
-  const submit=()=>{
-    if(!selected||!q)return;
+  // ── Build one question via API ──
+  const fetchOne=useCallback(async()=>{
+    domainWheelRef.current=(domainWheelRef.current+1)%DOMAIN_WHEEL.length;
+    const sec=section||SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
+    let lv=level||2;
+    if(adaptive){
+      const h=user.history||[];
+      if(h.length>=3){
+        const recent=h.filter(x=>x.section===sec).slice(-8);
+        if(recent.length>=3){
+          const acc=recent.filter(x=>x.correct).length/recent.length;
+          if(acc>0.8)lv=Math.min(4,lv+1);
+          else if(acc<0.45)lv=Math.max(1,lv-1);
+        }
+      }
+    }
+    let qt=qType||QUESTION_TYPES[sec][Math.floor(Math.random()*QUESTION_TYPES[sec].length)];
+    if(adaptive&&(user.history||[]).length>=4){
+      const h=user.history||[];
+      const scored=QUESTION_TYPES[sec].map(t=>{const items=h.filter(x=>x.section===sec&&x.qType===t);return{t,s:items.length<2?0.6:items.filter(x=>x.correct).length/items.length};}).sort((a,b)=>a.s-b.s);
+      qt=scored[0].t;
+    }
+    const recentTopics=sessionTopics.current.slice(-6);
+    const raw=await callClaude(PRACTICE_SYSTEM,buildQ(sec,lv,qt,user.diagnostic,recentTopics));
+    const parsed=parseJSON(raw);
+    // track topic to avoid repeats
+    const stim=(parsed.stimulus||"").toLowerCase();
+    const topicKey=(stim.includes("animal")||stim.includes("species")?"BIO":stim.includes("drug")||stim.includes("patient")?"MED":stim.includes("govern")||stim.includes("legislat")?"POL":stim.includes("company")||stim.includes("market")?"BIZ":stim.includes("study")||stim.includes("research")?"RES":"GEN")+":"+stim.split(/\s+/).slice(0,4).join("_");
+    sessionTopics.current=[...sessionTopics.current.slice(-8),topicKey];
+    return{...parsed,section:sec,qType:qt,assignedLevel:lv};
+  },[section,level,qType,adaptive,user]);
+
+  // ── Start: load first question, then silently prefetch second ──
+  const startPractice=useCallback(async()=>{
+    setLoadingQ(true);setError(null);setQuestion(null);setNextQuestion(null);
+    sessionTopics.current=[];
+    try{
+      const q=await fetchOne();
+      setQuestion(q);setLoadingQ(false);
+      // silently prefetch next
+      setPrefetching(true);
+      try{const nq=await fetchOne();setNextQuestion(nq);}catch{}
+      setPrefetching(false);
+    }catch(e){
+      setError(e.message||"Failed to generate. Check your API key.");
+      setLoadingQ(false);
+    }
+  },[fetchOne]);
+
+  // ── Next question: swap in prefetched instantly, then prefetch again ──
+  const nextQ=useCallback(async()=>{
+    // Reset answer UI immediately
+    setSelected(null);setSubmitted(false);setSparring(false);setSparMsgs([]);
+    setXpEarned(null);setNote("");setNoteOpen(false);setAnsFlash(null);
+    if(timedMode){
+      clearInterval(questionTimerRef.current);
+      setQuestionTimer(90);
+      questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);
+    }
+    if(nextQuestion){
+      // Instant swap — no loading state, no blank screen
+      setQuestion(nextQuestion);
+      setNextQuestion(null);
+      // Silently prefetch the one after
+      setPrefetching(true);
+      try{const nq=await fetchOne();setNextQuestion(nq);}catch{}
+      setPrefetching(false);
+    }else{
+      // No prefetch ready — show loading and fetch
+      setLoadingQ(true);setQuestion(null);
+      try{
+        const q=await fetchOne();
+        setQuestion(q);setLoadingQ(false);
+        setPrefetching(true);
+        try{const nq=await fetchOne();setNextQuestion(nq);}catch{}
+        setPrefetching(false);
+      }catch(e){
+        setError(e.message||"Failed to generate.");setLoadingQ(false);
+      }
+    }
+  },[nextQuestion,fetchOne,timedMode]);
+
+  // ── Submit ──
+  const submit=useCallback(()=>{
+    if(!selected||!question)return;
     if(timedMode)clearInterval(questionTimerRef.current);
     setSubmitted(true);
-    const correct=selected===q.correct;
+    const correct=selected===question.correct;
     setAnsFlash(correct?"correct":"wrong");
-    setTimeout(()=>setAnsFlash(null),700);
-    const xp=correct?XP_PER_CORRECT[q.assignedLevel||2]:0;
+    setTimeout(()=>setAnsFlash(null),600);
+    const xp=correct?XP_PER_CORRECT[question.assignedLevel||2]:0;
     setXpEarned(xp);
     setSessionCount(c=>c+1);
     if(correct)setSessionCorrect(c=>c+1);
-    const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,xp,timestamp:Date.now()};
+    const record={section:question.section,qType:question.qType,level:question.assignedLevel,correct,xp,timestamp:Date.now()};
     setSessionHistory(h=>[...h,record]);
     const newHistory=[...(user.history||[]),record];
     const newStats={...user.stats,xp:(user.stats?.xp||0)+xp};
     const newBadges=checkBadges(newHistory,newStats,user.earnedBadges||[]);
     onUpdateUser({history:newHistory,stats:newStats,earnedBadges:[...(user.earnedBadges||[]),...newBadges]});
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),150);
-  };
+  },[selected,question,timedMode,user,onUpdateUser]);
 
-  const nextQ=()=>{
-    setSelected(null);setSubmitted(false);setSparring(false);setSparMsgs([]);
-    setXpEarned(null);setNote("");setNoteOpen(false);setAnsFlash(null);
-    if(timedMode){
-      setQuestionTimer(90);
-      clearInterval(questionTimerRef.current);
-      questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);
+  // Auto-submit on timer expire
+  useEffect(()=>{
+    if(timedMode&&questionTimer===0&&question&&!submitted){
+      setSubmitted(true);
+      const record={section:question.section,qType:question.qType,level:question.assignedLevel,correct:false,xp:0,timestamp:Date.now()};
+      setSessionHistory(h=>[...h,record]);setSessionCount(c=>c+1);
+      onUpdateUser({history:[...(user.history||[]),record]});
     }
-    advance();
-  };
-  const endSession=()=>{
-    if(sessionCount>=3)setShowDebrief(true);
-    else setConfigured(false);
-  };
+  },[questionTimer,timedMode,question,submitted]);
+  useEffect(()=>()=>clearInterval(questionTimerRef.current),[]);
 
-  const startSpar=()=>{setSparring(true);setSparMsgs([{role:"assistant",text:`You chose ${selected} but the correct answer is ${q.correct}. Make your case — why do you think ${selected} is right?`}]);};
-
+  const endSession=()=>{if(sessionCount>=3)setShowDebrief(true);else setConfigured(false);};
+  const startSpar=()=>{setSparring(true);setSparMsgs([{role:"assistant",text:`You chose ${selected} but the correct answer is ${question?.correct}. Make your case — why do you think ${selected} is right?`}]);};
   const sendSpar=async()=>{
     if(!sparInput.trim()||sparLoading)return;
     const msg=sparInput.trim();setSparInput("");
     const msgs=[...sparMsgs,{role:"user",text:msg}];
     setSparMsgs(msgs);setSparLoading(true);
     try{
-      const sys=`You are a Socratic LSAT tutor in Argument Sparring. Student answered incorrectly and is defending their answer.
-Stimulus: ${q.stimulus}
-Question: ${q.question}
-Correct: ${q.correct} | Student chose: ${selected}
-Explanation: ${q.explanation}
-Rules: Take their argument seriously. Identify the specific logical flaw. Ask ONE pointed Socratic question. Under 100 words. If they've understood, confirm warmly.`;
+      const sys="You are a Socratic LSAT tutor. Stimulus: "+question?.stimulus+" Correct: "+question?.correct+" Student chose: "+selected+" Explanation: "+question?.explanation+" Rules: Take their argument seriously. Ask ONE pointed Socratic question. Under 100 words.";
       const raw=await callClaude(sys,msgs.map(m=>`${m.role==="user"?"Student":"Tutor"}: ${m.text}`).join("\n"),300);
       setSparMsgs([...msgs,{role:"assistant",text:raw}]);
     }catch{setSparMsgs([...msgs,{role:"assistant",text:"Something went wrong. Try rephrasing."}]);}
     setSparLoading(false);
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:"smooth"}),100);
   };
-
   const saveNote=()=>{
     if(!note.trim())return;
-    onUpdateUser({notes:[...(user.notes||[]),{id:Date.now(),text:note.trim(),source:`${q?.section||""} · ${q?.qType||""}`,timestamp:Date.now()}]});
+    onUpdateUser({notes:[...(user.notes||[]),{id:Date.now(),text:note.trim(),source:`${question?.section||""} · ${question?.qType||""}`,timestamp:Date.now()}]});
     setNote("");setNoteOpen(false);
   };
-  // Auto-submit when timed question expires
-  useEffect(()=>{
-    if(timedMode&&questionTimer===0&&q&&!submitted){
-      setSubmitted(true);
-      const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct:false,xp:0,timestamp:Date.now()};
-      setSessionHistory(h=>[...h,record]);
-      setSessionCount(c=>c+1);
-      onUpdateUser({history:[...(user.history||[]),record]});
-    }
-  },[questionTimer,timedMode,q,submitted]);
-  useEffect(()=>()=>clearInterval(questionTimerRef.current),[]);
 
-  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===q?.correct)return"ok";if(l===selected)return"bad";return"def";};
-  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+  const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===question?.correct)return"ok";if(l===selected)return"bad";return"def";};
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:Math.round(14*FONT_SCALE)+"px",marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
 
+  // ── CONFIG SCREEN ──
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Practice</h1>
-      <p style={{color:C.textSub,fontSize:14,marginBottom:16}}>Lumora generates a fresh question for you every time — no repeats, ever. The next one loads in the background.</p>
-      <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);start();}}/>
+      <p style={{color:C.textSub,fontSize:14,marginBottom:16}}>Lumora generates a fresh question every time — infinite practice, no repeats.</p>
+      <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);startPractice();}}/>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(s);setQType(null);}}>{s}</Pill>)}</div></Card>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>{[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}</div></Card>
       {section&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Question Type</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{QUESTION_TYPES[section].map(t=><Pill key={t} active={qType===t} onClick={()=>setQType(t)}>{t}</Pill>)}</div></Card>}
@@ -3227,72 +3305,79 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
         </Card>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Btn onClick={()=>{setConfigured(true);start();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
+        <Btn onClick={()=>{setConfigured(true);startPractice();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
         <Btn onClick={()=>{
           const randSec=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
-          const randTypes=QUESTION_TYPES[randSec];
-          const randType=randTypes[Math.floor(Math.random()*randTypes.length)];
+          const randType=QUESTION_TYPES[randSec][Math.floor(Math.random()*QUESTION_TYPES[randSec].length)];
           const randLevel=Math.ceil(Math.random()*4);
           setSection(randSec);setQType(randType);setLevel(randLevel);setAdaptive(false);
           setConfigured(true);
-          setTimeout(()=>start(),50);
+          setTimeout(startPractice,50);
           if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}
         }} style={{padding:15,background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>🎲 Random</Btn>
       </div>
     </main>
   );
 
+  // ── ACTIVE PRACTICE SCREEN ──
   return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"22px 20px"}}>
       {ansFlash&&<AnswerFlash correct={ansFlash==="correct"}/>}
       {showDebrief&&<SessionDebrief sessionHistory={sessionHistory} user={user} onDismiss={()=>{setShowDebrief(false);setConfigured(false);setSessionHistory([]);setSessionCount(0);setSessionCorrect(0);}} onRecord={onUpdateUser}/>}
+
+      {/* Header bar */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18,flexWrap:"wrap",gap:8}}>
         <div>
-          {q&&<><Tag color={C.accent}>{q.section}</Tag><Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag></>}
+          {question&&<><Tag color={C.accent}>{question.section}</Tag><Tag color={LEVEL_COLORS[question.assignedLevel]}>Level {question.assignedLevel}</Tag><Tag color={C.purple}>{question.qType}</Tag></>}
           {adaptive&&<Tag color={C.purple}>Adaptive</Tag>}
           {timedMode&&<Tag color={C.danger}>⏱ Timed</Tag>}
+          {prefetching&&<span style={{fontSize:11,color:C.textMuted,marginLeft:6}}>⚡ loading next…</span>}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {timedMode&&!submitted&&q&&<div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:questionTimer<=15?C.danger:questionTimer<=30?C.gold:C.text,minWidth:40,textAlign:"center"}}>{questionTimer}</div>}
-          <span style={{color:C.textMuted,fontSize:13}}>{sessionCount} done · {sessionCount>0?Math.round(sessionCorrect/sessionCount*100):"—"}%</span>
+          {timedMode&&!submitted&&question&&<div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:questionTimer<=15?C.danger:questionTimer<=30?C.gold:C.text,minWidth:40,textAlign:"center"}}>{questionTimer}</div>}
+          <span style={{color:C.textSub,fontSize:13}}>{sessionCount} done · {sessionCount>0?Math.round(sessionCorrect/sessionCount*100):"—"}%</span>
           {sessionCount>=3&&<Btn ghost onClick={endSession} small>End Session</Btn>}
           <Btn ghost onClick={()=>setConfigured(false)} small>Settings</Btn>
         </div>
       </div>
-      {loading&&<Spinner label="Lumora is generating your question…"/>}
-      {error&&!loading&&<Card style={{borderColor:C.danger}}><ErrBanner message={error}/><Btn onClick={start} style={{marginTop:8}}>Retry</Btn></Card>}
-      {q&&!loading&&(
+
+      {/* Loading state — only on first load or hard retry */}
+      {loadingQ&&!question&&<Spinner label="Lumora is generating your question…"/>}
+      {error&&!loadingQ&&<Card style={{borderColor:C.danger,marginBottom:12}}><ErrBanner message={error}/><Btn onClick={startPractice} style={{marginTop:8}}>Retry</Btn></Card>}
+
+      {/* Question — stays visible while prefetching next */}
+      {question&&(
         <div>
           <Card style={{marginBottom:12}}>
-            <p style={{lineHeight:1.85,fontSize:Math.round(15*FONT_SCALE)+"px",color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
-            <p style={{fontWeight:600,fontSize:Math.round(15*FONT_SCALE)+"px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{q.question}</p>
-            <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} style={{...cStyle(cs(l)),fontSize:Math.round(14*FONT_SCALE)+"px"}} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
+            <p style={{lineHeight:1.85,fontSize:Math.round(15*FONT_SCALE)+"px",color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
+            <p style={{fontWeight:600,fontSize:Math.round(15*FONT_SCALE)+"px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{question.question}</p>
+            <div role="radiogroup">{Object.entries(question.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
             {!submitted&&<Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit Answer</Btn>}
           </Card>
+
           {submitted&&(
             <div ref={bottomRef}>
               {xpEarned>0&&<div role="status" style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10}}><span>⭐</span><span style={{color:C.gold,fontWeight:700}}>+{xpEarned} XP!</span></div>}
-              <Card style={{borderColor:selected===q.correct?C.success:C.danger,marginBottom:12}}>
-                <div style={{fontSize:16,fontWeight:700,color:selected===q.correct?C.success:C.danger,marginBottom:8}}>
-                  {selected===q.correct?"✓ Correct!":"✗ Incorrect — here's what happened"}
+              <Card style={{borderColor:selected===question.correct?C.success:C.danger,marginBottom:12}}>
+                <div style={{fontSize:16,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:8}}>
+                  {selected===question.correct?"✓ Correct!":"✗ Incorrect — here's what happened"}
                 </div>
-                {q.key_concept&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"9px 13px",marginBottom:10,fontSize:13,color:C.purple,display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{flexShrink:0}}>🔑</span><span>{q.key_concept}</span>
-                </div>}
-                {selected!==q.correct&&<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
+                {question.key_concept&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"9px 13px",marginBottom:10,fontSize:13,color:C.purple,display:"flex",gap:8,alignItems:"flex-start"}}><span style={{flexShrink:0}}>🔑</span><span>{question.key_concept}</span></div>}
+                {selected!==question.correct&&<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
                   <div style={{background:"#052e16",border:`1px solid ${C.success}44`,borderRadius:10,padding:"11px 14px"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.success,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {q.correct} is correct</div>
-                    <div style={{fontSize:14,color:"#86efac",lineHeight:1.75}}>{q.explanation?.split(/WRONG\s*\(/)[0]?.replace(/^CORRECT[^:]*:/i,"").trim()}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:C.success,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {question.correct} is correct</div>
+                    <div style={{fontSize:14,color:"#86efac",lineHeight:1.75}}>{question.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/i,"").trim()||question.explanation}</div>
                   </div>
                   <div style={{background:"#2d0a0a",border:`1px solid ${C.danger}44`,borderRadius:10,padding:"11px 14px"}}>
                     <div style={{fontSize:12,fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {selected} misses the mark</div>
-                    <div style={{fontSize:14,color:"#fca5a5",lineHeight:1.75}}>{(()=>{const m=q.explanation?.match(new RegExp("WRONG\s*\("+selected+"\)[^)]*\)\s*:?\s*([^(]{10,})","i"));return m?m[1].split(".")[0]+".":"This answer doesn't correctly fill the logical gap in the argument.";})()}</div>
+                    <div style={{fontSize:14,color:"#fca5a5",lineHeight:1.75}}>{question.explanation?.includes("WRONG ("+selected+")")?question.explanation.split("WRONG ("+selected+")")[1]?.split("WRONG")[0]?.replace(/^[^:]*:/,"").trim()||"Review the explanation above.":"Review the full explanation above."}</div>
                   </div>
                 </div>}
-                {selected===q.correct&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{q.explanation?.split(/WRONG\s*\(/)[0]?.replace(/^CORRECT[^:]*:/i,"").trim()}</div>}
+                {selected===question.correct&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85}}>{question.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/i,"").trim()||question.explanation}</div>}
               </Card>
-              {!sparring&&selected!==q.correct&&<Card style={{marginBottom:12,borderColor:C.purple+"44"}}>
-                <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:24}}>🥊</span><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,marginBottom:3}}>Think you're right? Argue your case.</div><div style={{fontSize:13,color:C.textMuted}}>Debate Lumora LSAT in Socratic dialogue.</div></div><Btn onClick={startSpar} small style={{background:"linear-gradient(135deg,#7c3aed,#a78bfa)",flexShrink:0}}>Spar →</Btn></div>
+
+              {!sparring&&selected!==question.correct&&<Card style={{marginBottom:12,borderColor:C.purple+"44"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:24}}>🥊</span><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,marginBottom:3}}>Think you're right? Argue your case.</div><div style={{fontSize:13,color:C.textMuted}}>Debate Lumora in Socratic dialogue.</div></div><Btn onClick={startSpar} small style={{background:"linear-gradient(135deg,#7c3aed,#a78bfa)",flexShrink:0}}>Spar →</Btn></div>
               </Card>}
               {sparring&&<Card style={{marginBottom:12,borderColor:C.purple+"44"}}>
                 <h3 style={{fontWeight:700,color:C.purple,marginBottom:12,fontSize:15}}>🥊 Argument Sparring</h3>
@@ -3306,11 +3391,12 @@ Rules: Take their argument seriously. Identify the specific logical flaw. Ask ON
                   <Btn onClick={sendSpar} disabled={sparLoading||!sparInput.trim()} small>Send</Btn>
                 </div>
               </Card>}
+
               <Card style={{marginBottom:14}}>
                 <button onClick={()=>setNoteOpen(v=>!v)} aria-expanded={noteOpen} style={{background:"none",border:"none",color:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans,padding:0}}>{noteOpen?"▾":"▸"} Add a study note</button>
                 {noteOpen&&<div style={{marginTop:10}}><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Key insight, pattern, or strategy to remember…" rows={3} aria-label="Study note" style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",color:C.text,fontSize:14,fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",outline:"none"}}/><Btn ghost onClick={saveNote} small style={{marginTop:8}}>Save Note</Btn></div>}
               </Card>
-              <Btn onClick={nextQ} style={{width:"100%"}}>Next Question →</Btn>
+              <Btn onClick={nextQ} style={{width:"100%",padding:16,fontSize:16}}>Next Question →</Btn>
             </div>
           )}
         </div>
