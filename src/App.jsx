@@ -2011,6 +2011,7 @@ function AnswerFlash({correct}){
 // ─── QUICK 5 MODE ─────────────────────────────────────────────────────────────
 function Quick5({user,onUpdateUser,onDone}){
   const TOTAL=5;
+  const BASE_TIME=90; // matches real LSAT pacing (~1:25-1:30 per LR question)
   const LR_TYPES=QUESTION_TYPES["Logical Reasoning"];
 
   const [phase,setPhase]=useState("loading");
@@ -2020,7 +2021,8 @@ function Quick5({user,onUpdateUser,onDone}){
   const [submitted,setSubmitted]=useState(false);
   const [results,setResults]=useState([]);
   const [flash,setFlash]=useState(null);
-  const [timer,setTimer]=useState(75);
+  const [timer,setTimer]=useState(BASE_TIME);
+  const [extraTimeUsed,setExtraTimeUsed]=useState(false);
 
   // Refs to avoid stale closure in timer
   const timerRef=useRef(null);
@@ -2076,7 +2078,8 @@ function Quick5({user,onUpdateUser,onDone}){
 
   const startTimer=()=>{
     clearInterval(timerRef.current);
-    setTimer(75);
+    setTimer(BASE_TIME);
+    setExtraTimeUsed(false);
     timerRef.current=setInterval(()=>{
       setTimer(t=>{
         if(t<=1){
@@ -2093,6 +2096,12 @@ function Quick5({user,onUpdateUser,onDone}){
         return t-1;
       });
     },1000);
+  };
+
+  const addTime=()=>{
+    if(extraTimeUsed||submittedRef.current)return;
+    setExtraTimeUsed(true);
+    setTimer(t=>t+30);
   };
 
   const doSubmit=()=>{
@@ -2133,7 +2142,7 @@ function Quick5({user,onUpdateUser,onDone}){
 
   // If we advanced to a question slot that finished loading after we got there, start timer
   useEffect(()=>{
-    if(phase==="active"&&!submittedRef.current&&questions[idx]&&timer===75){
+    if(phase==="active"&&!submittedRef.current&&questions[idx]&&timer===BASE_TIME){
       // already started
     }
   },[questions[idx]?.stimulus]);
@@ -2235,13 +2244,21 @@ function Quick5({user,onUpdateUser,onDone}){
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {!submitted&&(
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                {!extraTimeUsed&&(
+                  <button onClick={addTime} title="Add 30 seconds"
+                    style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,
+                      padding:"3px 8px",color:C.textMuted,fontSize:11,cursor:"pointer",
+                      fontFamily:T.sans,fontWeight:600}}>
+                    +30s
+                  </button>
+                )}
                 <div style={{width:32,height:32,position:"relative"}}>
                   <svg width="32" height="32" viewBox="0 0 32 32">
                     <circle cx="16" cy="16" r="13" fill="none" stroke={C.surfaceHigh} strokeWidth="3"/>
                     <circle cx="16" cy="16" r="13" fill="none" stroke={timerColor} strokeWidth="3"
                       strokeDasharray={2*Math.PI*13}
-                      strokeDashoffset={2*Math.PI*13*(1-timer/75)}
+                      strokeDashoffset={2*Math.PI*13*(1-Math.min(1,timer/BASE_TIME))}
                       strokeLinecap="round"
                       style={{transform:"rotate(-90deg)",transformOrigin:"50% 50%",transition:"stroke-dashoffset 1s linear,stroke 0.3s"}}/>
                   </svg>
@@ -2260,7 +2277,7 @@ function Quick5({user,onUpdateUser,onDone}){
         {/* Timer bar */}
         {!submitted&&(
           <div style={{background:C.surfaceHigh,borderRadius:4,height:3,marginBottom:14,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${timer/75*100}%`,background:timerColor,
+            <div style={{height:"100%",width:`${Math.min(100,timer/BASE_TIME*100)}%`,background:timerColor,
               borderRadius:4,transition:"width 1s linear,background 0.3s"}}/>
           </div>
         )}
@@ -2482,33 +2499,65 @@ function Auth({onLogin}){
 }
 
 // ─── DIAGNOSTIC ───────────────────────────────────────────────────────────────
-function Diagnostic({user,onComplete}){
+function Diagnostic({user,onComplete,onCancel}){
+  const isRetake=!!(user.diagnostic&&Object.keys(user.diagnostic).length>0);
   const [step,setStep]=useState(0);
-  const [answers,setAnswers]=useState({});
+  const [answers,setAnswers]=useState(isRetake?{...user.diagnostic}:{});
   const q=DIAGNOSTIC_QUESTIONS[step];
   const toggleMulti=(id,val)=>{const cur=answers[id]||[];setAnswers(a=>({...a,[id]:cur.includes(val)?cur.filter(x=>x!==val):[...cur,val]}));};
   const canNext=()=>{if(!q)return false;if(q.type==="multi")return(answers[q.id]||[]).length>0;return answers[q.id]!==undefined;};
   const next=()=>{if(step<DIAGNOSTIC_QUESTIONS.length-1)setStep(s=>s+1);else onComplete(answers);};
+  const back=()=>{if(step>0)setStep(s=>s-1);};
   const progress=Math.round(((step+1)/DIAGNOSTIC_QUESTIONS.length)*100);
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:520}}>
-        <div style={{textAlign:"center",marginBottom:24}}><div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>Welcome, {user.name.split(" ")[0]}!</div><p style={{color:C.textSub,fontSize:14,marginTop:6,lineHeight:1.6}}>Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you.</p></div>
-        <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12,color:C.textMuted}}><span>Building your profile</span><span>{progress}%</span></div><div style={{background:C.surfaceHigh,borderRadius:6,height:5}} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div style={{height:"100%",width:`${progress}%`,background:"linear-gradient(90deg,#4f7fff,#a78bfa)",borderRadius:6,transition:"width 0.4s ease"}}/></div></div>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>
+            {isRetake?"Update your study profile":"Welcome, "+user.name.split(" ")[0]+"!"}
+          </div>
+          <p style={{color:C.textSub,fontSize:14,marginTop:6,lineHeight:1.6}}>
+            {isRetake
+              ?"Your answers are pre-filled. Update anything that's changed, then regenerate your study plan."
+              :"Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you."}
+          </p>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12,color:C.textMuted}}>
+            <span>Building your profile</span><span>{progress}%</span>
+          </div>
+          <div style={{background:C.surfaceHigh,borderRadius:6,height:5}} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div style={{height:"100%",width:`${progress}%`,background:"linear-gradient(90deg,#4f7fff,#a78bfa)",borderRadius:6,transition:"width 0.4s ease"}}/>
+          </div>
+        </div>
         <Card>
-          <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontWeight:700}}>Question {step+1} of {DIAGNOSTIC_QUESTIONS.length}</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>
+              Question {step+1} of {DIAGNOSTIC_QUESTIONS.length}
+            </div>
+            {isRetake&&onCancel&&(
+              <button onClick={onCancel} style={{background:"none",border:"none",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+                Cancel
+              </button>
+            )}
+          </div>
           <h2 style={{fontSize:17,color:C.text,marginBottom:20,lineHeight:1.45,fontWeight:600}}>{q.q}</h2>
           {q.type==="single"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{q.options.map(opt=><Pill key={opt} active={answers[q.id]===opt} onClick={()=>setAnswers(a=>({...a,[q.id]:opt}))}>{opt}</Pill>)}</div>}
           {q.type==="multi"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{q.options.map(opt=><Pill key={opt} active={(answers[q.id]||[]).includes(opt)} onClick={()=>toggleMulti(q.id,opt)}>{opt}</Pill>)}</div>}
           {q.type==="scale"&&<div><div style={{display:"flex",gap:10,marginBottom:8}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setAnswers(a=>({...a,[q.id]:n}))} aria-pressed={answers[q.id]===n} style={{flex:1,aspectRatio:"1",borderRadius:12,border:`2px solid ${answers[q.id]===n?C.accent:C.border}`,background:answers[q.id]===n?C.accentSoft:"transparent",color:answers[q.id]===n?C.accent:C.textMuted,fontSize:18,fontWeight:700,cursor:"pointer",transition:"all 0.15s",outline:"none"}}>{n}</button>)}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted}}><span>Not comfortable</span><span>Very comfortable</span></div></div>}
-          <div style={{marginTop:22}}><Btn onClick={next} disabled={!canNext()} style={{width:"100%"}}>{step===DIAGNOSTIC_QUESTIONS.length-1?"Finish & Enter Lumora LSAT →":"Continue →"}</Btn></div>
+          <div style={{display:"flex",gap:10,marginTop:22}}>
+            {step>0&&<Btn ghost onClick={back}>← Back</Btn>}
+            <Btn onClick={next} disabled={!canNext()} style={{flex:1}}>
+              {step===DIAGNOSTIC_QUESTIONS.length-1?(isRetake?"Save & Update Plan →":"Finish & Enter Lumora LSAT →"):"Continue →"}
+            </Btn>
+          </div>
         </Card>
       </div>
     </div>
   );
 }
 
-function Profile({user,onUpdateUser,onLogout,setScreen}){
+function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
   const [name,setName]=useState(user.name);
   const [saved,setSaved]=useState(false);
   const history=user.history||[];
@@ -2596,6 +2645,35 @@ function Profile({user,onUpdateUser,onLogout,setScreen}){
             <div style={{fontSize:12,color:C.textMuted,lineHeight:1.5}}>If you miss a day, a freeze automatically saves your streak. You get 1 free freeze. Earn more by maintaining long streaks.</div>
           </div>
         </div>
+      </Card>
+
+      {/* Study Profile / Diagnostic */}
+      <Card style={{marginBottom:14,borderColor:C.purple+"44"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.purple,fontWeight:600}}>Study Profile</div>
+          <Btn ghost onClick={onRetakeDiagnostic} small>
+            {user.diagnostic&&Object.keys(user.diagnostic).length>0?"Retake Diagnostic":"Take Diagnostic"}
+          </Btn>
+        </div>
+        {user.diagnostic&&Object.keys(user.diagnostic).length>0?(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+            {[
+              ["Target Score",user.diagnostic.target_score],
+              ["Test Date",user.diagnostic.test_date],
+              ["Study Hours/Wk",user.diagnostic.study_hours],
+              ["Biggest Challenge",user.diagnostic.biggest_challenge],
+            ].filter(([,v])=>v).map(([label,val])=>(
+              <div key={label} style={{background:C.surfaceHigh,borderRadius:10,padding:"10px 12px"}}>
+                <div style={{fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:3}}>{label}</div>
+                <div style={{fontSize:13,color:C.text,fontWeight:600}}>{val}</div>
+              </div>
+            ))}
+          </div>
+        ):(
+          <p style={{color:C.textMuted,fontSize:13,lineHeight:1.7}}>
+            You haven't completed a diagnostic yet. This 2-minute questionnaire helps Lumora build a study plan tailored to your target score, timeline, and weak areas. Without it, your study plan uses general defaults.
+          </p>
+        )}
       </Card>
 
       {/* Account info */}
@@ -4183,7 +4261,7 @@ function FullSection({user,onUpdateUser}){
 
 // ─── STUDY PLAN ───────────────────────────────────────────────────────────────
 
-function StudyPlan({user,onUpdateUser}){
+function StudyPlan({user,onUpdateUser,setScreen}){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState(null);
   const plan=user.studyPlan;
@@ -4240,6 +4318,20 @@ function StudyPlan({user,onUpdateUser}){
         <div><h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:14}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
         <Btn onClick={gen} small>{plan?"Regenerate":"Generate Plan"}</Btn>
       </div>
+      {(!user.diagnostic||Object.keys(user.diagnostic).length===0)&&(
+        <Card style={{marginBottom:16,borderColor:C.gold+"44",background:C.goldSoft}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+            <span style={{fontSize:22}}>💡</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:C.gold,marginBottom:4,fontSize:14}}>Take the diagnostic for a truly personalized plan</div>
+              <p style={{color:C.textSub,fontSize:13,lineHeight:1.6,marginBottom:10}}>
+                This plan is using general defaults because you haven't completed your study profile yet. Answering 10 quick questions about your target score, timeline, and weak areas lets Lumora build a plan specific to you.
+              </p>
+              {setScreen&&<Btn onClick={()=>setScreen("profile")} small>Go to Profile →</Btn>}
+            </div>
+          </div>
+        </Card>
+      )}
       {loading&&<Spinner label="Lumora is building your study plan…"/>}
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
       {!plan&&!loading&&<Card style={{textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>📋</div><h2 style={{color:C.text,fontSize:18,marginBottom:8}}>No study plan yet</h2><p style={{color:C.textMuted,fontSize:14,marginBottom:20,lineHeight:1.7}}>Lumora LSAT builds a structured plan from your diagnostic and practice history.</p><Btn onClick={gen}>Generate My Plan</Btn></Card>}
@@ -5049,6 +5141,7 @@ export default function App(){
   const [quick5Key,setQuick5Key]=useState(0);
   const [showSRS,setShowSRS]=useState(false);
   const [showOnboarding,setShowOnboarding]=useState(false);
+  const [retakingDiagnostic,setRetakingDiagnostic]=useState(false);
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme globally
@@ -5129,16 +5222,20 @@ export default function App(){
     return <Landing onGetStarted={()=>setScreen("auth")}/>;
   }
 
-  if(!user.diagnosticDone){
-    return <Diagnostic user={user} onComplete={(answers)=>{
-      const u={...user,diagnostic:answers,diagnosticDone:true};
-      try{DB.saveUser(u.email,u);}catch{}
-      setUser(u);
-      setScreen("home");
-      autoGenerateStudyPlan(u);
-      // Show onboarding for brand new accounts
-      if(!u.onboardingDone)setShowOnboarding(true);
-    }}/>;
+  if(!user.diagnosticDone||retakingDiagnostic){
+    return <Diagnostic user={user}
+      onCancel={retakingDiagnostic?()=>setRetakingDiagnostic(false):undefined}
+      onComplete={(answers)=>{
+        const wasRetake=retakingDiagnostic;
+        const u={...user,diagnostic:answers,diagnosticDone:true};
+        try{DB.saveUser(u.email,u);}catch{}
+        setUser(u);
+        setRetakingDiagnostic(false);
+        setScreen(wasRetake?"plan":"home");
+        autoGenerateStudyPlan(u);
+        // Show onboarding only for brand new accounts, never on retake
+        if(!wasRetake&&!u.onboardingDone)setShowOnboarding(true);
+      }}/>;
   }
 
   const handleSetScreen=(s)=>{
@@ -5156,11 +5253,11 @@ export default function App(){
     writing:<Writing/>,
     flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser}/>,
     fullsection:<FullSection user={user} onUpdateUser={handleUpdateUser}/>,
-    plan:<StudyPlan user={user} onUpdateUser={handleUpdateUser}/>,
+    plan:<StudyPlan user={user} onUpdateUser={handleUpdateUser} setScreen={handleSetScreen}/>,
     upload:<Upload/>,
     notes:<Notes user={user} onUpdateUser={handleUpdateUser}/>,
     dashboard:<Dashboard user={user} onUpdateUser={handleUpdateUser}/>,
-    profile:<Profile user={user} onUpdateUser={handleUpdateUser} onLogout={handleLogout} setScreen={handleSetScreen}/>,
+    profile:<Profile user={user} onUpdateUser={handleUpdateUser} onLogout={handleLogout} setScreen={handleSetScreen} onRetakeDiagnostic={()=>setRetakingDiagnostic(true)}/>,
   };
 
   return(
