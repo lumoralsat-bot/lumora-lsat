@@ -1861,72 +1861,57 @@ const DOMAIN_WHEEL = [
 let domainWheelIdx = Math.floor(Math.random() * DOMAIN_WHEEL.length);
 
 const PRACTICE_SYSTEM=(function(){
-  var s="You are an expert LSAT question author trained on official LSAC PrepTests. Your ONLY job is to produce Logical Reasoning questions that are indistinguishable in quality, structure, and style from questions on official LSAT PrepTests 60-80.";
+  var s="You are an expert LSAT question author. Generate original Logical Reasoning questions.";
 
-  s+=" =====  HARD-BANNED STIMULUS PATTERNS (AI clichés that NEVER appear on real LSAT) =====";
-  s+=" BANNED: '[Person] believes [X]. [Person] argues this by [Y].'";
-  s+=" BANNED: '[Person A] claims [X]. [Person B] argues [Y].'";
-  s+=" BANNED: 'According to [Person], [X]. [Person] supports this by saying [Y].'";
-  s+=" BANNED: '[Person] thinks [X] because [Y]. Therefore [Z].'";
-  s+=" BANNED: Opening with 'Many people believe...' or 'Some argue that...'";
-  s+=" BANNED: Opening with a named person's belief or opinion as the first clause.";
-  s+=" BANNED: Two characters debating unless the question type explicitly requires a dialogue (e.g., Point at Issue).";
-  s+=" If you catch yourself starting with a name followed by 'believes,' 'thinks,' 'argues,' or 'claims' — STOP and rewrite.";
+  s+=" YOUR CORE OBLIGATION: Every question must be 100% original. Do NOT reproduce, closely paraphrase,";
+  s+=" or structurally mirror any question from any published LSAT PrepTest. Do not use scenarios,";
+  s+=" argument structures, or specific factual claims that appear in any official LSAT question.";
+  s+=" Invent entirely new scenarios, new entities, new causal claims, new statistics.";
+  s+=" A test-taker who has studied every PrepTest should find your question completely unfamiliar.";
 
-  s+=" ===== THE 8 AUTHENTIC LSAT STIMULUS STRUCTURES — use exactly one per question =====";
+  s+=" QUESTION ARCHITECTURE:";
+  s+=" Stimulus: 2-4 sentences, 40-80 words. Start with a fact, observation, statistic, policy claim,";
+  s+=" or a labeled professional (Economist:, Biologist:, Historian:). Never open with";
+  s+=" '[Name] believes' or 'Many people think.' One clear conclusion marked by 'therefore,' 'thus,' or 'so.'";
+  s+=" The logical gap between evidence and conclusion is the heart of the question.";
 
-  s+=" TYPE 1 — REPORTED OBSERVATION / COUNTERINTUITIVE FINDING: Open with a factual observation or statistic, then draw a conclusion that creates a gap. Real PT examples: 'In a recent study, two groups of mice—one whose diet included ginkgo extract and one that had a normal diet—were taught to navigate a maze. The mice whose diet included ginkgo were more likely to remember how to navigate the maze the next day. However, the ginkgo may not have directly enhanced memory.' [PT76 S2 Q12, 62 words] | 'Shark teeth are among the most common vertebrate fossils; yet fossilized shark skeletons are much less common—indeed, comparatively rare among fossilized vertebrate skeletons.' [PT71 S2 Q12, 30 words] | 'The number of automobile thefts has declined steadily during the past five years, and it is more likely now than it was five years ago that someone who steals a car will be convicted of the crime.' [PT71 S4 Q14, 41 words]";
+  s+=" STIMULUS TYPES — rotate through these:";
+  s+=" (1) Factual claim + conclusion with an unstated assumption";
+  s+=" (2) Correlation presented as causation";
+  s+=" (3) Policy or principle argument citing a comparison or precedent";
+  s+=" (4) Conditional logic chain using quantifiers (all, some, most, no, only)";
+  s+=" (5) Paradox — two facts that appear contradictory, question asks for resolution";
+  s+=" (6) Labeled professional (Economist:, Engineer:, Historian:) making a specific argument";
+  s+=" (7) Two-speaker dialogue — ONLY for Point at Issue or Method of Reasoning questions";
+  s+=" (8) Editorial or normative claim with cost-benefit reasoning";
 
-  s+=" TYPE 2 — CAUSAL ARGUMENT FROM CORRELATION: Present data showing X correlates with Y, then assert X causes Y. Real PT examples: 'A study showed that people who live on very busy streets have higher rates of heart disease than average. I conclude that this elevated rate of heart disease is caused by air pollution from automobile exhaust.' [PT76 S2 Q8, 44 words] | 'In polluted industrial English cities during the Industrial Revolution, two plant diseases—black spot, which infects roses, and tar spot, which infects sycamore trees—disappeared. It is likely that air pollution eradicated these diseases.' [PT71 S4 Q4, 37 words]";
+  s+=" ANSWER CHOICES:";
+  s+=" One correct answer. Four wrong answers, each failing for a precise, nameable reason:";
+  s+=" Too Broad (overclaims), Reverses Logic (wrong direction), Irrelevant (different gap),";
+  s+=" Too Extreme (uses always/never where stimulus only supports some/most),";
+  s+=" or Restatement (paraphrases a premise instead of supplying the missing link).";
+  s+=" Each choice: 10-25 words. Abstract and general, not loaded with proper nouns.";
 
-  s+=" TYPE 3 — POLICY / PRINCIPLE ARGUMENT: Argue for or against a policy by citing a principle or comparison. Real PT examples: 'In addition to any other penalties, convicted criminals must now pay a victim surcharge of $30. The surcharge is used to fund services for victims of violent crimes, but this penalty is unfair to nonviolent criminals since the surcharge applies to all crimes, even nonviolent ones like petty theft.' [PT76 S2 Q6, 55 words] | 'Many nursing homes have prohibitions against having pets, and these should be lifted. The presence of an animal companion can yield health benefits by reducing a person's stress.' [PT71 S4 Q16, 35 words] | 'The legislature is considering a bill that would prohibit fishing in Eagle Bay. The bay has one of the highest water pollution levels in the nation, and a recent study found that 80 percent of its fish contained toxin levels that exceed governmental safety standards.' [PT71 S2 Q4, 50 words]";
+  s+=" DOMAIN ROTATION — use fresh, original scenarios from varied fields:";
+  s+=" Economics, environmental science, medicine, criminal justice, philosophy, linguistics,";
+  s+=" urban planning, technology policy, archaeology, nutrition science, labor economics,";
+  s+=" constitutional law, marine biology, education policy, media ethics. Never repeat the";
+  s+=" same domain twice in a row. Never use animal predator/prey as the primary argument structure.";
 
-  s+=" TYPE 4 — CONDITIONAL LOGIC CHAIN: Build a deductive argument using if-then statements and quantifiers. Real PT example: 'The Asian elephant walks with at least two, and sometimes three, feet on the ground at all times. Even though it can accelerate, it does so merely by taking quicker and longer steps. So the Asian elephant does not actually run.' [PT76 Section II Q10]";
+  s+=" LEVEL CALIBRATION:";
+  s+=" Level 1: Simple gap, obvious correct answer, everyday scenario.";
+  s+=" Level 2: Two-step reasoning, moderate vocabulary.";
+  s+=" Level 3: Subtle gap, plausible distractors, academic vocabulary.";
+  s+=" Level 4: Precisely calibrated distractors, conditional logic, maximum subtlety — still under 80 words.";
 
-  s+=" TYPE 5 — PARADOX / SURPRISING DISCREPANCY: State two facts that appear to contradict each other. The question asks what resolves or explains the discrepancy. Real PT examples: 'After the rush-hour speed limit on the British M25 motorway was lowered from 70 miles per hour to 50 miles per hour, rush-hour travel times decreased by approximately 15 percent.' [PT71 S4 Q12, 37 words — the paradox is implied: slower limit, faster travel] | 'Shark teeth are among the most common vertebrate fossils; yet fossilized shark skeletons are much less common.' [PT71 S2 Q12, 30 words] Use this structure for Paradox question types.";
+  s+=" ABSOLUTE BANS:";
+  s+=" No placeholder city names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield.";
+  s+=" No opening: 'Many people believe,' 'It is widely thought,' 'Most experts agree.'";
+  s+=" No reproducing or closely mirroring any published LSAT stimulus, scenario, or argument.";
 
-  s+=" TYPE 6 — NAMED PROFESSIONAL MAKING A SPECIFIC CLAIM: A labeled professional (Economist:, Musicologist:, Librarian:, Engineer:, Herbalist:, Psychiatrist:) makes an argument with evidence and conclusion. Real PT examples: 'Economist: Owing to global economic forces since 1945, our country's economy is increasingly a service economy, in which manufacturing employs an ever smaller fraction of the workforce. Hence, we have engaged in less and less international trade.' [PT76 S2 Q7, 46 words] | 'Musicologist: Classification of a musical instrument depends on the mechanical action through which it produces music. So the piano is properly called a percussion instrument, not a stringed instrument. Even though the vibration of the piano's strings is what makes its sound, the strings are caused to vibrate by the impact of hammers.' [PT71 S2 Q9, 55 words] | 'Engineer: Thermophotovoltaic generators are devices that convert heat into electricity. The process of manufacturing steel produces huge amounts of heat that currently go to waste. So if steel-manufacturing plants could feed the heat they produce into thermophotovoltaic generators, they would greatly reduce their electric bills.' [PT71 S2 Q16, 51 words]";
-
-  s+=" TYPE 7 — TWO-SPEAKER DIALOGUE (only for Point at Issue / Method of Reasoning): Two named speakers express positions, one responding to the other. Real PT examples: 'Vandenburg: This art museum is not adhering to its purpose. Its founders intended it to devote as much attention to contemporary art as to the art of earlier periods, but its collection of contemporary art is far smaller. Simpson: The relatively small size of the contemporary art collection is appropriate. Its curators believe that there is little high-quality contemporary art.' [PT71 S2 Q5, 68 words] | 'Wong: Although all countries are better off as democracies, a transitional autocratic stage is sometimes required before a country can become democratic. Tate: The freedom and autonomy that democracy provides are of genuine value, but the simple material needs of people are more important.' [PT71 S4 Q18, 51 words] ONLY use this type when the question type is Point at Issue, Flaw, or Method of Reasoning.";
-
-  s+=" TYPE 8 — EDITORIAL / NORMATIVE CLAIM: An editorial or normative claim with supporting reasoning. Real PT examples: 'City leader: If our city adopts the new tourism plan, the amount of money that tourists spend here annually will increase by at least $2 billion, creating as many jobs as a new automobile manufacturing plant would. It would be reasonable for the city to spend the amount of money necessary to convince an automobile manufacturer to build a plant here, but adopting the tourism plan would cost less.' [PT76 S2 Q17, 76 words] | 'Columnist: Although much has been learned, we are still largely ignorant of the intricate interrelationships among species of living organisms. We should therefore try to preserve the maximum number of species if we have an interest in preserving any, since allowing species toward which we are indifferent to perish might undermine the viability of other species.' [PT71 S4 Q23, 60 words]";
-
-  s+=" ===== STIMULUS WORD COUNT — HARD REQUIREMENT =====";
-  s+=" LSAT LR stimuli have a precise, well-documented length range. You MUST stay within it.";
-  s+=" Level 1: 35-55 words. Level 2: 45-65 words. Level 3: 55-75 words. Level 4: 65-90 words MAXIMUM.";
-  s+=" The documented average across official LSAT LR stimuli is 50-70 words. Never exceed 90 words.";
-  s+=" If your draft exceeds 90 words, cut it before responding. Long stimuli are the #1 sign of a fake LSAT question.";
-  s+=" Real PT word counts for reference: 'In the bodies of reptiles...' = 67 words. 'The Asian elephant walks...' = 47 words. 'A study showed that people who live on very busy streets...' = 44 words. 'Owing to global economic forces since 1945...' = 52 words.";
-  s+=" Each answer choice: 10-25 words. No answer choice exceeds 30 words.";
-  s+=" Higher difficulty (Level 4) means subtler logic and trickier distractors — NOT longer text.";
-
-  s+=" ===== STIMULUS CONSTRUCTION RULES =====";
-  s+=" - Length: 2-4 sentences ONLY. Every word must earn its place. No filler.";
-  s+=" - Opening: Begin with a FACT, STATISTIC, OBSERVATION, or LABELED PROFESSIONAL — NEVER with a named person's belief.";
-  s+=" - Numbers: Use specific figures when they strengthen realism: '25 percent,' 'three times,' 'over the past decade,' '$30.'";
-  s+=" - Quantifiers: Be precise — 'most,' 'some,' 'all,' 'no,' 'only,' 'few,' 'several.' Never vague.";
-  s+=" - Conclusion markers: The conclusion follows 'thus,' 'therefore,' 'so,' 'hence,' 'this shows that,' 'consequently.'";
-  s+=" - The LOGICAL GAP is the heart of the question. Evidence then Gap then Conclusion. Make the gap exploitable.";
-  s+=" - Level calibration: Level 1 = simple everyday gap, obvious answer. Level 4 = subtle gap, tricky distractors — still under 90 words.";
-
-  s+=" ===== ANSWER CHOICE CONSTRUCTION RULES =====";
-  s+=" - Exactly one correct answer. Four wrong answers that are plausible but fail for precise, nameable reasons.";
-  s+=" - Wrong answer trap types (use all five across the four wrong choices):";
-  s+="   TRAP A — Too Broad: correct topic, but overclaims beyond the stimulus.";
-  s+="   TRAP B — Reverses Logic: gets causation or direction backwards.";
-  s+="   TRAP C — Irrelevant Precision: true-sounding but addresses a different gap.";
-  s+="   TRAP D — Too Extreme: uses 'always,' 'never,' 'all,' 'none' where the stimulus only supports 'some' or 'most.'";
-  s+="   TRAP E — Restatement: merely paraphrases a premise rather than supplying the missing link.";
-  s+=" - The correct answer for Assumption questions should pass the Negation Test: negating it destroys the argument.";
-  s+=" - The correct answer for Weaken questions should attack the gap, not be irrelevant.";
-  s+=" - Answer choice wording: abstract and general, like real LSAT choices. Avoid overly specific proper nouns in choices.";
-
-  s+=" ===== ABSOLUTE BANS =====";
-  s+=" FORBIDDEN city names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield, Lakewood, Maplewood.";
-  s+=" FORBIDDEN opening phrases: 'Many people believe,' 'It is widely thought,' 'Most experts agree,' 'Society has long held.'";
-  s+=" FORBIDDEN structure: Named person + 'believes/thinks/argues/claims' as the opening clause of the stimulus.";
-
-  s+=' CRITICAL: The "correct" field must be whichever letter (A, B, C, D, or E) is actually the correct answer for the question you wrote. Do NOT default to B. Across questions, correct answers must be distributed across A, B, C, D, and E — roughly 20% each. Pick the correct answer first, then build wrong answers around it. Respond ONLY with valid JSON, no markdown: {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"C","explanation":"CORRECT (C): [precise logical reason it fills the gap]. WRONG (A): [specific trap type and reason]. WRONG (B): [specific trap type and reason]. WRONG (D): [specific trap type and reason]. WRONG (E): [specific trap type and reason].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
+  s+=' Distribute correct answers evenly across A, B, C, D, E — not always B.';
+  s+=' Respond ONLY with valid JSON, no markdown:';
+  s+=' {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"C","explanation":"CORRECT (C): [precise reason]. WRONG (A): [trap type + reason]. WRONG (B): [trap type + reason]. WRONG (D): [trap type + reason]. WRONG (E): [trap type + reason].","key_concept":"One sentence naming the precise logical skill tested.","level":2}';
   return s;
 })();
 
@@ -2373,22 +2358,173 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function Nav({screen,setScreen,user,onLogout}){
-  const pages=[{id:"home",label:"Home",icon:"⌂"},{id:"quick5",label:"Quick 5",icon:"⚡"},{id:"learn",label:"Learn",icon:"📖"},{id:"practice",label:"Practice",icon:"🎯"},{id:"writing",label:"Writing",icon:"✍"},{id:"flaw",label:"Flaw Lab",icon:"⚖"},{id:"fullsection",label:"Full Section",icon:"⏱"},{id:"mistakes",label:"Mistakes",icon:"❌"},{id:"srs",label:"SRS",icon:"🔁"},{id:"plan",label:"Plan",icon:"📋"},{id:"dashboard",label:"Progress",icon:"📊"}];
+  const [menuOpen,setMenuOpen]=useState(false);
+
+  const PAGES=[
+    {id:"home",label:"Home",icon:"⌂",group:"main"},
+    {id:"quick5",label:"Quick 5",icon:"⚡",group:"main"},
+    {id:"practice",label:"Practice",icon:"🎯",group:"main"},
+    {id:"learn",label:"Learn",icon:"📖",group:"main"},
+    {id:"daily",label:"Daily Challenge",icon:"📅",group:"study"},
+    {id:"writing",label:"Writing",icon:"✍",group:"study"},
+    {id:"flaw",label:"Flaw Lab",icon:"⚖",group:"study"},
+    {id:"fullsection",label:"Full Section",icon:"⏱",group:"study"},
+    {id:"mistakes",label:"Mistake Journal",icon:"❌",group:"tools"},
+    {id:"srs",label:"SRS Review",icon:"🔁",group:"tools"},
+    {id:"plan",label:"Study Plan",icon:"📋",group:"tools"},
+    {id:"dashboard",label:"Progress",icon:"📊",group:"tools"},
+  ];
+
+  const close=()=>setMenuOpen(false);
+
   return(
-    <nav role="navigation" aria-label="Main navigation" style={{background:C.surface+"ee",backdropFilter:"blur(12px)",borderBottom:`1px solid ${C.border}`,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:100,gap:8}}>
-      <button onClick={()=>setScreen("home")} aria-label="Home" style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
-        <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 16px #3a6bff44"}}>L</div>
-        <span style={{fontFamily:T.serif,fontSize:17,color:C.text,fontWeight:700,letterSpacing:"0.03em"}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
-      </button>
-      <div style={{display:"flex",gap:1,alignItems:"center",flexWrap:"wrap"}}>
-        {pages.map(p=><button key={p.id} onClick={()=>setScreen(p.id)} aria-current={screen===p.id?"page":undefined} style={{background:screen===p.id?"linear-gradient(135deg,#3a6bff22,#a78bfa11)":"transparent",border:`1px solid ${screen===p.id?C.accent+"44":"transparent"}`,borderRadius:9,padding:"5px 11px",color:screen===p.id?C.accent:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans,fontWeight:screen===p.id?700:400,transition:"all 0.15s",outline:"none",display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:12}}>{p.icon}</span>{p.label}</button>)}
-      </div>
-      {user&&<div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-        {(user.stats?.streak||0)>0&&<div style={{display:"flex",alignItems:"center",gap:4,background:"#ff6b0018",border:"1px solid #ff6b0033",borderRadius:20,padding:"3px 10px"}}><span>🔥</span><span style={{fontSize:12,fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span></div>}
-        <button onClick={()=>setScreen("profile")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}><Avatar user={user} size={34}/></button>
-        <button onClick={onLogout} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>Out</button>
-      </div>}
-    </nav>
+    <>
+      <nav role="navigation" aria-label="Main navigation"
+        style={{background:C.surface+"f0",backdropFilter:"blur(16px)",
+          borderBottom:`1px solid ${C.border}`,padding:"0 20px",
+          display:"flex",alignItems:"center",justifyContent:"space-between",
+          height:56,position:"sticky",top:0,zIndex:100}}>
+
+        {/* Logo */}
+        <button onClick={()=>{setScreen("home");close();}} aria-label="Home"
+          style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
+          <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,
+            boxShadow:"0 0 16px #3a6bff44"}}>L</div>
+          <span style={{fontFamily:T.serif,fontSize:17,color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
+            <span style={{color:C.accent}}>Lumora</span> LSAT
+          </span>
+        </button>
+
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {/* Streak badge */}
+          {user&&(user.stats?.streak||0)>0&&(
+            <div style={{display:"flex",alignItems:"center",gap:4,
+              background:"#ff6b0018",border:"1px solid #ff6b0033",
+              borderRadius:20,padding:"3px 10px"}}>
+              <span>🔥</span>
+              <span style={{fontSize:12,fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span>
+            </div>
+          )}
+
+          {/* Avatar */}
+          {user&&(
+            <button onClick={()=>{setScreen("profile");close();}}
+              style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+              <Avatar user={user} size={34}/>
+            </button>
+          )}
+
+          {/* Hamburger */}
+          <button onClick={()=>setMenuOpen(o=>!o)}
+            aria-label={menuOpen?"Close menu":"Open menu"}
+            aria-expanded={menuOpen}
+            style={{background:menuOpen?C.accentSoft:"none",
+              border:`1px solid ${menuOpen?C.accent+"44":C.border}`,
+              borderRadius:10,padding:"7px 10px",cursor:"pointer",
+              display:"flex",flexDirection:"column",gap:4,transition:"all 0.2s"}}>
+            <div style={{width:18,height:2,borderRadius:1,
+              background:menuOpen?C.accent:C.textMuted,
+              transform:menuOpen?"rotate(45deg) translate(4px,4px)":"none",
+              transition:"all 0.25s"}}/>
+            <div style={{width:18,height:2,borderRadius:1,
+              background:menuOpen?C.accent:C.textMuted,
+              opacity:menuOpen?0:1,transition:"all 0.2s"}}/>
+            <div style={{width:18,height:2,borderRadius:1,
+              background:menuOpen?C.accent:C.textMuted,
+              transform:menuOpen?"rotate(-45deg) translate(4px,-4px)":"none",
+              transition:"all 0.25s"}}/>
+          </button>
+        </div>
+      </nav>
+
+      {/* Side drawer */}
+      {menuOpen&&(
+        <>
+          {/* Backdrop */}
+          <div onClick={close}
+            style={{position:"fixed",inset:0,background:"#00000066",
+              zIndex:198,backdropFilter:"blur(2px)"}}/>
+
+          {/* Drawer panel */}
+          <div style={{position:"fixed",top:0,right:0,bottom:0,width:280,
+            background:C.surface,borderLeft:`1px solid ${C.border}`,
+            zIndex:199,overflowY:"auto",
+            boxShadow:"-8px 0 32px #00000044",
+            display:"flex",flexDirection:"column"}}>
+
+            {/* Drawer header */}
+            <div style={{padding:"18px 20px 12px",borderBottom:`1px solid ${C.border}`,
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <span style={{fontFamily:T.serif,fontSize:16,color:C.text,fontWeight:700}}>
+                <span style={{color:C.accent}}>Lumora</span> LSAT
+              </span>
+              <button onClick={close}
+                style={{background:"none",border:"none",color:C.textMuted,
+                  fontSize:22,cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
+            </div>
+
+            {/* Nav groups */}
+            {[
+              {label:"Practice",pages:PAGES.filter(p=>p.group==="main")},
+              {label:"Study Modes",pages:PAGES.filter(p=>p.group==="study")},
+              {label:"Tools",pages:PAGES.filter(p=>p.group==="tools")},
+            ].map(group=>(
+              <div key={group.label} style={{padding:"12px 12px 4px"}}>
+                <div style={{fontSize:10,color:C.textMuted,textTransform:"uppercase",
+                  letterSpacing:"0.12em",fontWeight:700,padding:"0 8px",marginBottom:4}}>
+                  {group.label}
+                </div>
+                {group.pages.map(p=>(
+                  <button key={p.id}
+                    onClick={()=>{setScreen(p.id);close();}}
+                    style={{display:"flex",alignItems:"center",gap:12,width:"100%",
+                      textAlign:"left",padding:"10px 12px",borderRadius:12,border:"none",
+                      background:screen===p.id?C.accentSoft:"transparent",
+                      color:screen===p.id?C.accent:C.text,
+                      fontSize:14,fontFamily:T.sans,cursor:"pointer",
+                      fontWeight:screen===p.id?600:400,
+                      transition:"all 0.15s",marginBottom:2,
+                      outline:"none"}}>
+                    <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{p.icon}</span>
+                    {p.label}
+                    {screen===p.id&&<div style={{marginLeft:"auto",width:6,height:6,
+                      borderRadius:"50%",background:C.accent,flexShrink:0}}/>}
+                  </button>
+                ))}
+              </div>
+            ))}
+
+            {/* Bottom: profile + signout */}
+            <div style={{marginTop:"auto",borderTop:`1px solid ${C.border}`,padding:12}}>
+              {user&&(
+                <>
+                  <button onClick={()=>{setScreen("profile");close();}}
+                    style={{display:"flex",alignItems:"center",gap:10,width:"100%",
+                      padding:"10px 12px",borderRadius:12,border:"none",
+                      background:"transparent",cursor:"pointer",marginBottom:6,
+                      fontFamily:T.sans}}>
+                    <Avatar user={user} size={28}/>
+                    <div style={{textAlign:"left"}}>
+                      <div style={{fontSize:13,color:C.text,fontWeight:600}}>{user.name}</div>
+                      <div style={{fontSize:11,color:C.textMuted}}>View Profile</div>
+                    </div>
+                  </button>
+                  <button onClick={()=>{onLogout();close();}}
+                    style={{width:"100%",padding:"9px 12px",borderRadius:10,
+                      border:`1px solid ${C.border}`,background:"transparent",
+                      color:C.textMuted,fontSize:13,cursor:"pointer",
+                      fontFamily:T.sans,textAlign:"left"}}>
+                    Sign Out
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
