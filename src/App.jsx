@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
@@ -5406,6 +5407,7 @@ export default function App(){
       {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout}/>}
       {pages[screen]||pages.home}
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
+      <Analytics />
     </div>
   );
 }
