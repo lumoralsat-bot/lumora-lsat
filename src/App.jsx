@@ -2048,196 +2048,383 @@ function setLexOutfit(email,o){
 // ─── LEX SVG CHARACTER ───────────────────────────────────────────────────────
 // pose: idle | happy | celebrate | sad | think | excited | sleep
 // outfit, hat, glasses from customizer
-function LexSVG({pose="idle",size=80,outfit="none",hat="none",glasses="none",animate=true}){
+function LexSVG({pose="idle",size=120,outfit="none",hat="none",glasses="none",animate=true}){
   const O=LEX_OUTFITS[outfit]||LEX_OUTFITS.none;
-  const furColor="#c8893a";      // warm amber fur
-  const faceColor="#f5d9a8";     // cream face/belly
-  const eyeWhite="#ffffff";
-  const pupilColor="#2d1800";
-  const noseColor="#8b4513";
-  const earInner="#e8a060";
 
-  // Pose-dependent transforms
-  const poses={
-    idle:{bodyR:0,armLR:-20,armRR:20,tailR:30,eyeH:1,mouthD:"M 40 62 Q 50 66 60 62",brow:""},
-    happy:{bodyR:0,armLR:-35,armRR:35,tailR:60,eyeH:0.85,mouthD:"M 36 60 Q 50 70 64 60",brow:"M 33 48 Q 37 45 41 48 M 59 48 Q 63 45 67 48"},
-    celebrate:{bodyR:5,armLR:-80,armRR:-80,tailR:80,eyeH:0.75,mouthD:"M 33 58 Q 50 72 67 58",brow:"M 32 46 Q 37 42 42 46 M 58 46 Q 63 42 68 46"},
-    sad:{bodyR:-3,armLR:15,armRR:-15,tailR:10,eyeH:1.15,mouthD:"M 38 66 Q 50 60 62 66",brow:"M 34 49 Q 38 52 42 49 M 58 49 Q 62 52 66 49"},
-    think:{bodyR:-5,armLR:0,armRR:-120,tailR:20,eyeH:1,mouthD:"M 42 63 Q 50 65 58 63",brow:"M 34 47 Q 38 44 42 47 M 58 45 Q 62 42 66 45"},
-    excited:{bodyR:8,armLR:-70,armRR:-70,tailR:90,eyeH:0.8,mouthD:"M 34 57 Q 50 73 66 57",brow:"M 31 44 Q 36 40 41 44 M 59 44 Q 64 40 69 44"},
-    sleep:{bodyR:-8,armLR:10,armRR:10,tailR:15,eyeH:1.6,mouthD:"M 42 65 Q 50 68 58 65",brow:""},
+  // Color palette
+  const FUR="#b5651d";          // medium brown, readable
+  const FUR_DARK="#8B4513";     // saddle brown for depth/shadow
+  const FUR_LIGHT="#cd8a3a";    // lighter highlight
+  const FACE="#f5c78e";         // warm cream face/muzzle
+  const FACE_DARK="#e8a870";    // slightly darker for muzzle shading
+  const PUPIL="#1a0a00";
+  const EAR_INNER="#d4845a";
+  const NOSE="#5c2d00";
+  const MOUTH_COLOR="#5c2d00";
+  const OUTLINE="#5c2d00";
+
+  // Arm poses — rotation around shoulder joint
+  // Positive = forward/down, negative = up/back
+  const poseData={
+    idle:    {lArmR:30,  rArmR:-30, lLegR:5,  rLegR:-5,  bodyTiltR:0,  tailPath:"M 100 200 Q 140 230 130 260 Q 120 290 95 280", mouthD:"M 82 145 Q 100 155 118 145", browL:"M 72 115 Q 82 110 92 115", browR:"M 108 115 Q 118 110 128 115", eyeLY:120, eyeRY:120},
+    happy:   {lArmR:-20, rArmR:20,  lLegR:8,  rLegR:-8,  bodyTiltR:0,  tailPath:"M 100 200 Q 145 220 140 255 Q 135 285 105 278", mouthD:"M 78 143 Q 100 160 122 143", browL:"M 70 112 Q 82 106 92 110", browR:"M 108 110 Q 118 106 130 112", eyeLY:118, eyeRY:118},
+    celebrate:{lArmR:-100,rArmR:100,lLegR:15, rLegR:-15, bodyTiltR:6,  tailPath:"M 100 200 Q 150 215 148 255 Q 146 285 110 282", mouthD:"M 74 140 Q 100 162 126 140", browL:"M 68 109 Q 82 102 92 108", browR:"M 108 108 Q 118 102 132 109", eyeLY:115, eyeRY:115},
+    sad:     {lArmR:50,  rArmR:-50, lLegR:0,  rLegR:0,   bodyTiltR:-4, tailPath:"M 100 200 Q 130 225 120 255 Q 110 278 88 272", mouthD:"M 80 152 Q 100 144 120 152", browL:"M 72 118 Q 82 124 92 118", browR:"M 108 118 Q 118 124 128 118", eyeLY:123, eyeRY:123},
+    think:   {lArmR:30,  rArmR:-90, lLegR:5,  rLegR:-5,  bodyTiltR:-3, tailPath:"M 100 200 Q 138 228 128 258 Q 118 282 93 275", mouthD:"M 86 148 Q 100 152 112 147", browL:"M 72 115 Q 82 110 92 115", browR:"M 108 110 Q 118 106 130 113", eyeLY:120, eyeRY:118},
+    excited: {lArmR:-80, rArmR:80,  lLegR:18, rLegR:-18, bodyTiltR:8,  tailPath:"M 100 200 Q 150 210 150 248 Q 150 282 115 280", mouthD:"M 72 138 Q 100 164 128 138", browL:"M 66 107 Q 82 100 92 107", browR:"M 108 107 Q 118 100 134 107", eyeLY:113, eyeRY:113},
+    sleep:   {lArmR:20,  rArmR:-20, lLegR:0,  rLegR:0,   bodyTiltR:-6, tailPath:"M 100 200 Q 128 222 118 252 Q 108 275 85 268", mouthD:"M 86 150 Q 100 156 114 150", browL:"M 74 120 Q 82 125 90 120", browR:"M 110 120 Q 118 125 126 120", eyeLY:122, eyeRY:122},
   };
-  const p=poses[pose]||poses.idle;
+  const P=poseData[pose]||poseData.idle;
 
-  const animStyle=animate?{animation:"lexBob 2.8s ease-in-out infinite"}:{};
+  const animStyle=animate?{animation:pose==="celebrate"?"lexJump 0.6s ease-in-out infinite alternate":"lexBob 3s ease-in-out infinite"}:{};
 
   return(
-    <svg width={size} height={size} viewBox="0 0 100 130" style={{display:"block",...animStyle}}
-      aria-label={"Lex the Lumora monkey - "+pose+" pose"}>
-
-      {/* Animations */}
-      <style>{`
-        @keyframes lexBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-        @keyframes lexCelebrate{0%,100%{transform:rotate(0deg) translateY(0)}25%{transform:rotate(5deg) translateY(-4px)}75%{transform:rotate(-5deg) translateY(-4px)}}
-        @keyframes lexWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
-      `}</style>
+    <svg width={size} height={size} viewBox="0 0 200 280" style={{display:"block",overflow:"visible",...animStyle}}
+      aria-label={"Lex - "+pose}>
+      <defs>
+        <style>{`
+          @keyframes lexBob{0%,100%{transform:translateY(0px)}50%{transform:translateY(-6px)}}
+          @keyframes lexJump{0%{transform:translateY(0px) rotate(-4deg)}100%{transform:translateY(-10px) rotate(4deg)}}
+          @keyframes lexSwing{0%,100%{transform-origin:100px 0px;transform:rotate(-18deg)}50%{transform-origin:100px 0px;transform:rotate(18deg)}}
+          @keyframes lexWave{0%,100%{transform-origin:55px 165px;transform:rotate(0deg)}50%{transform-origin:55px 165px;transform:rotate(-60deg)}}
+        `}</style>
+      </defs>
 
       {/* ── TAIL ── */}
-      <path d={`M 50 108 Q ${75+p.tailR*0.3} 115 ${65+p.tailR*0.2} 125 Q ${60+p.tailR*0.15} 128 55 122`}
-        stroke={furColor} strokeWidth="7" fill="none" strokeLinecap="round"/>
+      <path d={P.tailPath} stroke={FUR_DARK} strokeWidth="12" fill="none" strokeLinecap="round"/>
+      <path d={P.tailPath} stroke={FUR} strokeWidth="8" fill="none" strokeLinecap="round"/>
+
+      {/* ── LEGS ── */}
+      <g transform={`rotate(${P.lLegR} 75 210)`}>
+        <path d="M 75 205 Q 62 225 58 248" stroke={FUR_DARK} strokeWidth="14" fill="none" strokeLinecap="round"/>
+        <path d="M 75 205 Q 62 225 58 248" stroke={FUR} strokeWidth="10" fill="none" strokeLinecap="round"/>
+        {/* Foot */}
+        <ellipse cx="54" cy="252" rx="10" ry="6" fill={FUR} transform="rotate(-20 54 252)"/>
+      </g>
+      <g transform={`rotate(${P.rLegR} 125 210)`}>
+        <path d="M 125 205 Q 138 225 142 248" stroke={FUR_DARK} strokeWidth="14" fill="none" strokeLinecap="round"/>
+        <path d="M 125 205 Q 138 225 142 248" stroke={FUR} strokeWidth="10" fill="none" strokeLinecap="round"/>
+        {/* Foot */}
+        <ellipse cx="146" cy="252" rx="10" ry="6" fill={FUR} transform="rotate(20 146 252)"/>
+      </g>
 
       {/* ── BODY ── */}
-      <g transform={`rotate(${p.bodyR} 50 80)`}>
-        {/* Vest/outfit */}
-        <ellipse cx="50" cy="90" rx="22" ry="26" fill={O.color}/>
-        {/* Body fur overlay (top of body) */}
-        <ellipse cx="50" cy="82" rx="20" ry="16" fill={furColor}/>
-        {/* Belly */}
-        <ellipse cx="50" cy="90" rx="13" ry="18" fill={faceColor} opacity="0.7"/>
-        {/* Vest lapels */}
-        <path d={`M 38 80 L 46 90 L 50 85 L 54 90 L 62 80`} fill={O.accent} opacity="0.5"/>
-        {/* Pencil behind ear (always there) */}
-        <rect x="67" y="56" width="3" height="14" rx="1" fill="#f5c842" transform="rotate(-15 67 56)"/>
-        <rect x="67.5" y="56" width="2" height="3" rx="0.5" fill="#f87171" transform="rotate(-15 67 56)"/>
+      <g transform={`rotate(${P.bodyTiltR} 100 185)`}>
+        {/* Main body */}
+        <ellipse cx="100" cy="195" rx="44" ry="50" fill={FUR_DARK}/>
+        <ellipse cx="100" cy="193" rx="40" ry="47" fill={FUR}/>
+
+        {/* ── OUTFIT (visible and prominent) ── */}
+        {outfit!=="none"&&(
+          <g>
+            {/* Main outfit coverage */}
+            <ellipse cx="100" cy="200" rx="38" ry="44" fill={O.color}/>
+            {/* Collar/top of outfit */}
+            <ellipse cx="100" cy="165" rx="28" ry="12" fill={O.color}/>
+            {/* Outfit accent details */}
+            {outfit==="lawyer"&&(
+              <>
+                <rect x="88" y="163" width="24" height="40" fill={O.color}/>
+                <path d="M 100 163 L 92 185 L 100 180 L 108 185 Z" fill={O.accent} opacity="0.9"/>
+                <rect x="95" y="186" width="10" height="20" fill={O.accent} opacity="0.7"/>
+                {/* Lapels */}
+                <path d="M 100 163 L 82 155 L 86 175 Z" fill={FUR} opacity="0.5"/>
+                <path d="M 100 163 L 118 155 L 114 175 Z" fill={FUR} opacity="0.5"/>
+                {/* Button */}
+                <circle cx="100" cy="195" r="3" fill={O.accent}/>
+                <circle cx="100" cy="207" r="3" fill={O.accent}/>
+              </>
+            )}
+            {outfit==="graduate"&&(
+              <>
+                <path d="M 62 162 Q 100 148 138 162 L 138 220 Q 100 232 62 220 Z" fill={O.color}/>
+                {/* Gown sleeves hint */}
+                <path d="M 62 162 L 50 180 L 58 200 L 68 185 Z" fill={O.color}/>
+                <path d="M 138 162 L 150 180 L 142 200 L 132 185 Z" fill={O.color}/>
+                {/* Gold trim */}
+                <path d="M 62 162 Q 100 150 138 162" stroke={O.accent} strokeWidth="4" fill="none"/>
+                <path d="M 92 163 L 92 220" stroke={O.accent} strokeWidth="2" opacity="0.6"/>
+                <path d="M 108 163 L 108 220" stroke={O.accent} strokeWidth="2" opacity="0.6"/>
+              </>
+            )}
+            {outfit==="casual"&&(
+              <>
+                <ellipse cx="100" cy="198" rx="38" ry="44" fill={O.color}/>
+                {/* Shirt collar */}
+                <path d="M 84 160 Q 100 170 116 160 L 112 180 Q 100 172 88 180 Z" fill="white" opacity="0.8"/>
+                {/* Pocket */}
+                <rect x="78" y="185" width="16" height="14" rx="3" fill={O.accent} opacity="0.7"/>
+                {/* Horizontal stripes */}
+                <line x1="62" y1="195" x2="138" y2="195" stroke={O.accent} strokeWidth="2.5" opacity="0.4"/>
+                <line x1="62" y1="208" x2="138" y2="208" stroke={O.accent} strokeWidth="2.5" opacity="0.4"/>
+              </>
+            )}
+            {outfit==="champion"&&(
+              <>
+                <ellipse cx="100" cy="198" rx="38" ry="44" fill={O.color}/>
+                {/* Star on chest */}
+                <path d="M 100 178 L 104 190 L 116 190 L 106 198 L 110 210 L 100 202 L 90 210 L 94 198 L 84 190 L 96 190 Z" fill={O.accent}/>
+                {/* Gold trim all around */}
+                <ellipse cx="100" cy="198" rx="38" ry="44" fill="none" stroke={O.accent} strokeWidth="3"/>
+                {/* Shoulders */}
+                <ellipse cx="66" cy="168" rx="14" ry="8" fill={O.accent} opacity="0.8"/>
+                <ellipse cx="134" cy="168" rx="14" ry="8" fill={O.accent} opacity="0.8"/>
+              </>
+            )}
+            {/* Belly always shows through */}
+            <ellipse cx="100" cy="202" rx="22" ry="28" fill={FACE} opacity="0.4"/>
+          </g>
+        )}
+
+        {/* Belly/chest (always visible) */}
+        <ellipse cx="100" cy="205" rx="22" ry="28" fill={FACE} opacity={outfit==="none"?1:0.35}/>
+
+        {/* ── LEFT ARM ── */}
+        <g transform={`rotate(${P.lArmR} 62 168)`}>
+          <path d="M 62 168 Q 42 185 36 208" stroke={FUR_DARK} strokeWidth="16" fill="none" strokeLinecap="round"/>
+          <path d="M 62 168 Q 42 185 36 208" stroke={FUR} strokeWidth="12" fill="none" strokeLinecap="round"/>
+          {/* Hand with fingers */}
+          <circle cx="33" cy="213" r="10" fill={FUR}/>
+          <circle cx="24" cy="210" r="6" fill={FUR}/>
+          <circle cx="28" cy="221" r="6" fill={FUR}/>
+          <circle cx="38" cy="224" r="6" fill={FUR}/>
+        </g>
+
+        {/* ── RIGHT ARM ── */}
+        <g transform={`rotate(${P.rArmR} 138 168)`}>
+          <path d="M 138 168 Q 158 185 164 208" stroke={FUR_DARK} strokeWidth="16" fill="none" strokeLinecap="round"/>
+          <path d="M 138 168 Q 158 185 164 208" stroke={FUR} strokeWidth="12" fill="none" strokeLinecap="round"/>
+          {/* Hand */}
+          <circle cx="167" cy="213" r="10" fill={FUR}/>
+          <circle cx="176" cy="210" r="6" fill={FUR}/>
+          <circle cx="172" cy="221" r="6" fill={FUR}/>
+          <circle cx="162" cy="224" r="6" fill={FUR}/>
+        </g>
       </g>
 
-      {/* ── LEFT ARM ── */}
-      <g transform={`rotate(${p.armLR} 30 80)`}>
-        <path d="M 30 80 Q 18 90 14 100" stroke={furColor} strokeWidth="8" fill="none" strokeLinecap="round"/>
-        {/* Left hand */}
-        <circle cx="13" cy="103" r="5" fill={furColor}/>
-      </g>
-
-      {/* ── RIGHT ARM ── */}
-      <g transform={`rotate(${p.armRR} 70 80)`}>
-        <path d="M 70 80 Q 82 90 86 100" stroke={furColor} strokeWidth="8" fill="none" strokeLinecap="round"/>
-        {/* Right hand */}
-        <circle cx="87" cy="103" r="5" fill={furColor}/>
-      </g>
+      {/* ── NECK ── */}
+      <ellipse cx="100" cy="158" rx="20" ry="12" fill={FUR}/>
 
       {/* ── EARS ── */}
-      <ellipse cx="22" cy="58" rx="10" ry="11" fill={furColor}/>
-      <ellipse cx="22" cy="58" rx="6" ry="7" fill={earInner}/>
-      <ellipse cx="78" cy="58" rx="10" ry="11" fill={furColor}/>
-      <ellipse cx="78" cy="58" rx="6" ry="7" fill={earInner}/>
+      <ellipse cx="38" cy="92" rx="18" ry="20" fill={FUR_DARK}/>
+      <ellipse cx="38" cy="92" rx="14" ry="16" fill={FUR}/>
+      <ellipse cx="38" cy="92" rx="8" ry="10" fill={EAR_INNER}/>
+      <ellipse cx="162" cy="92" rx="18" ry="20" fill={FUR_DARK}/>
+      <ellipse cx="162" cy="92" rx="14" ry="16" fill={FUR}/>
+      <ellipse cx="162" cy="92" rx="8" ry="10" fill={EAR_INNER}/>
 
       {/* ── HEAD ── */}
-      <ellipse cx="50" cy="50" rx="28" ry="30" fill={furColor}/>
+      {/* Head outline/shadow */}
+      <ellipse cx="100" cy="88" rx="58" ry="60" fill={FUR_DARK}/>
+      {/* Main head */}
+      <ellipse cx="100" cy="86" rx="55" ry="58" fill={FUR}/>
+      {/* Top of head lighter */}
+      <ellipse cx="100" cy="68" rx="42" ry="35" fill={FUR_LIGHT} opacity="0.4"/>
 
-      {/* ── FACE (muzzle area) ── */}
-      <ellipse cx="50" cy="60" rx="16" ry="13" fill={faceColor}/>
+      {/* ── MUZZLE / SNOUT ── */}
+      <ellipse cx="100" cy="120" rx="28" ry="22" fill={FACE_DARK}/>
+      <ellipse cx="100" cy="118" rx="26" ry="20" fill={FACE}/>
 
       {/* ── EYES ── */}
       {pose==="sleep"?(
         <>
-          <path d="M 37 50 Q 41 53 45 50" stroke="#2d1800" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-          <path d="M 55 50 Q 59 53 63 50" stroke="#2d1800" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-          {/* Z Z Z */}
-          <text x="65" y="38" fontSize="10" fill="#a78bfa" fontWeight="700">z</text>
-          <text x="71" y="31" fontSize="8" fill="#a78bfa" fontWeight="700">z</text>
-          <text x="76" y="25" fontSize="6" fill="#a78bfa" fontWeight="700">z</text>
+          {/* Closed eyes — curved lines */}
+          <path d="M 72 95 Q 82 105 92 95" stroke={OUTLINE} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+          <path d="M 108 95 Q 118 105 128 95" stroke={OUTLINE} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+          {/* Eyelashes */}
+          <line x1="74" y1="96" x2="70" y2="90" stroke={OUTLINE} strokeWidth="2"/>
+          <line x1="80" y1="100" x2="78" y2="94" stroke={OUTLINE} strokeWidth="2"/>
+          <line x1="86" y1="98" x2="85" y2="92" stroke={OUTLINE} strokeWidth="2"/>
+          <line x1="110" y1="96" x2="106" y2="90" stroke={OUTLINE} strokeWidth="2"/>
+          <line x1="116" y1="100" x2="114" y2="94" stroke={OUTLINE} strokeWidth="2"/>
+          <line x1="122" y1="98" x2="121" y2="92" stroke={OUTLINE} strokeWidth="2"/>
+          {/* ZZZ */}
+          <text x="140" y="72" fontSize="14" fill="#a78bfa" fontWeight="900" fontFamily="Arial">z</text>
+          <text x="152" y="58" fontSize="11" fill="#a78bfa" fontWeight="900" fontFamily="Arial">z</text>
+          <text x="162" y="46" fontSize="8" fill="#a78bfa" fontWeight="900" fontFamily="Arial">z</text>
         </>
       ):(
         <>
+          {/* Eye sockets — dark area */}
+          <ellipse cx="80" cy={P.eyeLY} rx="16" ry="16" fill={FUR_DARK} opacity="0.3"/>
+          <ellipse cx="120" cy={P.eyeRY} rx="16" ry="16" fill={FUR_DARK} opacity="0.3"/>
           {/* Eye whites */}
-          <ellipse cx="40" cy="50" rx="9" ry={9*p.eyeH} fill={eyeWhite}/>
-          <ellipse cx="60" cy="50" rx="9" ry={9*p.eyeH} fill={eyeWhite}/>
-          {/* Pupils */}
-          <circle cx="41" cy="50" r="5" fill={pupilColor}/>
-          <circle cx="61" cy="50" r="5" fill={pupilColor}/>
-          {/* Highlights */}
-          <circle cx="43" cy="48" r="2" fill="white"/>
-          <circle cx="63" cy="48" r="2" fill="white"/>
-          {/* Amber iris ring */}
-          <circle cx="41" cy="50" r="6.5" fill="none" stroke="#c8893a" strokeWidth="1.5"/>
-          <circle cx="61" cy="50" r="6.5" fill="none" stroke="#c8893a" strokeWidth="1.5"/>
+          <ellipse cx="80" cy={P.eyeLY} rx="14" ry="14" fill="white"/>
+          <ellipse cx="120" cy={P.eyeRY} rx="14" ry="14" fill="white"/>
+          {/* Iris */}
+          <circle cx="82" cy={P.eyeLY} r="9" fill="#6b3a0a"/>
+          <circle cx="122" cy={P.eyeRY} r="9" fill="#6b3a0a"/>
+          {/* Pupil */}
+          <circle cx="83" cy={P.eyeLY} r="6" fill={PUPIL}/>
+          <circle cx="123" cy={P.eyeRY} r="6" fill={PUPIL}/>
+          {/* Catch light — makes eyes feel alive */}
+          <circle cx="86" cy={P.eyeLY-4} r="3" fill="white"/>
+          <circle cx="126" cy={P.eyeRY-4} r="3" fill="white"/>
+          <circle cx="79" cy={P.eyeLY+3} r="1.5" fill="white" opacity="0.6"/>
+          <circle cx="119" cy={P.eyeRY+3} r="1.5" fill="white" opacity="0.6"/>
+          {/* Eye outline */}
+          <ellipse cx="80" cy={P.eyeLY} rx="14" ry="14" fill="none" stroke={OUTLINE} strokeWidth="2"/>
+          <ellipse cx="120" cy={P.eyeRY} rx="14" ry="14" fill="none" stroke={OUTLINE} strokeWidth="2"/>
         </>
       )}
 
-      {/* ── EYEBROWS ── */}
-      {p.brow&&<path d={p.brow} stroke="#7a4010" strokeWidth="2.5" fill="none" strokeLinecap="round"/>}
-      {!p.brow&&pose!=="sleep"&&(
+      {/* ── EYEBROWS (thick, expressive) ── */}
+      {pose!=="sleep"&&(
         <>
-          <path d="M 33 43 Q 40 40 45 43" stroke="#7a4010" strokeWidth="2" fill="none" strokeLinecap="round"/>
-          <path d="M 55 43 Q 60 40 67 43" stroke="#7a4010" strokeWidth="2" fill="none" strokeLinecap="round"/>
+          <path d={P.browL} stroke={FUR_DARK} strokeWidth="5" fill="none" strokeLinecap="round"/>
+          <path d={P.browR} stroke={FUR_DARK} strokeWidth="5" fill="none" strokeLinecap="round"/>
         </>
       )}
 
       {/* ── NOSE ── */}
-      <ellipse cx="50" cy="59" rx="5" ry="3.5" fill={noseColor}/>
-      <circle cx="48" cy="58.5" r="1.5" fill="white" opacity="0.5"/>
+      <ellipse cx="100" cy="112" rx="10" ry="7" fill={NOSE}/>
+      {/* Nostrils */}
+      <ellipse cx="95" cy="114" rx="3" ry="2.5" fill={FUR_DARK}/>
+      <ellipse cx="105" cy="114" rx="3" ry="2.5" fill={FUR_DARK}/>
+      {/* Nose shine */}
+      <circle cx="97" cy="110" r="2.5" fill="white" opacity="0.4"/>
 
       {/* ── MOUTH ── */}
-      <path d={p.mouthD} stroke="#7a4010" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <path d={P.mouthD} stroke={MOUTH_COLOR} strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+      {/* Philtrum line from nose to mouth */}
+      <line x1="100" y1="119" x2="100" y2="132" stroke={MOUTH_COLOR} strokeWidth="2" opacity="0.5"/>
 
-      {/* ── HAT ── */}
+      {/* ── CHEEK CIRCLES (cartoon warmth) ── */}
+      {(pose==="happy"||pose==="celebrate"||pose==="excited")&&(
+        <>
+          <ellipse cx="62" cy="125" rx="12" ry="8" fill="#e8726a" opacity="0.35"/>
+          <ellipse cx="138" cy="125" rx="12" ry="8" fill="#e8726a" opacity="0.35"/>
+        </>
+      )}
+
+      {/* ── PENCIL BEHIND EAR (on head, always visible) ── */}
+      <g transform="rotate(20 148 85)">
+        {/* Pencil body */}
+        <rect x="145" y="55" width="6" height="28" rx="1" fill="#f5c842"/>
+        {/* Pencil eraser */}
+        <rect x="145" y="53" width="6" height="5" rx="1" fill="#f87171"/>
+        {/* Metal band */}
+        <rect x="145" y="58" width="6" height="3" fill="#c0c0c0"/>
+        {/* Pencil tip */}
+        <polygon points="145,83 151,83 148,90" fill={FACE_DARK}/>
+        <polygon points="146.5,86 149.5,86 148,90" fill="#2d1800"/>
+      </g>
+
+      {/* ── HATS ── */}
       {hat==="mortarboard"&&(
         <g>
-          <rect x="28" y="22" width="44" height="5" rx="2" fill="#1a1a2e"/>
-          <rect x="34" y="12" width="32" height="12" rx="2" fill="#1a1a2e"/>
-          <line x1="50" y1="22" x2="50" y2="10" stroke="#f5c842" strokeWidth="2"/>
-          <circle cx="50" cy="10" r="4" fill="#f5c842"/>
+          {/* Cap base on head */}
+          <ellipse cx="100" cy="35" rx="48" ry="12" fill="#1a1a2e"/>
+          {/* Cap crown */}
+          <rect x="60" y="10" width="80" height="28" rx="4" fill="#1a1a2e"/>
+          {/* Flat top board */}
+          <rect x="48" y="6" width="104" height="10" rx="2" fill="#1a1a2e"/>
+          {/* Gold tassel cord */}
+          <line x1="100" y1="6" x2="120" y2="6" stroke="#f5c842" strokeWidth="3"/>
+          {/* Tassel */}
+          <line x1="120" y1="6" x2="120" y2="26" stroke="#f5c842" strokeWidth="2.5"/>
+          <ellipse cx="120" cy="28" rx="5" ry="4" fill="#f5c842"/>
+          {/* Gold band */}
+          <rect x="60" y="34" width="80" height="5" rx="1" fill="#f5c842" opacity="0.7"/>
         </g>
       )}
       {hat==="tophat"&&(
         <g>
-          <rect x="30" y="24" width="40" height="4" rx="2" fill="#111"/>
-          <rect x="36" y="6" width="28" height="20" rx="3" fill="#111"/>
-          <rect x="37" y="7" width="26" height="3" rx="1" fill={O.accent} opacity="0.6"/>
+          {/* Brim */}
+          <ellipse cx="100" cy="34" rx="54" ry="11" fill="#111"/>
+          {/* Crown */}
+          <rect x="58" y="0" width="84" height="36" rx="6" fill="#111"/>
+          {/* Band */}
+          <rect x="58" y="32" width="84" height="8" rx="2" fill={O.accent} opacity="0.85"/>
+          {/* Shine on crown */}
+          <rect x="66" y="4" width="12" height="26" rx="6" fill="white" opacity="0.07"/>
         </g>
       )}
       {hat==="beanie"&&(
         <g>
-          <path d="M 25 44 Q 28 20 50 18 Q 72 20 75 44 Z" fill={O.accent}/>
-          <ellipse cx="50" cy="44" rx="25" ry="5" fill={O.color} opacity="0.8"/>
-          <circle cx="50" cy="19" r="5" fill="white"/>
+          <path d="M 46 80 Q 50 20 100 18 Q 150 20 154 80 Z" fill={O.accent}/>
+          <ellipse cx="100" cy="80" rx="54" ry="14" fill={O.color}/>
+          {/* Pom pom */}
+          <circle cx="100" cy="20" r="12" fill="white"/>
+          <circle cx="100" cy="20" r="8" fill={O.accent} opacity="0.5"/>
           {/* Stripes */}
-          <path d="M 30 36 Q 50 33 70 36" stroke="white" strokeWidth="2" fill="none" opacity="0.4"/>
-          <path d="M 27 42 Q 50 38 73 42" stroke="white" strokeWidth="2" fill="none" opacity="0.4"/>
+          <path d="M 52 65 Q 100 58 148 65" stroke="white" strokeWidth="4" fill="none" opacity="0.35"/>
+          <path d="M 48 75 Q 100 67 152 75" stroke="white" strokeWidth="4" fill="none" opacity="0.35"/>
         </g>
       )}
       {hat==="crown"&&(
         <g>
-          <path d="M 28 38 L 33 22 L 41 32 L 50 18 L 59 32 L 67 22 L 72 38 Z" fill="#f5c842"/>
-          <circle cx="50" cy="20" r="3" fill="#f87171"/>
-          <circle cx="34" cy="24" r="2" fill="#4f7fff"/>
-          <circle cx="66" cy="24" r="2" fill="#4f7fff"/>
-          <rect x="28" y="36" width="44" height="6" rx="2" fill="#f5c842"/>
+          {/* Crown base */}
+          <rect x="52" y="40" width="96" height="20" rx="4" fill="#f5c842"/>
+          {/* Crown points */}
+          <polygon points="60,40 70,12 80,40" fill="#f5c842"/>
+          <polygon points="88,40 100,8 112,40" fill="#f5c842"/>
+          <polygon points="120,40 130,12 140,40" fill="#f5c842"/>
+          {/* Jewels */}
+          <circle cx="70" cy="20" r="5" fill="#f87171"/>
+          <circle cx="100" cy="16" r="6" fill="#4f7fff"/>
+          <circle cx="130" cy="20" r="5" fill="#2dd4a0"/>
+          {/* Base gems */}
+          <circle cx="72" cy="50" r="4" fill="#f87171" opacity="0.8"/>
+          <circle cx="100" cy="50" r="4" fill="#a78bfa" opacity="0.8"/>
+          <circle cx="128" cy="50" r="4" fill="#4f7fff" opacity="0.8"/>
+          {/* Gold shine */}
+          <rect x="56" y="42" width="88" height="6" rx="2" fill="white" opacity="0.15"/>
         </g>
       )}
 
       {/* ── GLASSES ── */}
       {glasses==="round"&&(
-        <g stroke="#4a3000" strokeWidth="2" fill="none">
-          <circle cx="40" cy="50" r="10" fill="#a78bfa" fillOpacity="0.15"/>
-          <circle cx="60" cy="50" r="10" fill="#a78bfa" fillOpacity="0.15"/>
-          <line x1="50" y1="50" x2="50" y2="50" strokeWidth="2"/>
-          <path d="M 30 50 Q 28 50 26 52"/>
-          <path d="M 70 50 Q 72 50 74 52"/>
-          <line x1="30" y1="50" x2="26" y2="50"/>
-          <line x1="70" y1="50" x2="74" y2="50"/>
-          <line x1="50" y1="50" x2="50" y2="50"/>
-          <path d="M 49 50 Q 50 48 51 50"/>
+        <g>
+          {/* Frames */}
+          <circle cx="80" cy={P.eyeLY} r="17" fill="none" stroke="#4a3000" strokeWidth="3.5"/>
+          <circle cx="120" cy={P.eyeRY} r="17" fill="none" stroke="#4a3000" strokeWidth="3.5"/>
+          {/* Lens tint */}
+          <circle cx="80" cy={P.eyeLY} r="16" fill="#a78bfa" fillOpacity="0.12"/>
+          <circle cx="120" cy={P.eyeRY} r="16" fill="#a78bfa" fillOpacity="0.12"/>
+          {/* Bridge */}
+          <path d={`M 97 ${P.eyeLY} Q 100 ${P.eyeLY-3} 103 ${P.eyeRY}`} stroke="#4a3000" strokeWidth="3" fill="none"/>
+          {/* Arms */}
+          <line x1="63" y1={P.eyeLY-5} x2="46" y2={P.eyeLY-10} stroke="#4a3000" strokeWidth="3"/>
+          <line x1="137" y1={P.eyeRY-5} x2="154" y2={P.eyeRY-10} stroke="#4a3000" strokeWidth="3"/>
+          {/* Shine */}
+          <path d={`M 70 ${P.eyeLY-9} Q 74 ${P.eyeLY-13} 78 ${P.eyeLY-9}`} stroke="white" strokeWidth="2" fill="none" opacity="0.5"/>
+          <path d={`M 110 ${P.eyeRY-9} Q 114 ${P.eyeRY-13} 118 ${P.eyeRY-9}`} stroke="white" strokeWidth="2" fill="none" opacity="0.5"/>
         </g>
       )}
       {glasses==="cool"&&(
         <g>
-          <rect x="28" y="44" width="20" height="13" rx="4" fill="#1a1a2e" opacity="0.9"/>
-          <rect x="52" y="44" width="20" height="13" rx="4" fill="#1a1a2e" opacity="0.9"/>
-          <line x1="48" y1="50" x2="52" y2="50" stroke="#888" strokeWidth="2"/>
-          <line x1="28" y1="50" x2="24" y2="52" stroke="#888" strokeWidth="2"/>
-          <line x1="72" y1="50" x2="76" y2="52" stroke="#888" strokeWidth="2"/>
+          {/* Dark lenses */}
+          <rect x="63" y={P.eyeLY-15} width="36" height="26" rx="8" fill="#0a0f1e" opacity="0.92"/>
+          <rect x="101" y={P.eyeRY-15} width="36" height="26" rx="8" fill="#0a0f1e" opacity="0.92"/>
+          {/* Frame */}
+          <rect x="63" y={P.eyeLY-15} width="36" height="26" rx="8" fill="none" stroke="#555" strokeWidth="2.5"/>
+          <rect x="101" y={P.eyeRY-15} width="36" height="26" rx="8" fill="none" stroke="#555" strokeWidth="2.5"/>
+          {/* Bridge */}
+          <line x1="99" y1={P.eyeLY-5} x2="101" y2={P.eyeRY-5} stroke="#555" strokeWidth="3"/>
+          {/* Arms */}
+          <line x1="63" y1={P.eyeLY-8} x2="48" y2={P.eyeLY-14} stroke="#555" strokeWidth="3"/>
+          <line x1="137" y1={P.eyeRY-8} x2="152" y2={P.eyeRY-14} stroke="#555" strokeWidth="3"/>
+          {/* Lens shine */}
+          <path d={`M 68 ${P.eyeLY-12} Q 74 ${P.eyeLY-16} 80 ${P.eyeLY-12}`} stroke="white" strokeWidth="2" fill="none" opacity="0.25"/>
+          <path d={`M 106 ${P.eyeRY-12} Q 112 ${P.eyeRY-16} 118 ${P.eyeRY-12}`} stroke="white" strokeWidth="2" fill="none" opacity="0.25"/>
         </g>
       )}
       {glasses==="monocle"&&(
         <g>
-          <circle cx="60" cy="50" r="11" fill="#f5c842" fillOpacity="0.1" stroke="#f5c842" strokeWidth="2.5"/>
-          <line x1="71" y1="55" x2="76" y2="68" stroke="#f5c842" strokeWidth="2"/>
+          {/* Monocle on right eye */}
+          <circle cx="120" cy={P.eyeRY} r="18" fill="none" stroke="#c8a000" strokeWidth="3"/>
+          <circle cx="120" cy={P.eyeRY} r="17" fill="#f5c842" fillOpacity="0.08"/>
+          {/* Chain */}
+          <path d={`M 137 ${P.eyeRY+6} Q 148 ${P.eyeRY+18} 152 ${P.eyeRY+30}`} stroke="#c8a000" strokeWidth="2" fill="none" strokeDasharray="3,3"/>
+          {/* Monocle shine */}
+          <path d={`M 110 ${P.eyeRY-12} Q 114 ${P.eyeRY-16} 118 ${P.eyeRY-12}`} stroke="white" strokeWidth="2" fill="none" opacity="0.4"/>
         </g>
       )}
     </svg>
   );
 }
+
 
 
 // ─── MONKEY BUBBLE (floating popup) ──────────────────────────────────────────
@@ -2288,7 +2475,7 @@ function MonkeyBubble({pose="happy",message,onDismiss,size=70,outfit,hat,glasses
       )}
       {/* Lex */}
       <div style={{cursor:onDismiss?"pointer":"default"}} onClick={onDismiss?()=>{setVisible(false);onDismiss();}:undefined}>
-        <LexSVG pose={pose} size={size} outfit={lexOutfit} hat={lexHat} glasses={lexGlasses}/>
+        <LexSVG pose={pose} size={90} outfit={lexOutfit} hat={lexHat} glasses={lexGlasses}/>
       </div>
     </div>
   );
@@ -2373,7 +2560,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#3a6bff,#a78bfa)",padding:"12px 16px",
         display:"flex",alignItems:"center",gap:10}}>
-        <LexSVG pose="happy" size={40} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
+        <LexSVG pose="happy" size={60} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
         <div style={{flex:1}}>
           <div style={{fontWeight:700,color:"white",fontSize:14}}>Lex</div>
           <div style={{fontSize:11,color:"rgba(255,255,255,0.8)"}}>Your LSAT Guide</div>
@@ -2390,7 +2577,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
           <div key={i}>
             <div style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
               {m.role==="lex"&&<div style={{marginRight:6,flexShrink:0}}>
-                <LexSVG pose="idle" size={28} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
+                <LexSVG pose="idle" size={40} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
               </div>}
               <div style={{maxWidth:"80%",padding:"8px 12px",borderRadius:14,fontSize:13,lineHeight:1.55,
                 background:m.role==="user"?"linear-gradient(135deg,#3a6bff,#6a9fff)":"#1e2d4e",
@@ -2413,7 +2600,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
           </div>
         ))}
         {loading&&<div style={{display:"flex",alignItems:"center",gap:6}}>
-          <LexSVG pose="think" size={28} outfit={lexO.outfit} animate={false}/>
+          <LexSVG pose="think" size={40} outfit={lexO.outfit} animate={false}/>
           <div style={{fontSize:13,color:C.textMuted}}>Thinking…</div>
         </div>}
         <div ref={bottomRef}/>
@@ -2453,7 +2640,7 @@ function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
         background:C.surface+"f8",borderTop:`1px solid ${C.border}`,
         backdropFilter:"blur(12px)",zIndex:400,
         display:"flex",alignItems:"center",justifyContent:"space-between",
-        padding:"0 20px"}}>
+        padding:"0 20px",height:70}}>
 
         {/* Left: points display */}
         <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -2467,13 +2654,12 @@ function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
         {/* Center: Lex button */}
         <button onClick={()=>setChatOpen(o=>!o)}
           aria-label="Open Lex assistant"
-          style={{background:chatOpen?"linear-gradient(135deg,#3a6bff,#a78bfa)":"transparent",
-            border:`2px solid ${chatOpen?C.accent:C.border}`,
-            borderRadius:"50%",width:52,height:52,cursor:"pointer",padding:0,
+          style={{background:"transparent",border:"none",
+            cursor:"pointer",padding:0,
             display:"flex",alignItems:"center",justifyContent:"center",
-            boxShadow:chatOpen?"0 0 20px #4f7fff44":"none",
-            transition:"all 0.2s",transform:"translateY(-8px)"}}>
-          <LexSVG pose={chatOpen?"happy":currentPose||"idle"} size={44}
+            transition:"all 0.2s",transform:"translateY(-16px)",
+            filter:chatOpen?"drop-shadow(0 0 12px #4f7fff)":"drop-shadow(0 2px 4px #00000044)"}}>
+          <LexSVG pose={chatOpen?"happy":currentPose||"idle"} size={72}
             outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses}/>
         </button>
 
@@ -2541,7 +2727,7 @@ function LexShop({user,onBack}){
         <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>
           Current Look
         </div>
-        <LexSVG pose="happy" size={100} outfit={outfit.outfit} hat={outfit.hat} glasses={outfit.glasses}/>
+        <LexSVG pose="happy" size={160} outfit={outfit.outfit} hat={outfit.hat} glasses={outfit.glasses}/>
         <div style={{marginTop:10,fontSize:12,color:C.textMuted}}>
           {LEX_OUTFITS[outfit.outfit]?.label} · {LEX_HATS[outfit.hat]?.label} · {LEX_GLASSES[outfit.glasses]?.label}
         </div>
@@ -2568,7 +2754,7 @@ function LexShop({user,onBack}){
           return(
             <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center"}}
               onClick={()=>o.cost===0?select("outfit",key):purchase("outfit",key,o.cost)}>
-              <LexSVG pose="idle" size={60} outfit={key} hat="none" glasses="none" animate={false}/>
+              <LexSVG pose="idle" size={90} outfit={key} hat="none" glasses="none" animate={false}/>
               <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text,marginTop:6}}>{o.label}</div>
               {o.cost>0
                 ?<div style={{fontSize:11,color:C.gold,marginTop:2}}>🍌 {o.cost} pts</div>
@@ -2582,7 +2768,7 @@ function LexShop({user,onBack}){
           return(
             <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center"}}
               onClick={()=>h.cost===0?select("hat",key):purchase("hat",key,h.cost)}>
-              <LexSVG pose="idle" size={60} outfit={outfit.outfit} hat={key} glasses="none" animate={false}/>
+              <LexSVG pose="idle" size={90} outfit={outfit.outfit} hat={key} glasses="none" animate={false}/>
               <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text,marginTop:6}}>{h.label}</div>
               {h.cost>0
                 ?<div style={{fontSize:11,color:C.gold,marginTop:2}}>🍌 {h.cost} pts</div>
@@ -2596,7 +2782,7 @@ function LexShop({user,onBack}){
           return(
             <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center"}}
               onClick={()=>g.cost===0?select("glasses",key):purchase("glasses",key,g.cost)}>
-              <LexSVG pose="idle" size={60} outfit={outfit.outfit} hat="none" glasses={key} animate={false}/>
+              <LexSVG pose="idle" size={90} outfit={outfit.outfit} hat="none" glasses={key} animate={false}/>
               <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text,marginTop:6}}>{g.label}</div>
               {g.cost>0
                 ?<div style={{fontSize:11,color:C.gold,marginTop:2}}>🍌 {g.cost} pts</div>
@@ -2648,7 +2834,7 @@ function LexIntro({user,onDone}){
       alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
       <div style={{textAlign:"center",maxWidth:360}}>
         <div style={{animation:"lexCelebrate 0.8s ease both"}}>
-          <LexSVG pose="celebrate" size={140} outfit="none" hat="none" glasses="none"/>
+          <LexSVG pose="celebrate" size={200} outfit="none" hat="none" glasses="none"/>
         </div>
         <h2 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginTop:16,marginBottom:8}}>
           Meet Your Study Buddy!
@@ -2666,7 +2852,7 @@ function LexIntro({user,onDone}){
       alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
         padding:36,maxWidth:420,width:"100%",textAlign:"center"}}>
-        <LexSVG pose={steps[step].pose} size={100} outfit="none" hat="none" glasses="none"/>
+        <LexSVG pose={steps[step].pose} size={160} outfit="none" hat="none" glasses="none"/>
         <div style={{background:"white",borderRadius:16,padding:"14px 18px",
           margin:"16px 0 20px",textAlign:"left"}}>
           <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
@@ -2699,16 +2885,16 @@ function LexIntro({user,onDone}){
       alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
         padding:36,maxWidth:420,width:"100%",textAlign:"center"}}>
-        <LexSVG pose="celebrate" size={110} outfit="none" hat="none" glasses="none"/>
+        <LexSVG pose="celebrate" size={170} outfit="none" hat="none" glasses="none"/>
         <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginTop:16,marginBottom:10}}>
           Nice to meet you!
         </h2>
         <div style={{background:"white",borderRadius:16,padding:"14px 18px",
           margin:"0 0 20px",textAlign:"left"}}>
           <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
-            From now on I'm <strong>{lexName}</strong>! I'll be right here at the bottom of every screen.
-            Tap my icon anytime to ask questions or get directions around the app.
-            You can also dress me up in the wardrobe — I look great in a top hat 🎩
+            From now on I'm <strong>{lexName}</strong>! No matter where you are in the app, I'll always be right there at the bottom of your screen — just look for me down there and give me a tap! 👇
+            Ask me anything about the LSAT or the app, and I'll point you in the right direction.
+            You can even dress me up in the wardrobe — I've heard the top hat is very distinguished. 🎩
           </p>
         </div>
         <Btn onClick={onDone} style={{width:"100%"}}>Let's start studying! 🐵</Btn>
@@ -3313,7 +3499,17 @@ function Landing({onGetStarted}){
       </div>
       <div style={{position:"relative",zIndex:1,maxWidth:1000,margin:"0 auto",padding:"0 24px"}}>
         <div style={{textAlign:"center",paddingTop:"clamp(60px,10vh,120px)",paddingBottom:80,animation:"fadeUp 0.8s ease both"}}>
-          <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><LexSVG pose="excited" size={90} outfit="none" hat="none" glasses="none"/></div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:8}}>
+              <svg width="24" height="70" viewBox="0 0 24 70" style={{opacity:0.75}}>
+                <path d="M 12 0 Q 16 18 12 35 Q 8 52 12 70" stroke="#2dd4a0" strokeWidth="4.5" fill="none" strokeLinecap="round"/>
+                <circle cx="7" cy="22" r="6" fill="#16a34a" opacity="0.8"/>
+                <circle cx="17" cy="46" r="5" fill="#16a34a" opacity="0.7"/>
+              </svg>
+              <div style={{animation:"lexSwingIn 1.1s cubic-bezier(.22,1,.36,1) both",marginTop:-8}}>
+                <LexSVG pose="excited" size={180} outfit="none" hat="none" glasses="none"/>
+              </div>
+            </div>
+            <style>{`@keyframes lexSwingIn{0%{transform:rotate(-22deg) translateX(-20px);opacity:0}55%{transform:rotate(7deg);opacity:1}75%{transform:rotate(-3deg)}100%{transform:rotate(0deg);opacity:1}}`}</style>
           <div style={{display:"inline-flex",alignItems:"center",gap:12,marginBottom:40,padding:"8px 20px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:40}}>
             <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 20px #3a6bff55"}}>L</div>
             <span style={{fontFamily:T.serif,fontSize:18,fontWeight:700,color:C.text}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
@@ -6299,7 +6495,7 @@ export default function App(){
   };
 
   return(
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?70:0}}>
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
