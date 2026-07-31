@@ -1953,6 +1953,773 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
 
 
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// LEX — THE LUMORA LSAT MONKEY
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── MONKEY CONSTANTS ────────────────────────────────────────────────────────
+const LEX_NAME_KEY="lumora_lex_name";
+const LEX_POINTS_KEY="lumora_lex_points";
+const LEX_OUTFIT_KEY="lumora_lex_outfit";
+const LEX_INTRO_KEY="lumora_lex_intro_done";
+
+const LEX_IDLE_MS=90000; // 90s idle before Lex pops up
+
+const LEX_OUTFITS={
+  none:{label:"Classic Vest",cost:0,color:"#1e3a5f",accent:"#4f7fff"},
+  lawyer:{label:"Lawyer Suit",cost:200,color:"#1a1a2e",accent:"#c0a060"},
+  graduate:{label:"Grad Gown",cost:150,color:"#2d0057",accent:"#a78bfa"},
+  casual:{label:"Casual Tee",cost:100,color:"#1a3a1a",accent:"#2dd4a0"},
+  champion:{label:"Gold Champion",cost:500,color:"#4a3000",accent:"#f5c842"},
+};
+
+const LEX_HATS={
+  none:{label:"No Hat",cost:0},
+  mortarboard:{label:"Mortarboard",cost:75},
+  tophat:{label:"Top Hat",cost:150},
+  beanie:{label:"Study Beanie",cost:50},
+  crown:{label:"Crown",cost:400},
+};
+
+const LEX_GLASSES={
+  none:{label:"No Glasses",cost:0},
+  round:{label:"Round Specs",cost:60},
+  cool:{label:"Cool Shades",cost:80},
+  monocle:{label:"Monocle",cost:120},
+};
+
+const LEX_IDLE_QUIPS=[
+  "Quit monkeying around! 🐵",
+  "Still here? Your practice questions are lonely.",
+  "A watched LSAT question never answers itself…",
+  "I'm not saying you're procrastinating, but… you're procrastinating.",
+  "The LSAT waits for no one. Neither does Lex.",
+  "Fun fact: staring at the screen burns zero brain calories.",
+  "Go bananas on a practice question!",
+  "Your future law school self is watching. 👀",
+  "Even monkeys know when to get back to work.",
+  "Ready when you are, counselor.",
+];
+
+const LEX_MISS_QUIPS=[
+  "I missed you! Your streak needs you back.",
+  "The LSAT doesn't take days off. Just saying. 🍌",
+  "I've been here the whole time. Have you?",
+  "A rusty LSAT brain is a sad Lex. Please come back.",
+  "Your goals texted. They want to know where you've been.",
+];
+
+const LEX_WIN_QUIPS=[
+  "That's what I'm talking about! 🎉",
+  "Counselor material RIGHT THERE.",
+  "You're making me proud over here!",
+  "The LSAT doesn't know what's coming for it.",
+  "Keep it up and we'll be celebrating law school together!",
+  "Boom! Another step closer to that acceptance letter.",
+];
+
+const LEX_LOSE_QUIPS=[
+  "Hey — every wrong answer is a right lesson. Let's review it.",
+  "The best lawyers learned from their mistakes. This is yours.",
+  "Don't sweat it. Even Lex gets things wrong sometimes. 🐵",
+  "Wrong now. Right later. That's how this works.",
+  "The only real mistake is not trying again. You've got this.",
+];
+
+function getLexPoints(email){
+  try{return parseInt(localStorage.getItem(LEX_POINTS_KEY+(email||""))||"0");}
+  catch{return 0;}
+}
+function setLexPoints(email,pts){
+  try{localStorage.setItem(LEX_POINTS_KEY+(email||""),String(Math.max(0,pts)));}
+  catch{}
+}
+function getLexOutfit(email){
+  try{return JSON.parse(localStorage.getItem(LEX_OUTFIT_KEY+(email||""))||
+    '{"outfit":"none","hat":"none","glasses":"none"}');}
+  catch{return{outfit:"none",hat:"none",glasses:"none"};}
+}
+function setLexOutfit(email,o){
+  try{localStorage.setItem(LEX_OUTFIT_KEY+(email||""),JSON.stringify(o));}
+  catch{}
+}
+
+// ─── LEX SVG CHARACTER ───────────────────────────────────────────────────────
+// pose: idle | happy | celebrate | sad | think | excited | sleep
+// outfit, hat, glasses from customizer
+function LexSVG({pose="idle",size=80,outfit="none",hat="none",glasses="none",animate=true}){
+  const O=LEX_OUTFITS[outfit]||LEX_OUTFITS.none;
+  const furColor="#c8893a";      // warm amber fur
+  const faceColor="#f5d9a8";     // cream face/belly
+  const eyeWhite="#ffffff";
+  const pupilColor="#2d1800";
+  const noseColor="#8b4513";
+  const earInner="#e8a060";
+
+  // Pose-dependent transforms
+  const poses={
+    idle:{bodyR:0,armLR:-20,armRR:20,tailR:30,eyeH:1,mouthD:"M 40 62 Q 50 66 60 62",brow:""},
+    happy:{bodyR:0,armLR:-35,armRR:35,tailR:60,eyeH:0.85,mouthD:"M 36 60 Q 50 70 64 60",brow:"M 33 48 Q 37 45 41 48 M 59 48 Q 63 45 67 48"},
+    celebrate:{bodyR:5,armLR:-80,armRR:-80,tailR:80,eyeH:0.75,mouthD:"M 33 58 Q 50 72 67 58",brow:"M 32 46 Q 37 42 42 46 M 58 46 Q 63 42 68 46"},
+    sad:{bodyR:-3,armLR:15,armRR:-15,tailR:10,eyeH:1.15,mouthD:"M 38 66 Q 50 60 62 66",brow:"M 34 49 Q 38 52 42 49 M 58 49 Q 62 52 66 49"},
+    think:{bodyR:-5,armLR:0,armRR:-120,tailR:20,eyeH:1,mouthD:"M 42 63 Q 50 65 58 63",brow:"M 34 47 Q 38 44 42 47 M 58 45 Q 62 42 66 45"},
+    excited:{bodyR:8,armLR:-70,armRR:-70,tailR:90,eyeH:0.8,mouthD:"M 34 57 Q 50 73 66 57",brow:"M 31 44 Q 36 40 41 44 M 59 44 Q 64 40 69 44"},
+    sleep:{bodyR:-8,armLR:10,armRR:10,tailR:15,eyeH:1.6,mouthD:"M 42 65 Q 50 68 58 65",brow:""},
+  };
+  const p=poses[pose]||poses.idle;
+
+  const animStyle=animate?{animation:"lexBob 2.8s ease-in-out infinite"}:{};
+
+  return(
+    <svg width={size} height={size} viewBox="0 0 100 130" style={{display:"block",...animStyle}}
+      aria-label={"Lex the Lumora monkey - "+pose+" pose"}>
+
+      {/* Animations */}
+      <style>{`
+        @keyframes lexBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+        @keyframes lexCelebrate{0%,100%{transform:rotate(0deg) translateY(0)}25%{transform:rotate(5deg) translateY(-4px)}75%{transform:rotate(-5deg) translateY(-4px)}}
+        @keyframes lexWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+      `}</style>
+
+      {/* ── TAIL ── */}
+      <path d={`M 50 108 Q ${75+p.tailR*0.3} 115 ${65+p.tailR*0.2} 125 Q ${60+p.tailR*0.15} 128 55 122`}
+        stroke={furColor} strokeWidth="7" fill="none" strokeLinecap="round"/>
+
+      {/* ── BODY ── */}
+      <g transform={`rotate(${p.bodyR} 50 80)`}>
+        {/* Vest/outfit */}
+        <ellipse cx="50" cy="90" rx="22" ry="26" fill={O.color}/>
+        {/* Body fur overlay (top of body) */}
+        <ellipse cx="50" cy="82" rx="20" ry="16" fill={furColor}/>
+        {/* Belly */}
+        <ellipse cx="50" cy="90" rx="13" ry="18" fill={faceColor} opacity="0.7"/>
+        {/* Vest lapels */}
+        <path d={`M 38 80 L 46 90 L 50 85 L 54 90 L 62 80`} fill={O.accent} opacity="0.5"/>
+        {/* Pencil behind ear (always there) */}
+        <rect x="67" y="56" width="3" height="14" rx="1" fill="#f5c842" transform="rotate(-15 67 56)"/>
+        <rect x="67.5" y="56" width="2" height="3" rx="0.5" fill="#f87171" transform="rotate(-15 67 56)"/>
+      </g>
+
+      {/* ── LEFT ARM ── */}
+      <g transform={`rotate(${p.armLR} 30 80)`}>
+        <path d="M 30 80 Q 18 90 14 100" stroke={furColor} strokeWidth="8" fill="none" strokeLinecap="round"/>
+        {/* Left hand */}
+        <circle cx="13" cy="103" r="5" fill={furColor}/>
+      </g>
+
+      {/* ── RIGHT ARM ── */}
+      <g transform={`rotate(${p.armRR} 70 80)`}>
+        <path d="M 70 80 Q 82 90 86 100" stroke={furColor} strokeWidth="8" fill="none" strokeLinecap="round"/>
+        {/* Right hand */}
+        <circle cx="87" cy="103" r="5" fill={furColor}/>
+      </g>
+
+      {/* ── EARS ── */}
+      <ellipse cx="22" cy="58" rx="10" ry="11" fill={furColor}/>
+      <ellipse cx="22" cy="58" rx="6" ry="7" fill={earInner}/>
+      <ellipse cx="78" cy="58" rx="10" ry="11" fill={furColor}/>
+      <ellipse cx="78" cy="58" rx="6" ry="7" fill={earInner}/>
+
+      {/* ── HEAD ── */}
+      <ellipse cx="50" cy="50" rx="28" ry="30" fill={furColor}/>
+
+      {/* ── FACE (muzzle area) ── */}
+      <ellipse cx="50" cy="60" rx="16" ry="13" fill={faceColor}/>
+
+      {/* ── EYES ── */}
+      {pose==="sleep"?(
+        <>
+          <path d="M 37 50 Q 41 53 45 50" stroke="#2d1800" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+          <path d="M 55 50 Q 59 53 63 50" stroke="#2d1800" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+          {/* Z Z Z */}
+          <text x="65" y="38" fontSize="10" fill="#a78bfa" fontWeight="700">z</text>
+          <text x="71" y="31" fontSize="8" fill="#a78bfa" fontWeight="700">z</text>
+          <text x="76" y="25" fontSize="6" fill="#a78bfa" fontWeight="700">z</text>
+        </>
+      ):(
+        <>
+          {/* Eye whites */}
+          <ellipse cx="40" cy="50" rx="9" ry={9*p.eyeH} fill={eyeWhite}/>
+          <ellipse cx="60" cy="50" rx="9" ry={9*p.eyeH} fill={eyeWhite}/>
+          {/* Pupils */}
+          <circle cx="41" cy="50" r="5" fill={pupilColor}/>
+          <circle cx="61" cy="50" r="5" fill={pupilColor}/>
+          {/* Highlights */}
+          <circle cx="43" cy="48" r="2" fill="white"/>
+          <circle cx="63" cy="48" r="2" fill="white"/>
+          {/* Amber iris ring */}
+          <circle cx="41" cy="50" r="6.5" fill="none" stroke="#c8893a" strokeWidth="1.5"/>
+          <circle cx="61" cy="50" r="6.5" fill="none" stroke="#c8893a" strokeWidth="1.5"/>
+        </>
+      )}
+
+      {/* ── EYEBROWS ── */}
+      {p.brow&&<path d={p.brow} stroke="#7a4010" strokeWidth="2.5" fill="none" strokeLinecap="round"/>}
+      {!p.brow&&pose!=="sleep"&&(
+        <>
+          <path d="M 33 43 Q 40 40 45 43" stroke="#7a4010" strokeWidth="2" fill="none" strokeLinecap="round"/>
+          <path d="M 55 43 Q 60 40 67 43" stroke="#7a4010" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        </>
+      )}
+
+      {/* ── NOSE ── */}
+      <ellipse cx="50" cy="59" rx="5" ry="3.5" fill={noseColor}/>
+      <circle cx="48" cy="58.5" r="1.5" fill="white" opacity="0.5"/>
+
+      {/* ── MOUTH ── */}
+      <path d={p.mouthD} stroke="#7a4010" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+
+      {/* ── HAT ── */}
+      {hat==="mortarboard"&&(
+        <g>
+          <rect x="28" y="22" width="44" height="5" rx="2" fill="#1a1a2e"/>
+          <rect x="34" y="12" width="32" height="12" rx="2" fill="#1a1a2e"/>
+          <line x1="50" y1="22" x2="50" y2="10" stroke="#f5c842" strokeWidth="2"/>
+          <circle cx="50" cy="10" r="4" fill="#f5c842"/>
+        </g>
+      )}
+      {hat==="tophat"&&(
+        <g>
+          <rect x="30" y="24" width="40" height="4" rx="2" fill="#111"/>
+          <rect x="36" y="6" width="28" height="20" rx="3" fill="#111"/>
+          <rect x="37" y="7" width="26" height="3" rx="1" fill={O.accent} opacity="0.6"/>
+        </g>
+      )}
+      {hat==="beanie"&&(
+        <g>
+          <path d="M 25 44 Q 28 20 50 18 Q 72 20 75 44 Z" fill={O.accent}/>
+          <ellipse cx="50" cy="44" rx="25" ry="5" fill={O.color} opacity="0.8"/>
+          <circle cx="50" cy="19" r="5" fill="white"/>
+          {/* Stripes */}
+          <path d="M 30 36 Q 50 33 70 36" stroke="white" strokeWidth="2" fill="none" opacity="0.4"/>
+          <path d="M 27 42 Q 50 38 73 42" stroke="white" strokeWidth="2" fill="none" opacity="0.4"/>
+        </g>
+      )}
+      {hat==="crown"&&(
+        <g>
+          <path d="M 28 38 L 33 22 L 41 32 L 50 18 L 59 32 L 67 22 L 72 38 Z" fill="#f5c842"/>
+          <circle cx="50" cy="20" r="3" fill="#f87171"/>
+          <circle cx="34" cy="24" r="2" fill="#4f7fff"/>
+          <circle cx="66" cy="24" r="2" fill="#4f7fff"/>
+          <rect x="28" y="36" width="44" height="6" rx="2" fill="#f5c842"/>
+        </g>
+      )}
+
+      {/* ── GLASSES ── */}
+      {glasses==="round"&&(
+        <g stroke="#4a3000" strokeWidth="2" fill="none">
+          <circle cx="40" cy="50" r="10" fill="#a78bfa" fillOpacity="0.15"/>
+          <circle cx="60" cy="50" r="10" fill="#a78bfa" fillOpacity="0.15"/>
+          <line x1="50" y1="50" x2="50" y2="50" strokeWidth="2"/>
+          <path d="M 30 50 Q 28 50 26 52"/>
+          <path d="M 70 50 Q 72 50 74 52"/>
+          <line x1="30" y1="50" x2="26" y2="50"/>
+          <line x1="70" y1="50" x2="74" y2="50"/>
+          <line x1="50" y1="50" x2="50" y2="50"/>
+          <path d="M 49 50 Q 50 48 51 50"/>
+        </g>
+      )}
+      {glasses==="cool"&&(
+        <g>
+          <rect x="28" y="44" width="20" height="13" rx="4" fill="#1a1a2e" opacity="0.9"/>
+          <rect x="52" y="44" width="20" height="13" rx="4" fill="#1a1a2e" opacity="0.9"/>
+          <line x1="48" y1="50" x2="52" y2="50" stroke="#888" strokeWidth="2"/>
+          <line x1="28" y1="50" x2="24" y2="52" stroke="#888" strokeWidth="2"/>
+          <line x1="72" y1="50" x2="76" y2="52" stroke="#888" strokeWidth="2"/>
+        </g>
+      )}
+      {glasses==="monocle"&&(
+        <g>
+          <circle cx="60" cy="50" r="11" fill="#f5c842" fillOpacity="0.1" stroke="#f5c842" strokeWidth="2.5"/>
+          <line x1="71" y1="55" x2="76" y2="68" stroke="#f5c842" strokeWidth="2"/>
+        </g>
+      )}
+    </svg>
+  );
+}
+
+
+// ─── MONKEY BUBBLE (floating popup) ──────────────────────────────────────────
+function MonkeyBubble({pose="happy",message,onDismiss,size=70,outfit,hat,glasses,position="bottom-right",autoClose=4000}){
+  const [visible,setVisible]=useState(true);
+  const lexOutfit=outfit||"none";
+  const lexHat=hat||"none";
+  const lexGlasses=glasses||"none";
+
+  useEffect(()=>{
+    if(!autoClose)return;
+    const t=setTimeout(()=>{setVisible(false);if(onDismiss)onDismiss();},autoClose);
+    return()=>clearTimeout(t);
+  },[autoClose,onDismiss]);
+
+  if(!visible)return null;
+
+  const posStyles={
+    "bottom-right":{position:"fixed",bottom:80,right:20,zIndex:500},
+    "bottom-left":{position:"fixed",bottom:80,left:20,zIndex:500},
+    "bottom-center":{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",zIndex:500},
+    "inline":{position:"relative",display:"inline-flex"},
+  };
+
+  return(
+    <div style={{...posStyles[position],display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,
+      animation:"lexSlideUp 0.3s ease"}}>
+      <style>{`
+        @keyframes lexSlideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
+      {/* Speech bubble */}
+      {message&&(
+        <div style={{background:"white",borderRadius:16,padding:"10px 14px",maxWidth:220,
+          boxShadow:"0 4px 20px #00000033",position:"relative",marginBottom:4}}>
+          <p style={{margin:0,fontSize:13,color:"#1a1a2e",lineHeight:1.5,fontFamily:T.sans,fontWeight:500}}>
+            {message}
+          </p>
+          {/* Bubble tail pointing down-right */}
+          <div style={{position:"absolute",bottom:-8,right:28,width:0,height:0,
+            borderLeft:"8px solid transparent",borderRight:"8px solid transparent",
+            borderTop:"8px solid white"}}/>
+          {onDismiss&&(
+            <button onClick={()=>{setVisible(false);onDismiss();}}
+              style={{position:"absolute",top:4,right:6,background:"none",border:"none",
+                color:"#999",fontSize:14,cursor:"pointer",lineHeight:1}}>×</button>
+          )}
+        </div>
+      )}
+      {/* Lex */}
+      <div style={{cursor:onDismiss?"pointer":"default"}} onClick={onDismiss?()=>{setVisible(false);onDismiss();}:undefined}>
+        <LexSVG pose={pose} size={size} outfit={lexOutfit} hat={lexHat} glasses={lexGlasses}/>
+      </div>
+    </div>
+  );
+}
+
+// ─── MONKEY CHAT INTERFACE ────────────────────────────────────────────────────
+function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
+  const [input,setInput]=useState("");
+  const [msgs,setMsgs]=useState([
+    {role:"lex",text:"Hey! I'm Lex 🐵 Ask me anything about the app or the LSAT. I can guide you anywhere!"}
+  ]);
+  const [loading,setLoading]=useState(false);
+  const bottomRef=useRef(null);
+  const lexO=getLexOutfit(user?.email);
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
+
+  const NAVIGATION_KEYWORDS={
+    practice:["practice","question","drill","adaptive","train"],
+    learn:["learn","lesson","tutorial","teach","explain","understand"],
+    quick5:["quick","five","5","fast","quick5","timed question"],
+    flaw:["flaw","fallacy","flaw lab","argument","logical error"],
+    writing:["writing","essay","write","argument writing"],
+    fullsection:["full section","full test","timed test","section"],
+    mistakes:["mistake","wrong","error","journal","review wrong"],
+    srs:["srs","spaced","review","repetition"],
+    plan:["plan","study plan","schedule","roadmap"],
+    dashboard:["progress","score","analytics","dashboard","stats","predictor"],
+    daily:["daily","challenge","daily challenge"],
+    profile:["profile","avatar","customize","outfit","settings"],
+  };
+
+  const detectNav=(text)=>{
+    const lower=text.toLowerCase();
+    for(const[screen,keywords]of Object.entries(NAVIGATION_KEYWORDS)){
+      if(keywords.some(k=>lower.includes(k)))return screen;
+    }
+    return null;
+  };
+
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg=input.trim();
+    setInput("");
+    const newMsgs=[...msgs,{role:"user",text:userMsg}];
+    setMsgs(newMsgs);
+    setLoading(true);
+
+    // Check for navigation intent first
+    const navTarget=detectNav(userMsg);
+
+    try{
+      const sys="You are Lex, a friendly, witty monkey mascot for Lumora LSAT — an AI-powered LSAT prep app. "+
+        "You are helpful, encouraging, and occasionally make light monkey puns (never overdo it). "+
+        "You guide students through the app and answer LSAT questions. Keep responses SHORT — 1-3 sentences max. "+
+        "If the user asks about a feature, explain it briefly. If they ask an LSAT question, answer it directly. "+
+        "App sections: Practice (adaptive LR/RC questions), Learn (17 question type lessons), Quick 5 (5 timed LR questions), "+
+        "Daily Challenge (1 question per day, 2x XP), Flaw Lab (identify logical flaws), Writing (LSAC-format essays), "+
+        "Full Section (35-min simulation), Mistake Journal (review wrong answers + Teach It Back), "+
+        "SRS Review (spaced repetition), Study Plan, Progress (score predictor + analytics). "+
+        "The LSAT has Logical Reasoning (argument analysis) and Reading Comprehension sections. "+
+        "Be warm, brief, and always end with encouragement. Sign off as Lex.";
+      const raw=await callClaude(sys,userMsg,300);
+      const lexMsg={role:"lex",text:raw};
+      if(navTarget){
+        lexMsg.nav=navTarget;
+        lexMsg.navLabel="Take me there →";
+      }
+      setMsgs(m=>[...m,lexMsg]);
+    }catch{
+      setMsgs(m=>[...m,{role:"lex",text:"Oops — my banana phone dropped the call! Try again in a sec. 🐵"}]);
+    }
+    setLoading(false);
+  };
+
+  return(
+    <div style={{position:"fixed",bottom:72,right:16,width:300,
+      background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,
+      boxShadow:"0 8px 40px #00000055",zIndex:490,
+      display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#3a6bff,#a78bfa)",padding:"12px 16px",
+        display:"flex",alignItems:"center",gap:10}}>
+        <LexSVG pose="happy" size={40} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,color:"white",fontSize:14}}>Lex</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.8)"}}>Your LSAT Guide</div>
+        </div>
+        <button onClick={onClose}
+          style={{background:"none",border:"none",color:"rgba(255,255,255,0.8)",
+            fontSize:20,cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
+      </div>
+
+      {/* Messages */}
+      <div style={{flex:1,overflowY:"auto",padding:12,maxHeight:280,
+        display:"flex",flexDirection:"column",gap:10}}>
+        {msgs.map((m,i)=>(
+          <div key={i}>
+            <div style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+              {m.role==="lex"&&<div style={{marginRight:6,flexShrink:0}}>
+                <LexSVG pose="idle" size={28} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
+              </div>}
+              <div style={{maxWidth:"80%",padding:"8px 12px",borderRadius:14,fontSize:13,lineHeight:1.55,
+                background:m.role==="user"?"linear-gradient(135deg,#3a6bff,#6a9fff)":"#1e2d4e",
+                color:m.role==="user"?"white":C.text,
+                borderBottomRightRadius:m.role==="user"?4:14,
+                borderBottomLeftRadius:m.role==="lex"?4:14}}>
+                {m.text}
+              </div>
+            </div>
+            {m.nav&&onNavigate&&(
+              <div style={{display:"flex",justifyContent:"flex-start",marginTop:4,marginLeft:34}}>
+                <button onClick={()=>{onNavigate(m.nav);onClose();}}
+                  style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:10,
+                    padding:"4px 12px",fontSize:12,color:C.accent,cursor:"pointer",
+                    fontFamily:T.sans,fontWeight:600}}>
+                  {m.navLabel||"Take me there →"}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {loading&&<div style={{display:"flex",alignItems:"center",gap:6}}>
+          <LexSVG pose="think" size={28} outfit={lexO.outfit} animate={false}/>
+          <div style={{fontSize:13,color:C.textMuted}}>Thinking…</div>
+        </div>}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{padding:"10px 12px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8}}>
+        <input value={input} onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&send()}
+          placeholder="Ask Lex anything…"
+          style={{flex:1,background:C.surfaceHigh,border:`1px solid ${C.border}`,
+            borderRadius:10,padding:"8px 12px",color:C.text,fontSize:13,
+            fontFamily:T.sans,outline:"none"}}/>
+        <button onClick={send} disabled={!input.trim()||loading}
+          style={{background:"linear-gradient(135deg,#3a6bff,#a78bfa)",border:"none",
+            borderRadius:10,padding:"8px 14px",color:"white",cursor:"pointer",
+            fontSize:13,fontWeight:700,opacity:!input.trim()||loading?0.5:1}}>↑</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MONKEY BAR (always-visible bottom bar) ───────────────────────────────────
+function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
+  const [chatOpen,setChatOpen]=useState(false);
+  const [points,setPoints]=useState(getLexPoints(user?.email));
+  const lexO=getLexOutfit(user?.email);
+
+  useEffect(()=>{setPoints(getLexPoints(user?.email));},[user?.email,user?.stats?.xp]);
+
+  return(
+    <>
+      {chatOpen&&<MonkeyChat user={user} onUpdateUser={onUpdateUser}
+        onClose={()=>setChatOpen(false)} onNavigate={onNavigate}/>}
+
+      <div style={{position:"fixed",bottom:0,left:0,right:0,height:60,
+        background:C.surface+"f8",borderTop:`1px solid ${C.border}`,
+        backdropFilter:"blur(12px)",zIndex:400,
+        display:"flex",alignItems:"center",justifyContent:"space-between",
+        padding:"0 20px"}}>
+
+        {/* Left: points display */}
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:16}}>🍌</span>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:C.gold}}>{points.toLocaleString()}</div>
+            <div style={{fontSize:9,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em"}}>Lex Points</div>
+          </div>
+        </div>
+
+        {/* Center: Lex button */}
+        <button onClick={()=>setChatOpen(o=>!o)}
+          aria-label="Open Lex assistant"
+          style={{background:chatOpen?"linear-gradient(135deg,#3a6bff,#a78bfa)":"transparent",
+            border:`2px solid ${chatOpen?C.accent:C.border}`,
+            borderRadius:"50%",width:52,height:52,cursor:"pointer",padding:0,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            boxShadow:chatOpen?"0 0 20px #4f7fff44":"none",
+            transition:"all 0.2s",transform:"translateY(-8px)"}}>
+          <LexSVG pose={chatOpen?"happy":currentPose||"idle"} size={44}
+            outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses}/>
+        </button>
+
+        {/* Right: shop link */}
+        <button onClick={()=>onNavigate("lexshop")}
+          style={{background:"none",border:`1px solid ${C.border}`,borderRadius:10,
+            padding:"5px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+          🎨 Dress Lex
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─── LEX SHOP (customizer) ────────────────────────────────────────────────────
+function LexShop({user,onBack}){
+  const [outfit,setOutfit]=useState(getLexOutfit(user?.email));
+  const [points,setPoints]=useState(getLexPoints(user?.email));
+  const [tab,setTab]=useState("outfits");
+  const [saved,setSaved]=useState(false);
+  const [msg,setMsg]=useState("");
+
+  const purchase=(type,key,cost)=>{
+    if(points<cost){setMsg("Not enough Lex Points! Earn more by answering questions correctly.");return;}
+    const newPts=points-cost;
+    setPoints(newPts);
+    setLexPoints(user?.email,newPts);
+    const newOutfit={...outfit,[type]:key};
+    setOutfit(newOutfit);
+    setLexOutfit(user?.email,newOutfit);
+    setMsg("Unlocked! Looking good, Lex 🎉");
+    setTimeout(()=>setMsg(""),2500);
+  };
+
+  const select=(type,key)=>{
+    const newOutfit={...outfit,[type]:key};
+    setOutfit(newOutfit);
+    setLexOutfit(user?.email,newOutfit);
+  };
+
+  const TABS=[{id:"outfits",label:"Outfits",icon:"👔"},
+    {id:"hats",label:"Hats",icon:"🎩"},{id:"glasses",label:"Glasses",icon:"👓"}];
+
+  return(
+    <main style={{maxWidth:600,margin:"0 auto",padding:"24px 20px 90px"}}>
+      <button onClick={onBack}
+        style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
+          fontSize:13,fontFamily:T.sans,marginBottom:16,display:"flex",alignItems:"center",gap:6}}>
+        ← Back
+      </button>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text}}>Lex's Wardrobe</h1>
+        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,
+          padding:"6px 14px",display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:16}}>🍌</span>
+          <span style={{fontWeight:700,color:C.gold}}>{points.toLocaleString()} pts</span>
+        </div>
+      </div>
+
+      {msg&&<div style={{background:C.success+"15",border:`1px solid ${C.success}33`,borderRadius:12,
+        padding:"10px 14px",marginBottom:14,fontSize:13,color:C.success}}>{msg}</div>}
+
+      {/* Preview */}
+      <Card style={{marginBottom:16,textAlign:"center",padding:"24px",background:"linear-gradient(135deg,#0d1225,#1a2340)"}}>
+        <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>
+          Current Look
+        </div>
+        <LexSVG pose="happy" size={100} outfit={outfit.outfit} hat={outfit.hat} glasses={outfit.glasses}/>
+        <div style={{marginTop:10,fontSize:12,color:C.textMuted}}>
+          {LEX_OUTFITS[outfit.outfit]?.label} · {LEX_HATS[outfit.hat]?.label} · {LEX_GLASSES[outfit.glasses]?.label}
+        </div>
+      </Card>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{flex:1,padding:"9px 0",borderRadius:10,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,
+              background:tab===t.id?C.accentSoft:"transparent",
+              color:tab===t.id?C.accent:C.textMuted,fontSize:13,cursor:"pointer",
+              fontFamily:T.sans,fontWeight:tab===t.id?700:400}}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Items */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {tab==="outfits"&&Object.entries(LEX_OUTFITS).map(([key,o])=>{
+          const isSelected=outfit.outfit===key;
+          const owned=o.cost===0||points>=0; // all already purchased if free
+          return(
+            <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center"}}
+              onClick={()=>o.cost===0?select("outfit",key):purchase("outfit",key,o.cost)}>
+              <LexSVG pose="idle" size={60} outfit={key} hat="none" glasses="none" animate={false}/>
+              <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text,marginTop:6}}>{o.label}</div>
+              {o.cost>0
+                ?<div style={{fontSize:11,color:C.gold,marginTop:2}}>🍌 {o.cost} pts</div>
+                :<div style={{fontSize:11,color:C.success,marginTop:2}}>✓ Free</div>}
+              {isSelected&&<div style={{fontSize:10,color:C.accent,marginTop:2,fontWeight:700}}>WEARING</div>}
+            </Card>
+          );
+        })}
+        {tab==="hats"&&Object.entries(LEX_HATS).map(([key,h])=>{
+          const isSelected=outfit.hat===key;
+          return(
+            <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center"}}
+              onClick={()=>h.cost===0?select("hat",key):purchase("hat",key,h.cost)}>
+              <LexSVG pose="idle" size={60} outfit={outfit.outfit} hat={key} glasses="none" animate={false}/>
+              <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text,marginTop:6}}>{h.label}</div>
+              {h.cost>0
+                ?<div style={{fontSize:11,color:C.gold,marginTop:2}}>🍌 {h.cost} pts</div>
+                :<div style={{fontSize:11,color:C.success,marginTop:2}}>✓ Free</div>}
+              {isSelected&&<div style={{fontSize:10,color:C.accent,marginTop:2,fontWeight:700}}>WEARING</div>}
+            </Card>
+          );
+        })}
+        {tab==="glasses"&&Object.entries(LEX_GLASSES).map(([key,g])=>{
+          const isSelected=outfit.glasses===key;
+          return(
+            <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center"}}
+              onClick={()=>g.cost===0?select("glasses",key):purchase("glasses",key,g.cost)}>
+              <LexSVG pose="idle" size={60} outfit={outfit.outfit} hat="none" glasses={key} animate={false}/>
+              <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text,marginTop:6}}>{g.label}</div>
+              {g.cost>0
+                ?<div style={{fontSize:11,color:C.gold,marginTop:2}}>🍌 {g.cost} pts</div>
+                :<div style={{fontSize:11,color:C.success,marginTop:2}}>✓ Free</div>}
+              {isSelected&&<div style={{fontSize:10,color:C.accent,marginTop:2,fontWeight:700}}>WEARING</div>}
+            </Card>
+          );
+        })}
+      </div>
+
+      <div style={{marginTop:20,background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.accent,marginBottom:6}}>🍌 How to Earn Lex Points</div>
+        <div style={{fontSize:12,color:C.textSub,lineHeight:1.7}}>
+          +5 pts — Each correct practice answer<br/>
+          +10 pts — Each Quick 5 question correct<br/>
+          +20 pts — Daily Challenge completed<br/>
+          +50 pts — Full Section completed<br/>
+          +15 pts — Flaw Lab or Writing submitted<br/>
+          +10 pts — SRS Review session completed<br/>
+          +25 pts — 7-day streak maintained
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// ─── LEX INTRO (first time naming Lex) ───────────────────────────────────────
+function LexIntro({user,onDone}){
+  const [step,setStep]=useState(0);
+  const [lexName,setLexName]=useState("Lex");
+  const [nameInput,setNameInput]=useState("");
+
+  const steps=[
+    {pose:"excited",msg:null}, // intro animation step
+    {pose:"happy",msg:"Hello! I'm your LSAT study buddy. I'll guide you through the app, cheer you on, and answer any questions you have along the way 🐵"},
+    {pose:"think",msg:"One thing though — 'Lex' is just my default name. You can call me whatever you like. What's it going to be?"},
+    {pose:"celebrate",msg:null}, // name confirmation step
+  ];
+
+  const saveName=()=>{
+    const name=(nameInput.trim()||"Lex").slice(0,20);
+    setLexName(name);
+    try{localStorage.setItem(LEX_NAME_KEY+(user?.email||""),name);}catch{}
+    setStep(3);
+  };
+
+  if(step===0)return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"f8",display:"flex",
+      alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
+      <div style={{textAlign:"center",maxWidth:360}}>
+        <div style={{animation:"lexCelebrate 0.8s ease both"}}>
+          <LexSVG pose="celebrate" size={140} outfit="none" hat="none" glasses="none"/>
+        </div>
+        <h2 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginTop:16,marginBottom:8}}>
+          Meet Your Study Buddy!
+        </h2>
+        <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:28}}>
+          I'll be with you every step of your LSAT prep. Let's get acquainted!
+        </p>
+        <Btn onClick={()=>setStep(1)} style={{minWidth:160}}>Say Hello →</Btn>
+      </div>
+    </div>
+  );
+
+  if(step===1||step===2)return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"f8",display:"flex",
+      alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
+        padding:36,maxWidth:420,width:"100%",textAlign:"center"}}>
+        <LexSVG pose={steps[step].pose} size={100} outfit="none" hat="none" glasses="none"/>
+        <div style={{background:"white",borderRadius:16,padding:"14px 18px",
+          margin:"16px 0 20px",textAlign:"left"}}>
+          <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
+            {steps[step].msg}
+          </p>
+        </div>
+        {step===2?(
+          <div>
+            <input value={nameInput} onChange={e=>setNameInput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveName()}
+              placeholder='e.g. "Lex", "Max", "Counselor"…'
+              maxLength={20}
+              autoFocus
+              style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.accent}`,
+                borderRadius:10,padding:"11px 14px",color:C.text,fontSize:15,
+                fontFamily:T.sans,outline:"none",boxSizing:"border-box",marginBottom:12}}/>
+            <Btn onClick={saveName} style={{width:"100%"}}>
+              {nameInput.trim()?"That's the one! →":"Keep 'Lex' →"}
+            </Btn>
+          </div>
+        ):(
+          <Btn onClick={()=>setStep(2)} style={{width:"100%"}}>Next →</Btn>
+        )}
+      </div>
+    </div>
+  );
+
+  if(step===3)return(
+    <div style={{position:"fixed",inset:0,background:C.bg+"f8",display:"flex",
+      alignItems:"center",justifyContent:"center",zIndex:500,padding:20}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
+        padding:36,maxWidth:420,width:"100%",textAlign:"center"}}>
+        <LexSVG pose="celebrate" size={110} outfit="none" hat="none" glasses="none"/>
+        <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginTop:16,marginBottom:10}}>
+          Nice to meet you!
+        </h2>
+        <div style={{background:"white",borderRadius:16,padding:"14px 18px",
+          margin:"0 0 20px",textAlign:"left"}}>
+          <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
+            From now on I'm <strong>{lexName}</strong>! I'll be right here at the bottom of every screen.
+            Tap my icon anytime to ask questions or get directions around the app.
+            You can also dress me up in the wardrobe — I look great in a top hat 🎩
+          </p>
+        </div>
+        <Btn onClick={onDone} style={{width:"100%"}}>Let's start studying! 🐵</Btn>
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
+
 // ─── STREAK CELEBRATION ───────────────────────────────────────────────────────
 function StreakCelebration({streak,onDismiss}){
   useEffect(()=>{const t=setTimeout(onDismiss,3500);return()=>clearTimeout(t);},[onDismiss]);
@@ -2104,6 +2871,7 @@ function Quick5({user,onUpdateUser,onDone}){
     setResults(prev=>[...prev,record]);
     onUpdateUser({history:[...(user.history||[]),record],
       stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
+    if(user.email)awardLexPoints(user.email,correct?10:0);
   };
 
   const next=()=>{
@@ -2545,6 +3313,7 @@ function Landing({onGetStarted}){
       </div>
       <div style={{position:"relative",zIndex:1,maxWidth:1000,margin:"0 auto",padding:"0 24px"}}>
         <div style={{textAlign:"center",paddingTop:"clamp(60px,10vh,120px)",paddingBottom:80,animation:"fadeUp 0.8s ease both"}}>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><LexSVG pose="excited" size={90} outfit="none" hat="none" glasses="none"/></div>
           <div style={{display:"inline-flex",alignItems:"center",gap:12,marginBottom:40,padding:"8px 20px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:40}}>
             <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 20px #3a6bff55"}}>L</div>
             <span style={{fontFamily:T.serif,fontSize:18,fontWeight:700,color:C.text}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
@@ -3683,6 +4452,10 @@ function Practice({user,onUpdateUser,initialWeakType}){
     const newStats={...user.stats,xp:(user.stats?.xp||0)+xp};
     const newBadges=checkBadges(newHistory,newStats,user.earnedBadges||[]);
     onUpdateUser({history:newHistory,stats:newStats,earnedBadges:[...(user.earnedBadges||[]),...newBadges]});
+    // Award Lex Points
+    if(user.email){
+      awardLexPoints(user.email,correct?5:0);
+    }
     if(!correct&&question.stimulus&&user.email){
       const mistake={id:Date.now(),stimulus:question.stimulus,question:question.question,
         choices:question.choices,correct:question.correct,userAnswer:selected,
@@ -5266,6 +6039,131 @@ function Dashboard({user,onUpdateUser}){
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 
+// ─── LEX MANAGER (root-level orchestrator) ────────────────────────────────────
+function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
+  const [lexPose,setLexPose]=useState("idle");
+  const [lexMsg,setLexMsg]=useState(null);
+  const [showBubble,setShowBubble]=useState(false);
+  const [lexIntroShown,setLexIntroShown]=useState(true);
+  const idleTimer=useRef(null);
+  const lexO=getLexOutfit(user?.email);
+
+  // Check if Lex intro has been done
+  useEffect(()=>{
+    try{
+      const done=localStorage.getItem(LEX_INTRO_KEY+(user?.email||""));
+      if(!done)setLexIntroShown(false);
+    }catch{}
+  },[user?.email]);
+
+  // Check for missed days on mount
+  useEffect(()=>{
+    if(!user?.email)return;
+    const lastDay=user.stats?.lastDay;
+    if(!lastDay)return;
+    const yesterday=new Date(Date.now()-86400000).toDateString();
+    const twoDays=new Date(Date.now()-172800000).toDateString();
+    const lastDate=new Date(lastDay).toDateString();
+    if(lastDate===twoDays||(!user.stats?.lastDay)){
+      // Missed at least one day
+      const quip=LEX_MISS_QUIPS[Math.floor(Math.random()*LEX_MISS_QUIPS.length)];
+      setTimeout(()=>{
+        setLexPose("sad");
+        setLexMsg(quip);
+        setShowBubble(true);
+      },2000);
+    }
+  },[]);
+
+  // Idle timer
+  useEffect(()=>{
+    const resetIdle=()=>{
+      clearTimeout(idleTimer.current);
+      idleTimer.current=setTimeout(()=>{
+        const quip=LEX_IDLE_QUIPS[Math.floor(Math.random()*LEX_IDLE_QUIPS.length)];
+        setLexPose("think");
+        setLexMsg(quip);
+        setShowBubble(true);
+      },LEX_IDLE_MS);
+    };
+    const events=["mousemove","keydown","touchstart","click","scroll"];
+    events.forEach(e=>window.addEventListener(e,resetIdle,{passive:true}));
+    resetIdle();
+    return()=>{
+      clearTimeout(idleTimer.current);
+      events.forEach(e=>window.removeEventListener(e,resetIdle));
+    };
+  },[]);
+
+  // React to screen changes and session results
+  useEffect(()=>{
+    if(screen==="practice"||screen==="quick5"){
+      setLexPose("excited");
+    }else if(screen==="learn"){
+      setLexPose("think");
+    }else if(screen==="home"){
+      setLexPose("idle");
+    }
+  },[screen]);
+
+  // Session result celebrations
+  useEffect(()=>{
+    if(!sessionResult)return;
+    if(sessionResult.pct>=80){
+      const quip=LEX_WIN_QUIPS[Math.floor(Math.random()*LEX_WIN_QUIPS.length)];
+      setLexPose("celebrate");
+      setLexMsg(quip);
+      setShowBubble(true);
+    }else if(sessionResult.pct<50){
+      const quip=LEX_LOSE_QUIPS[Math.floor(Math.random()*LEX_LOSE_QUIPS.length)];
+      setLexPose("sad");
+      setLexMsg(quip);
+      setShowBubble(true);
+    }
+  },[sessionResult]);
+
+  const handleLexIntroDone=()=>{
+    try{localStorage.setItem(LEX_INTRO_KEY+(user?.email||""),"1");}catch{}
+    setLexIntroShown(true);
+  };
+
+  if(!user)return null;
+
+  return(
+    <>
+      {!lexIntroShown&&(
+        <LexIntro user={user} onDone={handleLexIntroDone}/>
+      )}
+      {showBubble&&lexMsg&&(
+        <MonkeyBubble
+          pose={lexPose}
+          message={lexMsg}
+          outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses}
+          onDismiss={()=>{setShowBubble(false);setLexMsg(null);}}
+          autoClose={5000}
+          position="bottom-right"
+        />
+      )}
+      <MonkeyBar
+        user={user}
+        onNavigate={onNavigate}
+        onUpdateUser={onUpdateUser}
+        currentPose={lexPose}
+        currentMsg={lexMsg}
+      />
+    </>
+  );
+}
+
+// ─── LEX POINTS UTILITY ───────────────────────────────────────────────────────
+// Called from various screens to award Lex Points
+function awardLexPoints(email,pts){
+  if(!email)return;
+  const current=getLexPoints(email);
+  setLexPoints(email,current+pts);
+}
+
+
 export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
@@ -5278,6 +6176,7 @@ export default function App(){
   const [showSRS,setShowSRS]=useState(false);
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [retakingDiagnostic,setRetakingDiagnostic]=useState(false);
+  const [lexSessionResult,setLexSessionResult]=useState(null);
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme globally
@@ -5371,6 +6270,8 @@ export default function App(){
         autoGenerateStudyPlan(u);
         // Show onboarding only for brand new accounts, never on retake
         if(!wasRetake&&!u.onboardingDone)setShowOnboarding(true);
+    // Lex intro fires after onboarding (or immediately on first login without onboarding)
+    try{if(!localStorage.getItem(LEX_INTRO_KEY+(u.email||""))){}/* handled by LexManager */}catch{}
       }}/>;
   }
 
@@ -5393,11 +6294,12 @@ export default function App(){
     upload:<Upload/>,
     notes:<Notes user={user} onUpdateUser={handleUpdateUser}/>,
     dashboard:<Dashboard user={user} onUpdateUser={handleUpdateUser}/>,
+    lexshop:<LexShop user={user} onBack={()=>setScreen("home")}/>,
     profile:<Profile user={user} onUpdateUser={handleUpdateUser} onLogout={handleLogout} setScreen={handleSetScreen} onRetakeDiagnostic={()=>setRetakingDiagnostic(true)}/>,
   };
 
   return(
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px"}}>
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?70:0}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
@@ -5406,6 +6308,8 @@ export default function App(){
       {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout}/>}
       {pages[screen]||pages.home}
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
+      <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
+        onNavigate={handleSetScreen} onUpdateUser={handleUpdateUser}/>
     </div>
   );
 }
