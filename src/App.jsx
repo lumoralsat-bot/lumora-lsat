@@ -4654,8 +4654,7 @@ Respond ONLY with valid JSON:
       const sys="You are an expert LSAT debate judge. Review this sparring session and give final feedback."+
         " The argument being debated: "+JSON.stringify(argument)+
         " Evaluate: did the student correctly identify the flaw? How strong were their counter-arguments? "+
-        "Respond ONLY with valid JSON: {"identified_flaw":true,"overall_score":80,"verdict":"Student wins","+
-        ""summary":"2-3 sentence assessment","strongest_point":"their best argument","missed_opportunity":"what they could have said"}";
+        "Respond ONLY with valid JSON with these exact keys: identified_flaw (boolean), overall_score (0-100), verdict (string), summary (string), strongest_point (string), missed_opportunity (string)."
       const history=sparMsgs.map(m=>(m.role==="student"?"Student: ":"Lex: ")+m.text).join("\n");
       const raw=await callClaude(sys,"Sparring transcript:
 "+history,600);
