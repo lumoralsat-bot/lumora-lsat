@@ -4636,12 +4636,8 @@ Respond ONLY with valid JSON:
         "Keep responses to 3-4 sentences max. Be direct and debate-like. Sign as 'Lex'."+
         " Round number: "+(sparRound+1)+". Prior exchanges: "+newMsgs.length/2+" rounds."+
         " If this is round 5 or more and student arguments have been strong, start to show some cracks in your defense.";
-      const history=newMsgs.map(m=>m.role==="student"?"Student: "+m.text:"Lex: "+m.text).join("
-");
-      const raw=await callClaude(sys,"Conversation so far:
-"+history+"
-
-Respond as Lex now:",400);
+      const history=newMsgs.map(m=>m.role==="student"?"Student: "+m.text:"Lex: "+m.text).join("\n");
+      const raw=await callClaude(sys,"Conversation so far:\n"+history+"\n\nRespond as Lex now:",400);
       // Detect if Lex is conceding
       const conceding=raw.toLowerCase().includes("concede")||raw.toLowerCase().includes("you have a point")||
         raw.toLowerCase().includes("well argued")||raw.toLowerCase().includes("i must admit");
@@ -4660,8 +4656,7 @@ Respond as Lex now:",400);
         " Evaluate: did the student correctly identify the flaw? How strong were their counter-arguments? "+
         "Respond ONLY with valid JSON: {"identified_flaw":true,"overall_score":80,"verdict":"Student wins","+
         ""summary":"2-3 sentence assessment","strongest_point":"their best argument","missed_opportunity":"what they could have said"}";
-      const history=sparMsgs.map(m=>(m.role==="student"?"Student: ":"Lex: ")+m.text).join("
-");
+      const history=sparMsgs.map(m=>(m.role==="student"?"Student: ":"Lex: ")+m.text).join("\n");
       const raw=await callClaude(sys,"Sparring transcript:
 "+history,600);
       setFeedback(parseJSON(raw));
