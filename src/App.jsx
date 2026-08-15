@@ -4656,8 +4656,7 @@ Respond ONLY with valid JSON:
         " Evaluate: did the student correctly identify the flaw? How strong were their counter-arguments? "+
         "Respond ONLY with valid JSON with these exact keys: identified_flaw (boolean), overall_score (0-100), verdict (string), summary (string), strongest_point (string), missed_opportunity (string)."
       const history=sparMsgs.map(m=>(m.role==="student"?"Student: ":"Lex: ")+m.text).join("\n");
-      const raw=await callClaude(sys,"Sparring transcript:
-"+history,600);
+      const raw=await callClaude(sys,"Sparring transcript:\n"+history,600);
       setFeedback(parseJSON(raw));
       setPhase("sparfeedback");
     }catch(e){setError("Could not generate verdict.");}
