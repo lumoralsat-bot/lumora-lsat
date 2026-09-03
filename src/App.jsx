@@ -51,22 +51,202 @@ function checkBadges(history,stats,earnedBadges=[]){
 }
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
+// ─── SUPABASE CLIENT ─────────────────────────────────────────────────────────
+const SUPA_URL=import.meta.env.VITE_SUPABASE_URL||"";
+const SUPA_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY||"";
+const USE_SUPA=!!(SUPA_URL&&SUPA_KEY);
+
+async function supaFetch(path,method="GET",body=null,extraHeaders={}){
+  const res=await fetch(SUPA_URL+"/rest/v1"+path,{
+    method,
+    headers:{
+      "apikey":SUPA_KEY,
+      "Authorization":"Bearer "+SUPA_KEY,
+      "Content-Type":"application/json",
+      "Prefer":"return=representation",
+      ...extraHeaders,
+    },
+    body:body?JSON.stringify(body):undefined,
+  });
+  if(!res.ok){
+    const err=await res.text().catch(()=>"");
+    throw new Error("Supabase error "+res.status+": "+err);
+  }
+  const text=await res.text();
+  return text?JSON.parse(text):null;
+}
+
+// Map app user object to/from Supabase row
+function userToRow(u){
+  return{
+    email:u.email,
+    name:u.name,
+    password_hash:u.password||u.password_hash||"",
+    avatar_color:u.avatarColor||0,
+    avatar_emoji:u.avatarEmoji||"",
+    diagnostic_done:!!u.diagnosticDone,
+    diagnostic:u.diagnostic||{},
+    history:u.history||[],
+    notes:u.notes||[],
+    study_plan:u.studyPlan||null,
+    learn_progress:u.learnProgress||{},
+    earned_badges:u.earnedBadges||[],
+    stats:u.stats||{xp:0,streak:0,lastDay:null},
+    onboarding_done:!!u.onboardingDone,
+    is_pro:!!u.isPro,
+  };
+}
+function rowToUser(row){
+  return{
+    email:row.email,
+    name:row.name,
+    password:row.password_hash,
+    avatarColor:row.avatar_color||0,
+    avatarEmoji:row.avatar_emoji||"",
+    diagnosticDone:row.diagnostic_done,
+    diagnostic:row.diagnostic||{},
+    history:row.history||[],
+    notes:row.notes||[],
+    studyPlan:row.study_plan||null,
+    learnProgress:row.learn_progress||{},
+    earnedBadges:row.earned_badges||[],
+    stats:row.stats||{xp:0,streak:0,lastDay:null},
+    onboardingDone:row.onboarding_done,
+    isPro:row.is_pro||false,
+    id:row.id,
+  };
+}
+
+// ─── DB LAYER (Supabase + localStorage fallback) ──────────────────────────────
 const DB={
-  getUsers:()=>{try{return JSON.parse(localStorage.getItem("lumora_users")||"{}")}catch{return{}}},
-  saveUsers:(u)=>{try{localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
+  // ── Session (localStorage only — fast, no async needed) ──────────────────
   getSession:()=>{try{return localStorage.getItem("lumora_session")||null}catch{return null}},
   saveSession:(e)=>{try{localStorage.setItem("lumora_session",e)}catch{}},
   clearSession:()=>{try{localStorage.removeItem("lumora_session")}catch{}},
-  getUser:(e)=>{const u=DB.getUsers();return u[e]||null},
-  saveUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
+
+  // ── Local fallback helpers ────────────────────────────────────────────────
+  getUsers:()=>{try{return JSON.parse(localStorage.getItem("lumora_users")||"{}")}catch{return{}}},
+  saveUsers:(u)=>{try{localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
+  getLocalUser:(e)=>{const u=DB.getUsers();return u[e]||null},
+  saveLocalUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
+
+  // ── User operations (async, Supabase-first) ───────────────────────────────
+  getUser:async(email)=>{
+    if(USE_SUPA){
+      try{
+        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&limit=1");
+        if(rows&&rows.length>0){
+          const user=rowToUser(rows[0]);
+          DB.saveLocalUser(email,user); // keep local in sync
+          return user;
+        }
+      }catch(e){console.warn("Supabase getUser failed, using local:",e);}
+    }
+    return DB.getLocalUser(email);
+  },
+
+  saveUser:async(email,data)=>{
+    // Always save locally first (instant, no failure)
+    DB.saveLocalUser(email,data);
+    if(!USE_SUPA)return;
+    try{
+      const row=userToRow(data);
+      // Upsert — insert or update based on email
+      await supaFetch("/users?email=eq."+encodeURIComponent(email),"PATCH",row);
+    }catch(e){
+      // If PATCH fails (user doesn't exist yet), try INSERT
+      try{
+        const row=userToRow(data);
+        await supaFetch("/users","POST",row);
+      }catch(e2){console.warn("Supabase saveUser failed:",e2);}
+    }
+  },
+
+  createUser:async(data)=>{
+    DB.saveLocalUser(data.email,data);
+    if(!USE_SUPA)return;
+    try{
+      await supaFetch("/users","POST",userToRow(data));
+    }catch(e){console.warn("Supabase createUser failed:",e);}
+  },
+
+  checkUserExists:async(email)=>{
+    if(USE_SUPA){
+      try{
+        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=email&limit=1");
+        return rows&&rows.length>0;
+      }catch(e){console.warn("Supabase checkUser failed, using local:",e);}
+    }
+    return !!DB.getLocalUser(email);
+  },
+
+  // ── Daily challenge (localStorage — same for all users, no account needed) ─
   getDailyChallenge:()=>{try{return JSON.parse(localStorage.getItem("lumora_daily")||"null")}catch{return null}},
   saveDailyChallenge:(d)=>{try{localStorage.setItem("lumora_daily",JSON.stringify(d))}catch{}},
-  getScoreHistory:(email)=>{try{const k="lumora_scores_"+email;return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}},
-  saveScoreHistory:(email,h)=>{try{const k="lumora_scores_"+email;localStorage.setItem(k,JSON.stringify(h.slice(-60)))}catch{}},
-  getMistakes:(email)=>{try{const k="lumora_mistakes_"+email;return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}},
-  saveMistakes:(email,m)=>{try{const k="lumora_mistakes_"+email;localStorage.setItem(k,JSON.stringify(m.slice(-200)))}catch{}},
-  getSRS:(email)=>{try{const k="lumora_srs_"+email;return JSON.parse(localStorage.getItem(k)||"{}")}catch{return{}}},
-  saveSRS:(email,s)=>{try{const k="lumora_srs_"+email;localStorage.setItem(k,JSON.stringify(s))}catch{}},
+
+  // ── Score history ──────────────────────────────────────────────────────────
+  getScoreHistory:(email)=>{
+    try{return JSON.parse(localStorage.getItem("lumora_scores_"+email)||"[]")}catch{return[];}
+  },
+  saveScoreHistory:(email,h)=>{
+    try{localStorage.setItem("lumora_scores_"+email,JSON.stringify(h.slice(-60)));}catch{}
+    // Score history is stored in the user row in Supabase (via saveUser)
+  },
+
+  // ── Mistakes ───────────────────────────────────────────────────────────────
+  getMistakes:(email)=>{
+    try{return JSON.parse(localStorage.getItem("lumora_mistakes_"+email)||"[]")}catch{return[];}
+  },
+  saveMistakes:(email,m)=>{
+    try{localStorage.setItem("lumora_mistakes_"+email,JSON.stringify(m.slice(-200)));}catch{}
+    if(!USE_SUPA)return;
+    // Async fire-and-forget — don't block UI
+    (async()=>{
+      try{
+        // Get user id first
+        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=id&limit=1");
+        if(!rows||!rows.length)return;
+        const uid=rows[0].id;
+        // Delete and re-insert latest mistakes (simpler than diffing)
+        const latest=m.slice(-200);
+        await supaFetch("/mistakes?user_id=eq."+uid,"DELETE");
+        if(latest.length>0){
+          const rows2=latest.map(mk=>({
+            user_id:uid,stimulus:mk.stimulus,question:mk.question,
+            choices:mk.choices,correct:mk.correct,user_answer:mk.userAnswer,
+            explanation:mk.explanation,key_concept:mk.key_concept,
+            section:mk.section,q_type:mk.qType,level:mk.level,reviewed:mk.reviewed||false,
+          }));
+          await supaFetch("/mistakes","POST",rows2);
+        }
+      }catch(e){console.warn("Supabase saveMistakes failed:",e);}
+    })();
+  },
+
+  // ── SRS ────────────────────────────────────────────────────────────────────
+  getSRS:(email)=>{
+    try{return JSON.parse(localStorage.getItem("lumora_srs_"+email)||"{}")}catch{return{};}
+  },
+  saveSRS:(email,s)=>{
+    try{localStorage.setItem("lumora_srs_"+email,JSON.stringify(s));}catch{}
+    if(!USE_SUPA)return;
+    (async()=>{
+      try{
+        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=id&limit=1");
+        if(!rows||!rows.length)return;
+        const uid=rows[0].id;
+        await supaFetch("/srs_data?user_id=eq."+uid,"PATCH",{data:s,updated_at:"now()"});
+        // If no row exists yet, insert
+      }catch{
+        try{
+          const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=id&limit=1");
+          if(rows&&rows.length){
+            await supaFetch("/srs_data","POST",{user_id:rows[0].id,data:s});
+          }
+        }catch(e2){console.warn("Supabase saveSRS failed:",e2);}
+      }
+    })();
+  },
 };
 
 // ─── SRS ENGINE (SM-2 simplified) ─────────────────────────────────────────────
@@ -3279,21 +3459,24 @@ function Auth({onLogin}){
   const [password,setPassword]=useState("");
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
-  const submit=(e)=>{
+  const submit=async(e)=>{
     e.preventDefault();setError("");setLoading(true);
-    const users=DB.getUsers();
     if(mode==="signup"){
       if(!name.trim()||name.trim().length<2){setError("Please enter your full name.");setLoading(false);return;}
       if(!email.includes("@")){setError("Please enter a valid email.");setLoading(false);return;}
       if(password.length<6){setError("Password must be at least 6 characters.");setLoading(false);return;}
-      if(users[email.toLowerCase()]){setError("An account already exists with this email.");setLoading(false);return;}
-      const u={name:name.trim(),email:email.toLowerCase(),password,avatarColor:Math.floor(Math.random()*8),avatarEmoji:"",diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},earnedBadges:[],stats:{xp:0,streak:0,lastDay:null}};
-      DB.saveUser(email.toLowerCase(),u);DB.saveSession(email.toLowerCase());onLogin(u);
+      const exists=await DB.checkUserExists(email.toLowerCase());
+      if(exists){setError("An account already exists with this email.");setLoading(false);return;}
+      const u={name:name.trim(),email:email.toLowerCase(),password,avatarColor:Math.floor(Math.random()*8),avatarEmoji:"",diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},earnedBadges:[],stats:{xp:0,streak:0,lastDay:null},isPro:false};
+      await DB.createUser(u);
+      DB.saveSession(email.toLowerCase());
+      onLogin(u);
     }else{
-      const u=users[email.toLowerCase()];
+      const u=await DB.getUser(email.toLowerCase());
       if(!u){setError("No account found with this email.");setLoading(false);return;}
       if(u.password!==password){setError("Incorrect password.");setLoading(false);return;}
-      DB.saveSession(email.toLowerCase());onLogin(u);
+      DB.saveSession(email.toLowerCase());
+      onLogin(u);
     }
     setLoading(false);
   };
@@ -6310,8 +6493,16 @@ export default function App(){
   },[darkMode,fontScale]);
 
   useEffect(()=>{
-    try{const email=DB.getSession();if(email){const u=DB.getUser(email);if(u){setUser(u);setScreen("home");}}}catch{}
-    setReady(true);
+    (async()=>{
+      try{
+        const email=DB.getSession();
+        if(email){
+          const u=await DB.getUser(email);
+          if(u){setUser(u);setScreen("home");}
+        }
+      }catch(e){console.warn("Session restore failed:",e);}
+      setReady(true);
+    })();
   },[]);
 
   useEffect(()=>{
@@ -6334,7 +6525,7 @@ export default function App(){
     }
     const updated={...user,stats:{...user.stats,streak,lastDay:today}};
     setUser(updated);
-    try{DB.saveUser(updated.email,updated);}catch{}
+    (async()=>{try{await DB.saveUser(updated.email,updated);}catch(e){console.warn("saveUser failed:",e);}})();
     // Celebrate milestones
     if([3,7,14,30,60,100].includes(streak))setStreakCelebrate(true);
   },[user?.email]);
@@ -6350,7 +6541,7 @@ export default function App(){
       if(!prev)return prev;
       const next={...prev,...updates};
       if(updates.stats)next.stats={...prev.stats,...updates.stats};
-      try{DB.saveUser(next.email,next);}catch{}
+      (async()=>{try{await DB.saveUser(next.email,next);}catch(e){console.warn("saveUser failed:",e);}})();
       return next;
     });
   },[]);
@@ -6369,7 +6560,7 @@ export default function App(){
       const raw=await callClaude(sys,msg,1200);
       const plan=parseJSON(raw);
       const updated={...u,studyPlan:plan};
-      try{DB.saveUser(updated.email,updated);}catch{}
+      (async()=>{try{await DB.saveUser(updated.email,updated);}catch(e){console.warn("saveUser failed:",e);}})();
       setUser(updated);
     }catch(e){console.warn("Auto study plan:",e.message);}
   };
@@ -6387,7 +6578,7 @@ export default function App(){
       onComplete={(answers)=>{
         const wasRetake=retakingDiagnostic;
         const u={...user,diagnostic:answers,diagnosticDone:true};
-        try{DB.saveUser(u.email,u);}catch{}
+        (async()=>{try{await DB.saveUser(u.email,u);}catch(e){console.warn("saveUser failed:",e);}})();
         setUser(u);
         setRetakingDiagnostic(false);
         setScreen(wasRetake?"plan":"home");
