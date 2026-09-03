@@ -6510,7 +6510,7 @@ function UpgradeModal({user,onClose,reason}){
     if(!priceId){setError("Price not configured. Contact support.");return;}
     setLoading(period);setError("");
     try{
-      // Call our Vercel API route to create a Stripe Checkout session
+      console.log("Creating checkout session for price:",priceId);
       const res=await fetch("/api/create-checkout",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -6521,11 +6521,21 @@ function UpgradeModal({user,onClose,reason}){
           cancelUrl:window.location.origin+"?upgraded=false",
         }),
       });
-      const data=await res.json();
-      if(!res.ok)throw new Error(data.error||"Failed to create checkout");
-      // Redirect to Stripe Checkout
+      // Read raw text first to avoid "Unexpected end of JSON" error
+      const text=await res.text();
+      console.log("Checkout response status:",res.status,"body:",text.slice(0,200));
+      if(!text){
+        throw new Error("Empty response from server. Check Vercel function logs.");
+      }
+      let data;
+      try{data=JSON.parse(text);}
+      catch{throw new Error("Server returned invalid response: "+text.slice(0,100));}
+      if(!res.ok)throw new Error(data.error||"Failed to create checkout ("+res.status+")");
+      if(!data.url)throw new Error("No checkout URL returned");
+      console.log("Redirecting to Stripe Checkout:",data.url.slice(0,60));
       window.location.href=data.url;
     }catch(e){
+      console.error("Checkout error:",e);
       setError(e.message||"Something went wrong. Please try again.");
       setLoading(null);
     }
@@ -6589,7 +6599,7 @@ function UpgradeModal({user,onClose,reason}){
               background:loading==="monthly"?C.accentSoft:"transparent",
               color:C.accent,cursor:"pointer",fontFamily:T.sans,
               opacity:loading&&loading!=="monthly"?0.5:1}}>
-            <div style={{fontSize:22,fontWeight:900,color:C.accent}}>$19.99</div>
+            <div style={{fontSize:22,fontWeight:900,color:C.accent}}>$24.99</div>
             <div style={{fontSize:11,color:C.textMuted}}>per month</div>
             {loading==="monthly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
           </button>
@@ -6606,7 +6616,7 @@ function UpgradeModal({user,onClose,reason}){
             </div>
             <div style={{fontSize:22,fontWeight:900,color:C.gold}}>$149</div>
             <div style={{fontSize:11,color:C.textMuted}}>per year</div>
-            <div style={{fontSize:11,color:C.gold,marginTop:2}}>Save $90</div>
+            <div style={{fontSize:11,color:C.gold,marginTop:2}}>Save $151</div>
             {loading==="yearly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
           </button>
         </div>
