@@ -3268,6 +3268,7 @@ function Nav({screen,setScreen,user,onLogout}){
           <span style={{fontFamily:T.serif,fontSize:17,color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
             <span style={{color:C.accent}}>Lumora</span> LSAT
           </span>
+          {user?.isPro&&<span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:20,letterSpacing:"0.05em"}}>PRO</span>}
         </button>
 
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -3282,6 +3283,14 @@ function Nav({screen,setScreen,user,onLogout}){
           )}
 
           {/* Avatar */}
+          {user&&!user.isPro&&(
+            <button onClick={()=>setUpgradeModal("default")}
+              style={{background:"linear-gradient(135deg,#4f7fff,#a78bfa)",border:"none",
+                borderRadius:10,padding:"5px 10px",color:"white",fontSize:11,
+                fontWeight:700,cursor:"pointer",fontFamily:T.sans,whiteSpace:"nowrap"}}>
+              Upgrade ✦
+            </button>
+          )}
           {user&&(
             <button onClick={()=>{setScreen("profile");close();}}
               style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
@@ -4443,7 +4452,7 @@ function SessionDebrief({sessionHistory,user,onDismiss,onRecord}){
   );
 }
 
-function Practice({user,onUpdateUser,initialWeakType}){
+function Practice({user,onUpdateUser,initialWeakType,requirePro}){
   // ── Config state ──
   const [section,setSection]=useState(initialWeakType?.section||null);
   const [level,setLevel]=useState(null);
@@ -4671,8 +4680,9 @@ function Practice({user,onUpdateUser,initialWeakType}){
         </Card>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Btn onClick={()=>{setConfigured(true);startPractice();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
+        <Btn onClick={()=>{if(requirePro&&!requirePro("practice"))return;setConfigured(true);startPractice();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
         <Btn onClick={()=>{
+          if(requirePro&&!requirePro("practice"))return;
           const randSec=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
           const randType=QUESTION_TYPES[randSec][Math.floor(Math.random()*QUESTION_TYPES[randSec].length)];
           const randLevel=Math.ceil(Math.random()*4);
@@ -4773,7 +4783,7 @@ function Practice({user,onUpdateUser,initialWeakType}){
 
 // ─── FLAW LAB (Lumora-generated fresh arguments) ──────────────────────────────────
 
-function FlawLab({user,onUpdateUser}){
+function FlawLab({user,onUpdateUser,requirePro}){
   const [phase,setPhase]=useState("config");
   const [seedIdx,setSeedIdx]=useState(0);
   const [timed,setTimed]=useState(true);
@@ -5037,7 +5047,7 @@ Respond ONLY with valid JSON:
         </div>
       </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-        <Btn onClick={async()=>{setPhase("loading");await generateArgument();setPhase("reading");}} style={{padding:15}}>Generate This Type →</Btn>
+        <Btn onClick={async()=>{if(requirePro&&!requirePro("flawlab"))return;setPhase("loading");await generateArgument();setPhase("reading");}} style={{padding:15}}>Generate This Type →</Btn>
         <Btn onClick={async()=>{const ri=Math.floor(Math.random()*FLAW_SEEDS.length);setSeedIdx(ri);setPhase("loading");await generateArgument();setPhase("reading");}} style={{padding:15,background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>🎲 Random Flaw →</Btn>
       </div>
       <Btn onClick={async()=>{setSparMode(true);setPhase("loading");await generateArgument();setPhase("spar");}} style={{width:"100%",padding:15,background:"linear-gradient(135deg,#b91c1c,#ef4444)"}}>
@@ -5348,7 +5358,7 @@ Respond ONLY with valid JSON:
 
 // ─── FULL SECTION (streaming delivery) ────────────────────────────────────────
 
-function FullSection({user,onUpdateUser}){
+function FullSection({user,onUpdateUser,requirePro}){
   const [phase,setPhase]=useState("config");
   const [sel,setSel]=useState("Logical Reasoning");
   const [questions,setQuestions]=useState([]);
@@ -5431,7 +5441,7 @@ function FullSection({user,onUpdateUser}){
       <ErrBanner message={genError} onDismiss={()=>setGenError(null)}/>
       <Card style={{marginBottom:16}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Choose Section</div><div style={{display:"flex",flexDirection:"column",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={sel===s} onClick={()=>setSel(s)}>{s}</Pill>)}</div></Card>
       <Card style={{marginBottom:18,background:C.accentSoft,borderColor:C.accent+"44"}}><div style={{display:"flex",gap:20,flexWrap:"wrap",fontSize:14,color:C.textSub}}><span>⏱ <strong style={{color:C.text}}>35 min</strong></span><span>📝 <strong style={{color:C.text}}>25 questions</strong></span><span>📈 <strong style={{color:C.text}}>Levels 1→4</strong></span><span>⚡ <strong style={{color:C.text}}>Instant start</strong></span></div></Card>
-      <Btn onClick={startSection} style={{width:"100%",padding:15}}>Start Section →</Btn>
+      <Btn onClick={()=>{if(requirePro&&!requirePro("fullsection"))return;startSection();}} style={{width:"100%",padding:15}}>Start Section →</Btn>
     </main>
   );
 
@@ -6284,6 +6294,7 @@ function Dashboard({user,onUpdateUser}){
 
   const srsData=user.email?DB.getSRS(user.email):{};
   const srsDue=srsDueTypes(srsData);
+  const isPro=user?.isPro||false;
 
   return(
     <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
@@ -6747,7 +6758,12 @@ export default function App(){
   }
 
   const handleSetScreen=(s)=>{
-    if(s==="quick5"){setQuick5Key(k=>k+1);setShowQuick5(true);return;}
+    if(s==="quick5"){
+      const check=checkLimit(user,"quick5");
+      if(!check.allowed){setUpgradeModal(check.reason);return;}
+      incrementUsage(user?.email||"","quick5");
+      setQuick5Key(k=>k+1);setShowQuick5(true);return;
+    }
     if(s==="srs"){setShowSRS(true);return;}
     setScreen(s);
   };
