@@ -232,6 +232,11 @@ console.log("SUPA_KEY:",SUPA_KEY?"(set, length="+SUPA_KEY.length+")":"(not set)"
 
 // Expose test function on window so you can call it from browser console:
 // lumoraTest() — creates a test user directly and logs the result
+window.lumoraShowUpgrade=function(){
+  // Force show the upgrade modal for testing - call from browser console
+  const event=new CustomEvent("lumora:showUpgrade",{detail:{reason:"default"}});
+  window.dispatchEvent(event);
+};
 window.lumoraTest=async function(){
   console.log("=== SUPABASE CONNECTION TEST ===");
   console.log("URL:",SUPA_URL);
@@ -3230,7 +3235,7 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
-function Nav({screen,setScreen,user,onLogout}){
+function Nav({screen,setScreen,user,onLogout,onUpgrade}){
   const [menuOpen,setMenuOpen]=useState(false);
 
   const PAGES=[
@@ -3284,7 +3289,7 @@ function Nav({screen,setScreen,user,onLogout}){
 
           {/* Avatar */}
           {user&&!user.isPro&&(
-            <button onClick={()=>setUpgradeModal("default")}
+            <button onClick={()=>onUpgrade&&onUpgrade("default")}
               style={{background:"linear-gradient(135deg,#4f7fff,#a78bfa)",border:"none",
                 borderRadius:10,padding:"5px 10px",color:"white",fontSize:11,
                 fontWeight:700,cursor:"pointer",fontFamily:T.sans,whiteSpace:"nowrap"}}>
@@ -6640,6 +6645,12 @@ export default function App(){
   },[darkMode,fontScale]);
 
   useEffect(()=>{
+    const handleTestUpgrade=(e)=>setUpgradeModal(e.detail?.reason||"default");
+    window.addEventListener("lumora:showUpgrade",handleTestUpgrade);
+    return()=>window.removeEventListener("lumora:showUpgrade",handleTestUpgrade);
+  },[]);
+
+  useEffect(()=>{
     (async()=>{
       try{
         const email=DB.getSession();
@@ -6695,13 +6706,17 @@ export default function App(){
   };
   const handleLogout=()=>{DB.clearSession();setUser(null);setScreen("landing");};
 
-  const requirePro=(feature)=>{
+  const requirePro=useCallback((feature)=>{
     if(!user)return false;
     const check=checkLimit(user,feature);
-    if(!check.allowed){setUpgradeModal(check.reason);return false;}
+    if(!check.allowed){
+      console.log("Limit hit for",feature,"- showing upgrade modal. Reason:",check.reason);
+      setUpgradeModal(check.reason||"limit_reached");
+      return false;
+    }
     incrementUsage(user.email,feature);
     return true;
-  };
+  },[user]);
 
   const handleUpdateUser=useCallback((updates)=>{
     setUser(prev=>{
@@ -6760,7 +6775,11 @@ export default function App(){
   const handleSetScreen=(s)=>{
     if(s==="quick5"){
       const check=checkLimit(user,"quick5");
-      if(!check.allowed){setUpgradeModal(check.reason);return;}
+      if(!check.allowed){
+        console.log("Quick5 limit hit:",check);
+        setUpgradeModal(check.reason||"limit_reached");
+        return;
+      }
       incrementUsage(user?.email||"","quick5");
       setQuick5Key(k=>k+1);setShowQuick5(true);return;
     }
@@ -6792,7 +6811,7 @@ export default function App(){
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
       {showSRS&&user&&<SRSReview user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowSRS(false)}/>}
       {showOnboarding&&user&&!user.onboardingDone&&<Onboarding user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowOnboarding(false)}/>}
-      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout}/>}
+      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout} onUpgrade={(reason)=>setUpgradeModal(reason)}/>}
       {pages[screen]||pages.home}
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
       <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
