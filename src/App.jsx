@@ -55,6 +55,41 @@ function checkBadges(history,stats,earnedBadges=[]){
 const SUPA_URL=(import.meta.env.VITE_SUPABASE_URL||"").replace(/\/+$/,"");
 const SUPA_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY||"";
 const USE_SUPA=!!(SUPA_URL&&SUPA_KEY);
+const STRIPE_PK=import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY||"";
+const STRIPE_PRICE_MONTHLY=import.meta.env.VITE_STRIPE_PRICE_MONTHLY||"";
+const STRIPE_PRICE_YEARLY=import.meta.env.VITE_STRIPE_PRICE_YEARLY||"";
+
+// ── FREE TIER LIMITS ─────────────────────────────────────────────────────────
+const FREE_LIMITS={
+  practice:5,      // questions per day
+  quick5:2,        // sessions per day
+  flawlab:1,       // sessions per day
+  writing:1,       // sessions per day
+  fullsection:0,   // pro only
+  srs:1,           // sessions per day
+};
+
+function getTodayKey(){return new Date().toDateString();}
+
+function getUsage(email){
+  try{return JSON.parse(localStorage.getItem("lumora_usage_"+email+"_"+getTodayKey())||"{}");}
+  catch{return{};}
+}
+function incrementUsage(email,feature){
+  const usage=getUsage(email);
+  usage[feature]=(usage[feature]||0)+1;
+  try{localStorage.setItem("lumora_usage_"+email+"_"+getTodayKey(),JSON.stringify(usage));}catch{}
+}
+function checkLimit(user,feature){
+  if(user?.isPro)return{allowed:true};
+  const limit=FREE_LIMITS[feature];
+  if(limit===undefined)return{allowed:true};
+  if(limit===0)return{allowed:false,reason:"pro_only",feature};
+  const usage=getUsage(user?.email||"");
+  const used=usage[feature]||0;
+  if(used>=limit)return{allowed:false,reason:"limit_reached",feature,used,limit};
+  return{allowed:true,used,limit};
+}
 
 async function supaFetch(path,method="GET",body=null,prefer="return=representation"){
   const url=SUPA_URL+"/rest/v1"+path;
@@ -189,9 +224,47 @@ const DB={
   saveSRS:(email,s)=>{try{localStorage.setItem("lumora_srs_"+email,JSON.stringify(s));}catch{}},
 };
 
-// Debug helper — logs to console if Supabase env vars are set
-if(USE_SUPA){console.log("Supabase connected:",SUPA_URL);}
-else{console.log("Supabase not configured — using localStorage only");}
+// ── Debug + test helper ──────────────────────────────────────────────────────
+console.log("=== LUMORA SUPABASE STATUS ===");
+console.log("USE_SUPA:",USE_SUPA);
+console.log("SUPA_URL:",SUPA_URL||"(not set)");
+console.log("SUPA_KEY:",SUPA_KEY?"(set, length="+SUPA_KEY.length+")":"(not set)");
+
+// Expose test function on window so you can call it from browser console:
+// lumoraTest() — creates a test user directly and logs the result
+window.lumoraTest=async function(){
+  console.log("=== SUPABASE CONNECTION TEST ===");
+  console.log("URL:",SUPA_URL);
+  console.log("Key length:",SUPA_KEY.length);
+  try{
+    // Test 1: Can we reach Supabase at all?
+    const r1=await fetch(SUPA_URL+"/rest/v1/users?limit=1",{
+      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}
+    });
+    console.log("GET /users status:",r1.status,r1.statusText);
+    const t1=await r1.text();
+    console.log("GET /users response:",t1.slice(0,200));
+  }catch(e){console.error("GET failed:",e);}
+  try{
+    // Test 2: Can we insert a test row?
+    const testRow={email:"__test__@lumora.dev",name:"Test",password_hash:"test",
+      diagnostic:{},history:[],notes:[],study_plan:null,learn_progress:{},
+      earned_badges:[],stats:{xp:0,streak:0,lastDay:null},
+      diagnostic_done:false,onboarding_done:false,is_pro:false};
+    const r2=await fetch(SUPA_URL+"/rest/v1/users",{
+      method:"POST",
+      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,
+        "Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify(testRow)
+    });
+    console.log("INSERT status:",r2.status,r2.statusText);
+    const t2=await r2.text();
+    console.log("INSERT response:",t2.slice(0,300));
+    if(r2.ok)console.log("SUCCESS - check your Supabase table editor now!");
+    else console.error("INSERT FAILED - this is the problem");
+  }catch(e){console.error("INSERT failed:",e);}
+};
+console.log("Run lumoraTest() in the browser console to diagnose Supabase connection");
 
 
 // ─── SRS ENGINE (SM-2 simplified) ─────────────────────────────────────────────
@@ -6412,6 +6485,127 @@ function awardLexPoints(email,pts){
 }
 
 
+// ─── UPGRADE MODAL ────────────────────────────────────────────────────────────
+function UpgradeModal({user,onClose,reason}){
+  const [loading,setLoading]=useState(null);
+  const [error,setError]=useState("");
+
+  const checkout=async(priceId,period)=>{
+    if(!priceId){setError("Price not configured. Contact support.");return;}
+    setLoading(period);setError("");
+    try{
+      // Call our Vercel API route to create a Stripe Checkout session
+      const res=await fetch("/api/create-checkout",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          priceId,
+          email:user.email,
+          successUrl:window.location.origin+"?upgraded=true",
+          cancelUrl:window.location.origin+"?upgraded=false",
+        }),
+      });
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||"Failed to create checkout");
+      // Redirect to Stripe Checkout
+      window.location.href=data.url;
+    }catch(e){
+      setError(e.message||"Something went wrong. Please try again.");
+      setLoading(null);
+    }
+  };
+
+  const reasonMsg={
+    pro_only:"This feature is available on Lumora Pro.",
+    limit_reached:"You've reached your free daily limit for this feature.",
+    default:"Unlock everything with Lumora Pro.",
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#00000088",zIndex:600,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,
+      backdropFilter:"blur(4px)"}}>
+      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
+        padding:36,maxWidth:460,width:"100%",textAlign:"center",
+        boxShadow:"0 20px 60px #00000055"}}>
+
+        {/* Lex */}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
+          <LexSVG pose="excited" size={100} animate={true}/>
+        </div>
+
+        <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:8}}>
+          Upgrade to Lumora Pro
+        </h2>
+        <p style={{color:C.textSub,fontSize:14,lineHeight:1.7,marginBottom:24}}>
+          {reasonMsg[reason]||reasonMsg.default}
+        </p>
+
+        {/* Feature list */}
+        <div style={{background:C.surfaceHigh,borderRadius:14,padding:16,marginBottom:24,textAlign:"left"}}>
+          {[
+            "Unlimited practice questions",
+            "Full Section simulator (35 min timed)",
+            "Personalized study plan",
+            "Mistake journal + Teach It Back",
+            "Spaced repetition review",
+            "Score predictor + trajectory chart",
+            "Flaw Lab + Writing practice",
+          ].map((f,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,
+              padding:"6px 0",borderBottom:i<6?`1px solid ${C.border}`:"none"}}>
+              <span style={{color:C.success,fontWeight:700,fontSize:16}}>✓</span>
+              <span style={{fontSize:13,color:C.text}}>{f}</span>
+            </div>
+          ))}
+        </div>
+
+        {error&&<div style={{background:C.danger+"15",border:`1px solid ${C.danger}33`,
+          borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:C.danger}}>
+          {error}
+        </div>}
+
+        {/* Pricing buttons */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          <button onClick={()=>checkout(STRIPE_PRICE_MONTHLY,"monthly")}
+            disabled={!!loading}
+            style={{padding:"14px 8px",borderRadius:14,border:`2px solid ${C.accent}`,
+              background:loading==="monthly"?C.accentSoft:"transparent",
+              color:C.accent,cursor:"pointer",fontFamily:T.sans,
+              opacity:loading&&loading!=="monthly"?0.5:1}}>
+            <div style={{fontSize:22,fontWeight:900,color:C.accent}}>$19.99</div>
+            <div style={{fontSize:11,color:C.textMuted}}>per month</div>
+            {loading==="monthly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
+          </button>
+          <button onClick={()=>checkout(STRIPE_PRICE_YEARLY,"yearly")}
+            disabled={!!loading}
+            style={{padding:"14px 8px",borderRadius:14,border:`2px solid ${C.gold}`,
+              background:loading==="yearly"?C.goldSoft:"linear-gradient(135deg,#4a3000,#2d1a00)",
+              color:C.gold,cursor:"pointer",fontFamily:T.sans,
+              opacity:loading&&loading!=="yearly"?0.5:1,position:"relative"}}>
+            <div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",
+              background:C.gold,color:"#1a0800",fontSize:10,fontWeight:800,
+              padding:"2px 10px",borderRadius:20,whiteSpace:"nowrap"}}>
+              BEST VALUE
+            </div>
+            <div style={{fontSize:22,fontWeight:900,color:C.gold}}>$149</div>
+            <div style={{fontSize:11,color:C.textMuted}}>per year</div>
+            <div style={{fontSize:11,color:C.gold,marginTop:2}}>Save $90</div>
+            {loading==="yearly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
+          </button>
+        </div>
+
+        <button onClick={onClose}
+          style={{background:"none",border:"none",color:C.textMuted,
+            fontSize:13,cursor:"pointer",fontFamily:T.sans}}>
+          Maybe later
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
@@ -6425,6 +6619,7 @@ export default function App(){
   const [showOnboarding,setShowOnboarding]=useState(false);
   const [retakingDiagnostic,setRetakingDiagnostic]=useState(false);
   const [lexSessionResult,setLexSessionResult]=useState(null);
+  const [upgradeModal,setUpgradeModal]=useState(null); // null | reason string
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme globally
@@ -6439,7 +6634,19 @@ export default function App(){
         const email=DB.getSession();
         if(email){
           const u=await DB.getUser(email);
-          if(u){setUser(u);setScreen("home");}
+          if(u){
+            // Check if returning from successful Stripe checkout
+            const params=new URLSearchParams(window.location.search);
+            if(params.get("upgraded")==="true"&&!u.isPro){
+              const upgraded={...u,isPro:true};
+              await DB.saveUser(upgraded.email,upgraded);
+              setUser(upgraded);
+              window.history.replaceState({},"",window.location.pathname);
+            }else{
+              setUser(u);
+            }
+            setScreen("home");
+          }
         }
       }catch(e){console.warn("Session restore failed:",e);}
       setReady(true);
@@ -6476,6 +6683,14 @@ export default function App(){
     if(!u.onboardingDone&&(!u.history||u.history.length===0))setShowOnboarding(true);
   };
   const handleLogout=()=>{DB.clearSession();setUser(null);setScreen("landing");};
+
+  const requirePro=(feature)=>{
+    if(!user)return false;
+    const check=checkLimit(user,feature);
+    if(!check.allowed){setUpgradeModal(check.reason);return false;}
+    incrementUsage(user.email,feature);
+    return true;
+  };
 
   const handleUpdateUser=useCallback((updates)=>{
     setUser(prev=>{
@@ -6542,10 +6757,10 @@ export default function App(){
     daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
     mistakes:<MistakeJournal user={user} onUpdateUser={handleUpdateUser}/>,
     learn:<Learn user={user} onUpdateUser={handleUpdateUser}/>,
-    practice:<Practice user={user} onUpdateUser={handleUpdateUser}/>,
+    practice:<Practice user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
     writing:<Writing/>,
-    flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser}/>,
-    fullsection:<FullSection user={user} onUpdateUser={handleUpdateUser}/>,
+    flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
+    fullsection:<FullSection user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
     plan:<StudyPlan user={user} onUpdateUser={handleUpdateUser} setScreen={handleSetScreen}/>,
     upload:<Upload/>,
     notes:<Notes user={user} onUpdateUser={handleUpdateUser}/>,
@@ -6566,6 +6781,8 @@ export default function App(){
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
       <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
         onNavigate={handleSetScreen} onUpdateUser={handleUpdateUser}/>
+      {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
+        onClose={()=>setUpgradeModal(null)}/>}
     </div>
   );
 }
