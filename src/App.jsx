@@ -2521,11 +2521,7 @@ function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
       {chatOpen&&<MonkeyChat user={user} onUpdateUser={onUpdateUser}
         onClose={()=>setChatOpen(false)} onNavigate={onNavigate}/>}
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,height:60,
-        background:C.surface+"f8",borderTop:`1px solid ${C.border}`,
-        backdropFilter:"blur(12px)",zIndex:400,
-        display:"flex",alignItems:"center",justifyContent:"space-between",
-        padding:"0 20px",height:70}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,height:70,background:C.surface+"f8",borderTop:"1px solid "+C.border,backdropFilter:"blur(12px)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 20px"}}>
 
         {/* Left: points display */}
         <div style={{display:"flex",alignItems:"center",gap:6}}>
