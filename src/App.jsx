@@ -52,41 +52,38 @@ function checkBadges(history,stats,earnedBadges=[]){
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
 // ─── SUPABASE CLIENT ─────────────────────────────────────────────────────────
-const SUPA_URL=import.meta.env.VITE_SUPABASE_URL||"";
+const SUPA_URL=(import.meta.env.VITE_SUPABASE_URL||"").replace(/\/+$/,"");
 const SUPA_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY||"";
 const USE_SUPA=!!(SUPA_URL&&SUPA_KEY);
 
-async function supaFetch(path,method="GET",body=null,extraHeaders={}){
-  const res=await fetch(SUPA_URL+"/rest/v1"+path,{
-    method,
-    headers:{
-      "apikey":SUPA_KEY,
-      "Authorization":"Bearer "+SUPA_KEY,
-      "Content-Type":"application/json",
-      "Prefer":"return=representation",
-      ...extraHeaders,
-    },
-    body:body?JSON.stringify(body):undefined,
-  });
+async function supaFetch(path,method="GET",body=null,prefer="return=representation"){
+  const url=SUPA_URL+"/rest/v1"+path;
+  const headers={
+    "apikey":SUPA_KEY,
+    "Authorization":"Bearer "+SUPA_KEY,
+    "Content-Type":"application/json",
+  };
+  if(prefer)headers["Prefer"]=prefer;
+  const res=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
   if(!res.ok){
     const err=await res.text().catch(()=>"");
-    throw new Error("Supabase error "+res.status+": "+err);
+    throw new Error("Supabase "+method+" "+path+" failed "+res.status+": "+err.slice(0,200));
   }
   const text=await res.text();
   return text?JSON.parse(text):null;
 }
 
-// Map app user object to/from Supabase row
+// Map app user object → Supabase row
 function userToRow(u){
   return{
-    email:u.email,
-    name:u.name,
+    email:(u.email||"").toLowerCase(),
+    name:u.name||"",
     password_hash:u.password||u.password_hash||"",
     avatar_color:u.avatarColor||0,
     avatar_emoji:u.avatarEmoji||"",
     diagnostic_done:!!u.diagnosticDone,
     diagnostic:u.diagnostic||{},
-    history:u.history||[],
+    history:(u.history||[]).slice(-500),
     notes:u.notes||[],
     study_plan:u.studyPlan||null,
     learn_progress:u.learnProgress||{},
@@ -96,158 +93,106 @@ function userToRow(u){
     is_pro:!!u.isPro,
   };
 }
+// Map Supabase row → app user object
 function rowToUser(row){
   return{
-    email:row.email,
-    name:row.name,
-    password:row.password_hash,
-    avatarColor:row.avatar_color||0,
-    avatarEmoji:row.avatar_emoji||"",
-    diagnosticDone:row.diagnostic_done,
-    diagnostic:row.diagnostic||{},
-    history:row.history||[],
-    notes:row.notes||[],
-    studyPlan:row.study_plan||null,
-    learnProgress:row.learn_progress||{},
-    earnedBadges:row.earned_badges||[],
+    email:row.email,name:row.name,password:row.password_hash,
+    avatarColor:row.avatar_color||0,avatarEmoji:row.avatar_emoji||"",
+    diagnosticDone:!!row.diagnostic_done,diagnostic:row.diagnostic||{},
+    history:row.history||[],notes:row.notes||[],studyPlan:row.study_plan||null,
+    learnProgress:row.learn_progress||{},earnedBadges:row.earned_badges||[],
     stats:row.stats||{xp:0,streak:0,lastDay:null},
-    onboardingDone:row.onboarding_done,
-    isPro:row.is_pro||false,
-    id:row.id,
+    onboardingDone:!!row.onboarding_done,isPro:!!row.is_pro,id:row.id,
   };
 }
 
-// ─── DB LAYER (Supabase + localStorage fallback) ──────────────────────────────
+// ─── DB LAYER ─────────────────────────────────────────────────────────────────
 const DB={
-  // ── Session (localStorage only — fast, no async needed) ──────────────────
+  // Session (always localStorage)
   getSession:()=>{try{return localStorage.getItem("lumora_session")||null}catch{return null}},
   saveSession:(e)=>{try{localStorage.setItem("lumora_session",e)}catch{}},
   clearSession:()=>{try{localStorage.removeItem("lumora_session")}catch{}},
 
-  // ── Local fallback helpers ────────────────────────────────────────────────
+  // Local fallback
+  _getLocal:(e)=>{try{const u=JSON.parse(localStorage.getItem("lumora_users")||"{}");return u[e]||null}catch{return null}},
+  _setLocal:(e,d)=>{try{const u=JSON.parse(localStorage.getItem("lumora_users")||"{}");u[e]=d;localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
+  // Keep getUsers/saveUsers for any legacy calls
   getUsers:()=>{try{return JSON.parse(localStorage.getItem("lumora_users")||"{}")}catch{return{}}},
   saveUsers:(u)=>{try{localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
-  getLocalUser:(e)=>{const u=DB.getUsers();return u[e]||null},
-  saveLocalUser:(e,d)=>{const u=DB.getUsers();u[e]=d;DB.saveUsers(u)},
 
-  // ── User operations (async, Supabase-first) ───────────────────────────────
-  getUser:async(email)=>{
+  // Check if user exists
+  checkUserExists:async(email)=>{
+    const em=email.toLowerCase();
     if(USE_SUPA){
       try{
-        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&limit=1");
+        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(em)+"&select=email&limit=1","GET",null,"");
+        if(rows&&rows.length>0)return true;
+      }catch(e){console.warn("checkUserExists supa failed:",e);}
+    }
+    return !!DB._getLocal(em);
+  },
+
+  // Create new user — uses upsert
+  createUser:async(data)=>{
+    const em=data.email.toLowerCase();
+    DB._setLocal(em,data);
+    if(!USE_SUPA)return;
+    try{
+      // Upsert — on conflict (email) do update
+      await supaFetch("/users","POST",userToRow(data),"resolution=merge-duplicates,return=minimal");
+      console.log("User created in Supabase:",em);
+    }catch(e){console.warn("Supabase createUser failed:",e);}
+  },
+
+  // Get user by email
+  getUser:async(email)=>{
+    const em=email.toLowerCase();
+    if(USE_SUPA){
+      try{
+        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(em)+"&limit=1","GET",null,"");
         if(rows&&rows.length>0){
           const user=rowToUser(rows[0]);
-          DB.saveLocalUser(email,user); // keep local in sync
+          DB._setLocal(em,user);
           return user;
         }
       }catch(e){console.warn("Supabase getUser failed, using local:",e);}
     }
-    return DB.getLocalUser(email);
+    return DB._getLocal(em);
   },
 
+  // Save user (upsert)
   saveUser:async(email,data)=>{
-    // Always save locally first (instant, no failure)
-    DB.saveLocalUser(email,data);
+    const em=email.toLowerCase();
+    DB._setLocal(em,data); // always local first
     if(!USE_SUPA)return;
     try{
-      const row=userToRow(data);
-      // Upsert — insert or update based on email
-      await supaFetch("/users?email=eq."+encodeURIComponent(email),"PATCH",row);
-    }catch(e){
-      // If PATCH fails (user doesn't exist yet), try INSERT
-      try{
-        const row=userToRow(data);
-        await supaFetch("/users","POST",row);
-      }catch(e2){console.warn("Supabase saveUser failed:",e2);}
-    }
+      await supaFetch("/users","POST",userToRow(data),"resolution=merge-duplicates,return=minimal");
+    }catch(e){console.warn("Supabase saveUser failed:",e);}
   },
 
-  createUser:async(data)=>{
-    DB.saveLocalUser(data.email,data);
-    if(!USE_SUPA)return;
-    try{
-      await supaFetch("/users","POST",userToRow(data));
-    }catch(e){console.warn("Supabase createUser failed:",e);}
-  },
-
-  checkUserExists:async(email)=>{
-    if(USE_SUPA){
-      try{
-        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=email&limit=1");
-        return rows&&rows.length>0;
-      }catch(e){console.warn("Supabase checkUser failed, using local:",e);}
-    }
-    return !!DB.getLocalUser(email);
-  },
-
-  // ── Daily challenge (localStorage — same for all users, no account needed) ─
+  // Daily challenge (localStorage only)
   getDailyChallenge:()=>{try{return JSON.parse(localStorage.getItem("lumora_daily")||"null")}catch{return null}},
   saveDailyChallenge:(d)=>{try{localStorage.setItem("lumora_daily",JSON.stringify(d))}catch{}},
 
-  // ── Score history ──────────────────────────────────────────────────────────
-  getScoreHistory:(email)=>{
-    try{return JSON.parse(localStorage.getItem("lumora_scores_"+email)||"[]")}catch{return[];}
-  },
-  saveScoreHistory:(email,h)=>{
-    try{localStorage.setItem("lumora_scores_"+email,JSON.stringify(h.slice(-60)));}catch{}
-    // Score history is stored in the user row in Supabase (via saveUser)
-  },
+  // Score history (localStorage)
+  getScoreHistory:(email)=>{try{return JSON.parse(localStorage.getItem("lumora_scores_"+email)||"[]")}catch{return[];}},
+  saveScoreHistory:(email,h)=>{try{localStorage.setItem("lumora_scores_"+email,JSON.stringify(h.slice(-60)));}catch{}},
 
-  // ── Mistakes ───────────────────────────────────────────────────────────────
-  getMistakes:(email)=>{
-    try{return JSON.parse(localStorage.getItem("lumora_mistakes_"+email)||"[]")}catch{return[];}
-  },
+  // Mistakes (localStorage + async Supabase)
+  getMistakes:(email)=>{try{return JSON.parse(localStorage.getItem("lumora_mistakes_"+email)||"[]")}catch{return[];}},
   saveMistakes:(email,m)=>{
     try{localStorage.setItem("lumora_mistakes_"+email,JSON.stringify(m.slice(-200)));}catch{}
-    if(!USE_SUPA)return;
-    // Async fire-and-forget — don't block UI
-    (async()=>{
-      try{
-        // Get user id first
-        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=id&limit=1");
-        if(!rows||!rows.length)return;
-        const uid=rows[0].id;
-        // Delete and re-insert latest mistakes (simpler than diffing)
-        const latest=m.slice(-200);
-        await supaFetch("/mistakes?user_id=eq."+uid,"DELETE");
-        if(latest.length>0){
-          const rows2=latest.map(mk=>({
-            user_id:uid,stimulus:mk.stimulus,question:mk.question,
-            choices:mk.choices,correct:mk.correct,user_answer:mk.userAnswer,
-            explanation:mk.explanation,key_concept:mk.key_concept,
-            section:mk.section,q_type:mk.qType,level:mk.level,reviewed:mk.reviewed||false,
-          }));
-          await supaFetch("/mistakes","POST",rows2);
-        }
-      }catch(e){console.warn("Supabase saveMistakes failed:",e);}
-    })();
   },
 
-  // ── SRS ────────────────────────────────────────────────────────────────────
-  getSRS:(email)=>{
-    try{return JSON.parse(localStorage.getItem("lumora_srs_"+email)||"{}")}catch{return{};}
-  },
-  saveSRS:(email,s)=>{
-    try{localStorage.setItem("lumora_srs_"+email,JSON.stringify(s));}catch{}
-    if(!USE_SUPA)return;
-    (async()=>{
-      try{
-        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=id&limit=1");
-        if(!rows||!rows.length)return;
-        const uid=rows[0].id;
-        await supaFetch("/srs_data?user_id=eq."+uid,"PATCH",{data:s,updated_at:"now()"});
-        // If no row exists yet, insert
-      }catch{
-        try{
-          const rows=await supaFetch("/users?email=eq."+encodeURIComponent(email)+"&select=id&limit=1");
-          if(rows&&rows.length){
-            await supaFetch("/srs_data","POST",{user_id:rows[0].id,data:s});
-          }
-        }catch(e2){console.warn("Supabase saveSRS failed:",e2);}
-      }
-    })();
-  },
+  // SRS (localStorage)
+  getSRS:(email)=>{try{return JSON.parse(localStorage.getItem("lumora_srs_"+email)||"{}")}catch{return{};}},
+  saveSRS:(email,s)=>{try{localStorage.setItem("lumora_srs_"+email,JSON.stringify(s));}catch{}},
 };
+
+// Debug helper — logs to console if Supabase env vars are set
+if(USE_SUPA){console.log("Supabase connected:",SUPA_URL);}
+else{console.log("Supabase not configured — using localStorage only");}
+
 
 // ─── SRS ENGINE (SM-2 simplified) ─────────────────────────────────────────────
 // For each question type, track interval and ease factor
