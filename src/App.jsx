@@ -2307,7 +2307,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
   ]);
   const [loading,setLoading]=useState(false);
   const bottomRef=useRef(null);
-  const lexO=getLexOutfit(user?.email);
+  const lexO={outfit:"none",hat:"none",glasses:"none"};
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
 
@@ -6555,7 +6555,7 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
   const [showBubble,setShowBubble]=useState(false);
   const [lexIntroShown,setLexIntroShown]=useState(true);
   const idleTimer=useRef(null);
-  const lexO=getLexOutfit(user?.email);
+  const lexO={outfit:"none",hat:"none",glasses:"none"};
 
   // Check if Lex intro has been done
   useEffect(()=>{
