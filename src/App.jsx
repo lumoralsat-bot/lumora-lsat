@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Component } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
@@ -2444,6 +2444,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
 // ─── MONKEY BAR (always-visible bottom bar) ───────────────────────────────────
 function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
   const [chatOpen,setChatOpen]=useState(false);
+  const lexO={outfit:"none",hat:"none",glasses:"none"};
 
 
   return(
@@ -7038,6 +7039,7 @@ export default function App(){
   };
 
   return(
+    <ErrorBoundary>
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
@@ -7056,5 +7058,49 @@ export default function App(){
       {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
         onClose={()=>setUpgradeModal(null)}/>}
     </div>
+    </ErrorBoundary>
   );
 }
+// ─── ERROR BOUNDARY ──────────────────────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props){
+    super(props);
+    this.state={hasError:false,error:null,info:null};
+  }
+  static getDerivedStateFromError(error){
+    return{hasError:true,error};
+  }
+  componentDidCatch(error,info){
+    this.setState({info});
+    console.error("App crashed:",error,info);
+  }
+  render(){
+    if(this.state.hasError){
+      return(
+        <div style={{minHeight:"100vh",background:"#06080f",display:"flex",
+          alignItems:"center",justifyContent:"center",padding:24,fontFamily:"sans-serif"}}>
+          <div style={{background:"#1a1a2e",border:"1px solid #ef4444",borderRadius:16,
+            padding:32,maxWidth:600,width:"100%"}}>
+            <h2 style={{color:"#ef4444",fontSize:20,marginBottom:12}}>
+              App Error — please report this
+            </h2>
+            <pre style={{color:"#fca5a5",fontSize:12,whiteSpace:"pre-wrap",
+              background:"#0a0f1e",padding:16,borderRadius:8,overflow:"auto",
+              maxHeight:300}}>
+              {this.state.error?.toString()}
+              {this.state.info?.componentStack}
+            </pre>
+            <button onClick={()=>window.location.reload()}
+              style={{marginTop:16,background:"#3b82f6",border:"none",borderRadius:8,
+                padding:"10px 20px",color:"white",cursor:"pointer",fontSize:14}}>
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
