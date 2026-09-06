@@ -224,52 +224,7 @@ const DB={
   saveSRS:(email,s)=>{try{localStorage.setItem("lumora_srs_"+email,JSON.stringify(s));}catch{}},
 };
 
-// ── Debug + test helper ──────────────────────────────────────────────────────
-console.log("=== LUMORA SUPABASE STATUS ===");
-console.log("USE_SUPA:",USE_SUPA);
-console.log("SUPA_URL:",SUPA_URL||"(not set)");
-console.log("SUPA_KEY:",SUPA_KEY?"(set, length="+SUPA_KEY.length+")":"(not set)");
-
-// Expose test function on window so you can call it from browser console:
-// lumoraTest() — creates a test user directly and logs the result
-window.lumoraShowUpgrade=function(){
-  // Force show the upgrade modal for testing - call from browser console
-  const event=new CustomEvent("lumora:showUpgrade",{detail:{reason:"default"}});
-  window.dispatchEvent(event);
-};
-window.lumoraTest=async function(){
-  console.log("=== SUPABASE CONNECTION TEST ===");
-  console.log("URL:",SUPA_URL);
-  console.log("Key length:",SUPA_KEY.length);
-  try{
-    // Test 1: Can we reach Supabase at all?
-    const r1=await fetch(SUPA_URL+"/rest/v1/users?limit=1",{
-      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}
-    });
-    console.log("GET /users status:",r1.status,r1.statusText);
-    const t1=await r1.text();
-    console.log("GET /users response:",t1.slice(0,200));
-  }catch(e){console.error("GET failed:",e);}
-  try{
-    // Test 2: Can we insert a test row?
-    const testRow={email:"__test__@lumora.dev",name:"Test",password_hash:"test",
-      diagnostic:{},history:[],notes:[],study_plan:null,learn_progress:{},
-      earned_badges:[],stats:{xp:0,streak:0,lastDay:null},
-      diagnostic_done:false,onboarding_done:false,is_pro:false};
-    const r2=await fetch(SUPA_URL+"/rest/v1/users",{
-      method:"POST",
-      headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,
-        "Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
-      body:JSON.stringify(testRow)
-    });
-    console.log("INSERT status:",r2.status,r2.statusText);
-    const t2=await r2.text();
-    console.log("INSERT response:",t2.slice(0,300));
-    if(r2.ok)console.log("SUCCESS - check your Supabase table editor now!");
-    else console.error("INSERT FAILED - this is the problem");
-  }catch(e){console.error("INSERT failed:",e);}
-};
-console.log("Run lumoraTest() in the browser console to diagnose Supabase connection");
+// Supabase connected
 
 
 // ─── SRS ENGINE (SM-2 simplified) ─────────────────────────────────────────────
@@ -2168,34 +2123,9 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
 
 // ─── MONKEY CONSTANTS ────────────────────────────────────────────────────────
 const LEX_NAME_KEY="lumora_lex_name";
-const LEX_POINTS_KEY="lumora_lex_points";
-const LEX_OUTFIT_KEY="lumora_lex_outfit";
 const LEX_INTRO_KEY="lumora_lex_intro_done";
 
 const LEX_IDLE_MS=60000; // 90s idle before Lex pops up
-
-const LEX_OUTFITS={
-  none:{label:"Classic Vest",cost:0,color:"#1e3a5f",accent:"#4f7fff"},
-  lawyer:{label:"Lawyer Suit",cost:200,color:"#1a1a2e",accent:"#c0a060"},
-  graduate:{label:"Grad Gown",cost:150,color:"#2d0057",accent:"#a78bfa"},
-  casual:{label:"Casual Tee",cost:100,color:"#1a3a1a",accent:"#2dd4a0"},
-  champion:{label:"Gold Champion",cost:500,color:"#4a3000",accent:"#f5c842"},
-};
-
-const LEX_HATS={
-  none:{label:"No Hat",cost:0},
-  mortarboard:{label:"Mortarboard",cost:75},
-  tophat:{label:"Top Hat",cost:150},
-  beanie:{label:"Study Beanie",cost:50},
-  crown:{label:"Crown",cost:400},
-};
-
-const LEX_GLASSES={
-  none:{label:"No Glasses",cost:0},
-  round:{label:"Round Specs",cost:60},
-  cool:{label:"Cool Shades",cost:80},
-  monocle:{label:"Monocle",cost:120},
-};
 
 const LEX_IDLE_QUIPS=[
   "Quit monkeying around! 🐵",
@@ -2204,7 +2134,6 @@ const LEX_IDLE_QUIPS=[
   "I'm not saying you're procrastinating, but… you're procrastinating.",
   "The LSAT waits for no one. Neither does Lex.",
   "Fun fact: staring at the screen burns zero brain calories.",
-  "Go bananas on a practice question!",
   "Your future law school self is watching. 👀",
   "Even monkeys know when to get back to work.",
   "Ready when you are, counselor.",
@@ -2212,7 +2141,6 @@ const LEX_IDLE_QUIPS=[
 
 const LEX_MISS_QUIPS=[
   "I missed you! Your streak needs you back.",
-  "The LSAT doesn't take days off. Just saying. 🍌",
   "I've been here the whole time. Have you?",
   "A rusty LSAT brain is a sad Lex. Please come back.",
   "Your goals texted. They want to know where you've been.",
@@ -2234,24 +2162,6 @@ const LEX_LOSE_QUIPS=[
   "Wrong now. Right later. That's how this works.",
   "The only real mistake is not trying again. You've got this.",
 ];
-
-function getLexPoints(email){
-  try{return parseInt(localStorage.getItem(LEX_POINTS_KEY+(email||""))||"0");}
-  catch{return 0;}
-}
-function setLexPoints(email,pts){
-  try{localStorage.setItem(LEX_POINTS_KEY+(email||""),String(Math.max(0,pts)));}
-  catch{}
-}
-function getLexOutfit(email){
-  try{return JSON.parse(localStorage.getItem(LEX_OUTFIT_KEY+(email||""))||
-    '{"outfit":"none","hat":"none","glasses":"none"}');}
-  catch{return{outfit:"none",hat:"none",glasses:"none"};}
-}
-function setLexOutfit(email,o){
-  try{localStorage.setItem(LEX_OUTFIT_KEY+(email||""),JSON.stringify(o));}
-  catch{}
-}
 
 // ─── LEX SVG CHARACTER ───────────────────────────────────────────────────────
 // pose: idle | happy | celebrate | sad | think | excited | sleep
@@ -2454,7 +2364,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
       }
       setMsgs(m=>[...m,lexMsg]);
     }catch{
-      setMsgs(m=>[...m,{role:"lex",text:"Oops — my banana phone dropped the call! Try again in a sec. 🐵"}]);
+      setMsgs(m=>[...m,{role:"lex",text:"Oops — something went wrong. Try again in a sec. 🐵"}]);
     }
     setLoading(false);
   };
@@ -2534,10 +2444,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
 // ─── MONKEY BAR (always-visible bottom bar) ───────────────────────────────────
 function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
   const [chatOpen,setChatOpen]=useState(false);
-  const [points,setPoints]=useState(getLexPoints(user?.email));
-  const lexO=getLexOutfit(user?.email);
 
-  useEffect(()=>{setPoints(getLexPoints(user?.email));},[user?.email,user?.stats?.xp]);
 
   return(
     <>
@@ -2546,14 +2453,7 @@ function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
 
       <div style={{position:"fixed",bottom:0,left:0,right:0,height:70,background:C.surface+"f8",borderTop:"1px solid "+C.border,backdropFilter:"blur(12px)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 20px"}}>
 
-        {/* Left: points display */}
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <span style={{fontSize:16}}>🍌</span>
-          <div>
-            <div style={{fontSize:13,fontWeight:700,color:C.gold}}>{points.toLocaleString()}</div>
-            <div style={{fontSize:9,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em"}}>Lex Points</div>
-          </div>
-        </div>
+        <div/>
 
         {/* Center: Lex button */}
         <button onClick={()=>setChatOpen(o=>!o)}
@@ -2568,165 +2468,14 @@ function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
             outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
         </button>
 
-        {/* Right: shop link */}
-        <button onClick={()=>onNavigate("lexshop")}
-          style={{background:"none",border:`1px solid ${C.border}`,borderRadius:10,
-            padding:"5px 10px",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
-          🎨 Dress Lex
-        </button>
+        <div/>
       </div>
     </>
   );
 }
 
 // ─── LEX SHOP (customizer) ────────────────────────────────────────────────────
-function LexShop({user,onBack}){
-  const [outfit,setOutfit]=useState(getLexOutfit(user?.email));
-  const [points,setPoints]=useState(getLexPoints(user?.email));
-  const [tab,setTab]=useState("outfits");
-  const [saved,setSaved]=useState(false);
-  const [msg,setMsg]=useState("");
 
-  const purchase=(type,key,cost)=>{
-    if(points<cost){setMsg("Not enough Lex Points! Earn more by answering questions correctly.");return;}
-    const newPts=points-cost;
-    setPoints(newPts);
-    setLexPoints(user?.email,newPts);
-    const newOutfit={...outfit,[type]:key};
-    setOutfit(newOutfit);
-    setLexOutfit(user?.email,newOutfit);
-    setMsg("Unlocked! Looking good, Lex 🎉");
-    setTimeout(()=>setMsg(""),2500);
-  };
-
-  const select=(type,key)=>{
-    const newOutfit={...outfit,[type]:key};
-    setOutfit(newOutfit);
-    setLexOutfit(user?.email,newOutfit);
-  };
-
-  const TABS=[{id:"outfits",label:"Outfits",icon:"👔"},
-    {id:"hats",label:"Hats",icon:"🎩"},{id:"glasses",label:"Glasses",icon:"👓"}];
-
-  return(
-    <main style={{maxWidth:600,margin:"0 auto",padding:"24px 20px 90px"}}>
-      <button onClick={onBack}
-        style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",
-          fontSize:13,fontFamily:T.sans,marginBottom:16,display:"flex",alignItems:"center",gap:6}}>
-        ← Back
-      </button>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-        <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text}}>Lex's Wardrobe</h1>
-        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,
-          padding:"6px 14px",display:"flex",alignItems:"center",gap:6}}>
-          <span style={{fontSize:16}}>🍌</span>
-          <span style={{fontWeight:700,color:C.gold}}>{points.toLocaleString()} pts</span>
-        </div>
-      </div>
-
-      {msg&&<div style={{background:C.success+"15",border:`1px solid ${C.success}33`,borderRadius:12,
-        padding:"10px 14px",marginBottom:14,fontSize:13,color:C.success}}>{msg}</div>}
-
-      {/* Preview */}
-      <Card style={{marginBottom:16,textAlign:"center",padding:"24px",background:"linear-gradient(135deg,#0d1225,#1a2340)"}}>
-        <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>
-          Current Look
-        </div>
-        <LexSVG pose="happy" size={160} outfit={outfit.outfit} hat={outfit.hat} glasses={outfit.glasses}/>
-        <div style={{marginTop:10,fontSize:12,color:C.textMuted}}>
-          {LEX_OUTFITS[outfit.outfit]?.label} · {LEX_HATS[outfit.hat]?.label} · {LEX_GLASSES[outfit.glasses]?.label}
-        </div>
-      </Card>
-
-      {/* Tabs */}
-      <div style={{display:"flex",gap:8,marginBottom:16}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{flex:1,padding:"9px 0",borderRadius:10,border:`1.5px solid ${tab===t.id?C.accent:C.border}`,
-              background:tab===t.id?C.accentSoft:"transparent",
-              color:tab===t.id?C.accent:C.textMuted,fontSize:13,cursor:"pointer",
-              fontFamily:T.sans,fontWeight:tab===t.id?700:400}}>
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Items */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {tab==="outfits"&&Object.entries(LEX_OUTFITS).map(([key,o])=>{
-          const isSelected=outfit.outfit===key;
-          const owned=o.cost===0||points>=0; // all already purchased if free
-          return(
-            <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center",padding:16}}
-              onClick={()=>o.cost===0?select("outfit",key):purchase("outfit",key,o.cost)}>
-              <div style={{position:"relative",display:"inline-block",marginBottom:8}}>
-                <LexSVG pose="idle" size={90} outfit={key} hat="none" glasses="none" animate={false}/>
-              </div>
-              <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text}}>{o.label}</div>
-              <div style={{fontSize:18,marginTop:2}}>{key==="none"?"🐒":key==="lawyer"?"⚖️":key==="graduate"?"🎓":key==="casual"?"👕":"🏆"}</div>
-              {o.cost>0
-                ?<div style={{fontSize:11,color:C.gold,marginTop:4,fontWeight:600}}>🍌 {o.cost} pts to unlock</div>
-                :<div style={{fontSize:11,color:C.success,marginTop:4}}>✓ Free</div>}
-              {isSelected&&<div style={{marginTop:4,fontSize:10,color:"white",background:C.accent,borderRadius:8,padding:"2px 8px",display:"inline-block",fontWeight:700}}>ACTIVE</div>}
-            </Card>
-          );
-        })}
-        {tab==="hats"&&Object.entries(LEX_HATS).map(([key,h])=>{
-          const isSelected=outfit.hat===key;
-          return(
-            <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center",padding:16}}
-              onClick={()=>h.cost===0?select("hat",key):purchase("hat",key,h.cost)}>
-              <div style={{position:"relative",display:"inline-block",marginBottom:8}}>
-                <LexSVG pose="idle" size={90} outfit={outfit.outfit} hat={key} glasses="none" animate={false}/>
-              </div>
-              <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text}}>{h.label}</div>
-              <div style={{fontSize:18,marginTop:2}}>{key==="none"?"—":key==="mortarboard"?"🎓":key==="tophat"?"🎩":key==="beanie"?"🧢":"👑"}</div>
-              {h.cost>0
-                ?<div style={{fontSize:11,color:C.gold,marginTop:4,fontWeight:600}}>🍌 {h.cost} pts to unlock</div>
-                :<div style={{fontSize:11,color:C.success,marginTop:4}}>✓ Free</div>}
-              {isSelected&&<div style={{marginTop:4,fontSize:10,color:"white",background:C.accent,borderRadius:8,padding:"2px 8px",display:"inline-block",fontWeight:700}}>ACTIVE</div>}
-            </Card>
-          );
-        })}
-        {tab==="glasses"&&Object.entries(LEX_GLASSES).map(([key,g])=>{
-          const isSelected=outfit.glasses===key;
-          return(
-            <Card key={key} style={{borderColor:isSelected?C.accent:C.border,cursor:"pointer",textAlign:"center",padding:16}}
-              onClick={()=>g.cost===0?select("glasses",key):purchase("glasses",key,g.cost)}>
-              <div style={{position:"relative",display:"inline-block",marginBottom:8}}>
-                <LexSVG pose="idle" size={90} outfit={outfit.outfit} hat="none" glasses={key} animate={false}/>
-              </div>
-              <div style={{fontSize:13,fontWeight:700,color:isSelected?C.accent:C.text}}>{g.label}</div>
-              <div style={{fontSize:18,marginTop:2}}>{key==="none"?"—":key==="round"?"🔵":key==="cool"?"😎":"🧐"}</div>
-              {g.cost>0
-                ?<div style={{fontSize:11,color:C.gold,marginTop:4,fontWeight:600}}>🍌 {g.cost} pts to unlock</div>
-                :<div style={{fontSize:11,color:C.success,marginTop:4}}>✓ Free</div>}
-              {isSelected&&<div style={{marginTop:4,fontSize:10,color:"white",background:C.accent,borderRadius:8,padding:"2px 8px",display:"inline-block",fontWeight:700}}>ACTIVE</div>}
-            </Card>
-          );
-        })}
-      </div>
-
-      <div style={{marginTop:16,background:"#1a1a2e22",border:`1px solid ${C.border}`,borderRadius:12,padding:12,marginBottom:12,fontSize:12,color:C.textMuted,lineHeight:1.6}}>
-        💡 <strong style={{color:C.text}}>Coming soon:</strong> Upload custom Lex poses to see outfits and hats fully rendered. Currently, active accessories appear as badges on the character icon throughout the app.
-      </div>
-      <div style={{marginTop:0,background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.accent,marginBottom:6}}>🍌 How to Earn Lex Points</div>
-        <div style={{fontSize:12,color:C.textSub,lineHeight:1.7}}>
-          +5 pts — Each correct practice answer<br/>
-          +10 pts — Each Quick 5 question correct<br/>
-          +20 pts — Daily Challenge completed<br/>
-          +50 pts — Full Section completed<br/>
-          +15 pts — Flaw Lab or Writing submitted<br/>
-          +10 pts — SRS Review session completed<br/>
-          +25 pts — 7-day streak maintained
-        </div>
-      </div>
-    </main>
-  );
-}
-
-// ─── LEX INTRO (first time naming Lex) ───────────────────────────────────────
 function LexIntro({user,onDone}){
   const [step,setStep]=useState(0);
   const [lexName,setLexName]=useState("Lex");
@@ -2811,7 +2560,7 @@ function LexIntro({user,onDone}){
           <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
             From now on I'm <strong>{lexName}</strong>! No matter where you are in the app, I'll always be right there at the bottom of your screen — just look for me down there and give me a tap! 👇
             Ask me anything about the LSAT or the app, and I'll point you in the right direction.
-            You can even dress me up in the wardrobe — I've heard the top hat is very distinguished. 🎩
+            You can always find me right at the bottom of your screen — just tap me anytime for help! 👇
           </p>
         </div>
         <Btn onClick={onDone} style={{width:"100%"}}>Let's start studying! 🐵</Btn>
@@ -2981,7 +2730,6 @@ function Quick5({user,onUpdateUser,onDone}){
     setResults(prev=>[...prev,record]);
     onUpdateUser({history:[...(user.history||[]),record],
       stats:{...user.stats,xp:(user.stats?.xp||0)+record.xp}});
-    if(user.email)awardLexPoints(user.email,correct?10:0);
   };
 
   const next=()=>{
@@ -3712,6 +3460,46 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
           </p>
         )}
       </Card>
+
+      {/* Subscription management */}
+      {user.isPro&&(
+        <Card style={{marginBottom:14,borderColor:C.gold+"44"}}>
+          <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12,fontWeight:600}}>
+            Pro Subscription
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+            <div>
+              <div style={{fontSize:14,color:C.text,fontWeight:600,marginBottom:2}}>
+                ✦ Lumora LSAT Pro — Active
+              </div>
+              <div style={{fontSize:12,color:C.textMuted,lineHeight:1.6}}>
+                Unlimited questions, full features, priority generation.
+              </div>
+            </div>
+            <button onClick={async()=>{
+              if(!window.confirm("Cancel your Pro subscription? You will keep Pro access until your current billing period ends."))return;
+              try{
+                const res=await fetch("/api/cancel-subscription",{
+                  method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({email:user.email})
+                });
+                const data=await res.json();
+                if(data.ok){
+                  alert("Subscription cancelled. You will keep Pro access until your billing period ends.");
+                }else{
+                  alert("To cancel, please contact us or manage your subscription at stripe.com. Error: "+(data.error||"unknown"));
+                }
+              }catch{
+                alert("To cancel your subscription, email us or visit your Stripe customer portal.");
+              }
+            }}
+              style={{background:"none",border:`1px solid ${C.danger}44`,borderRadius:10,
+                padding:"7px 14px",color:C.danger,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+              Cancel Subscription
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* Account info */}
       <Card style={{marginBottom:24}}>
@@ -4600,7 +4388,6 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
     onUpdateUser({history:newHistory,stats:newStats,earnedBadges:[...(user.earnedBadges||[]),...newBadges]});
     // Award Lex Points
     if(user.email){
-      awardLexPoints(user.email,correct?5:0);
     }
     if(!correct&&question.stimulus&&user.email){
       const mistake={id:Date.now(),stimulus:question.stimulus,question:question.question,
@@ -5621,28 +5408,416 @@ function Upload(){
 }
 
 // ─── NOTES ────────────────────────────────────────────────────────────────────
+// ─── JOURNAL (floating + full page) ─────────────────────────────────────────
+// Journal entries have: id, title, text, type (scratch/insight/mistake), timestamp, tags, color
+const JOURNAL_COLORS=["#4f7fff","#a78bfa","#2dd4a0","#f5c842","#f87171","#22d3ee"];
+const JOURNAL_TYPES=[
+  {id:"scratch",label:"Scratch Paper",icon:"✏️",desc:"Working space during questions"},
+  {id:"insight",label:"Insight",icon:"💡",desc:"Strategy or pattern you noticed"},
+  {id:"mistake",label:"Wrong Answer",icon:"❌",desc:"Question you got wrong and why"},
+  {id:"concept",label:"Concept",icon:"📖",desc:"Definition or rule to remember"},
+];
+
+function JournalEntry({entry,onEdit,onDelete,onColorChange}){
+  const [expanded,setExpanded]=useState(false);
+  const typeInfo=JOURNAL_TYPES.find(t=>t.id===entry.type)||JOURNAL_TYPES[0];
+  return(
+    <div style={{background:C.surface,border:`1px solid ${entry.color||C.border}33`,
+      borderLeft:`4px solid ${entry.color||C.accent}`,borderRadius:12,
+      marginBottom:10,overflow:"hidden",transition:"all 0.2s"}}>
+      {/* Entry header */}
+      <div style={{padding:"12px 16px",display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}}
+        onClick={()=>setExpanded(e=>!e)}>
+        <span style={{fontSize:18,flexShrink:0}}>{typeInfo.icon}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:2}}>
+            {entry.title||"Untitled note"}
+          </div>
+          <div style={{fontSize:12,color:C.textMuted,display:"flex",gap:8,flexWrap:"wrap"}}>
+            <span style={{background:entry.color+"22",color:entry.color||C.accent,
+              padding:"1px 7px",borderRadius:10,fontSize:11}}>{typeInfo.label}</span>
+            <span>{new Date(entry.timestamp).toLocaleDateString("en-US",
+              {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
+          </div>
+          {!expanded&&entry.text&&(
+            <p style={{fontSize:13,color:C.textSub,marginTop:4,
+              overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {entry.text}
+            </p>
+          )}
+        </div>
+        <span style={{color:C.textMuted,fontSize:12,flexShrink:0}}>
+          {expanded?"▲":"▼"}
+        </span>
+      </div>
+      {/* Expanded content */}
+      {expanded&&(
+        <div style={{padding:"0 16px 14px",borderTop:`1px solid ${C.border}`}}>
+          <div style={{paddingTop:12,fontSize:14,color:C.text,
+            lineHeight:1.8,whiteSpace:"pre-wrap",fontFamily:T.sans}}>
+            {entry.text||<span style={{color:C.textMuted,fontStyle:"italic"}}>No content</span>}
+          </div>
+          {entry.tags&&entry.tags.length>0&&(
+            <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
+              {entry.tags.map((t,i)=>(
+                <span key={i} style={{fontSize:11,color:C.textMuted,
+                  background:C.surfaceHigh,padding:"2px 8px",borderRadius:10}}>
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+            {/* Color picker */}
+            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+              {JOURNAL_COLORS.map(c=>(
+                <button key={c} onClick={()=>onColorChange(entry.id,c)}
+                  style={{width:16,height:16,borderRadius:"50%",background:c,border:"none",
+                    cursor:"pointer",outline:c===entry.color?"2px solid white":"none",
+                    outlineOffset:1}}>
+                </button>
+              ))}
+            </div>
+            <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+              <button onClick={()=>onEdit(entry)}
+                style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,
+                  padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>
+                Edit
+              </button>
+              <button onClick={()=>onDelete(entry.id)}
+                style={{background:"none",border:`1px solid ${C.danger}44`,borderRadius:8,
+                  padding:"4px 10px",color:C.danger,fontSize:12,cursor:"pointer"}}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JournalEditor({initial,onSave,onClose}){
+  const [title,setTitle]=useState(initial?.title||"");
+  const [text,setText]=useState(initial?.text||"");
+  const [type,setType]=useState(initial?.type||"scratch");
+  const [tags,setTags]=useState((initial?.tags||[]).join(", "));
+  const [color,setColor]=useState(initial?.color||JOURNAL_COLORS[0]);
+
+  const save=()=>{
+    if(!text.trim()&&!title.trim())return;
+    onSave({
+      id:initial?.id||Date.now(),
+      title:title.trim()||"Untitled",
+      text:text.trim(),
+      type,
+      color,
+      tags:tags.split(",").map(t=>t.trim()).filter(Boolean),
+      timestamp:initial?.timestamp||Date.now(),
+      edited:initial?Date.now():undefined,
+    });
+    onClose();
+  };
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {/* Type selector */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        {JOURNAL_TYPES.map(t=>(
+          <button key={t.id} onClick={()=>setType(t.id)}
+            style={{padding:"8px 10px",borderRadius:10,textAlign:"left",
+              border:`1.5px solid ${type===t.id?color:C.border}`,
+              background:type===t.id?color+"15":"transparent",
+              cursor:"pointer",fontFamily:T.sans}}>
+            <span style={{fontSize:14}}>{t.icon}</span>
+            <span style={{fontSize:12,fontWeight:600,color:type===t.id?color:C.text,
+              marginLeft:6}}>{t.label}</span>
+          </button>
+        ))}
+      </div>
+      {/* Title */}
+      <input value={title} onChange={e=>setTitle(e.target.value)}
+        placeholder="Title (optional)"
+        style={{background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,
+          padding:"10px 12px",color:C.text,fontSize:14,fontFamily:T.sans,outline:"none"}}/>
+      {/* Text area — the actual journal */}
+      <div style={{position:"relative"}}>
+        <textarea value={text} onChange={e=>setText(e.target.value)}
+          placeholder={
+            type==="scratch"?"Work through the question here — identify conclusion, premises, gap…":
+            type==="insight"?"What pattern or strategy did you notice?":
+            type==="mistake"?"Why was your answer wrong? What was the correct reasoning?":
+            "Concept, rule, or definition to remember…"}
+          rows={8}
+          style={{width:"100%",background:C.bg,border:`1px solid ${color}44`,
+            borderRadius:12,padding:"14px 16px",color:C.text,fontSize:14,
+            fontFamily:"Georgia, serif",lineHeight:2,resize:"vertical",
+            boxSizing:"border-box",outline:"none",
+            backgroundImage:`repeating-linear-gradient(transparent,transparent 31px,${color}18 31px,${color}18 32px)`,
+            backgroundSize:"100% 32px",backgroundPosition:"0 14px"}}/>
+      </div>
+      {/* Tags */}
+      <input value={tags} onChange={e=>setTags(e.target.value)}
+        placeholder="Tags (comma separated): assumption, weaken, timing…"
+        style={{background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,
+          padding:"8px 12px",color:C.text,fontSize:13,fontFamily:T.sans,outline:"none"}}/>
+      {/* Color + Save */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <span style={{fontSize:12,color:C.textMuted}}>Color:</span>
+          {JOURNAL_COLORS.map(c=>(
+            <button key={c} onClick={()=>setColor(c)}
+              style={{width:18,height:18,borderRadius:"50%",background:c,border:"none",
+                cursor:"pointer",outline:c===color?"2px solid white":"none",outlineOffset:1}}/>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onClose}
+            style={{background:"none",border:`1px solid ${C.border}`,borderRadius:10,
+              padding:"8px 14px",color:C.textMuted,fontSize:13,cursor:"pointer"}}>
+            Cancel
+          </button>
+          <button onClick={save} disabled={!text.trim()&&!title.trim()}
+            style={{background:color,border:"none",borderRadius:10,padding:"8px 16px",
+              color:"white",fontSize:13,fontWeight:700,cursor:"pointer",
+              opacity:!text.trim()&&!title.trim()?0.5:1}}>
+            Save Entry
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Full-page journal
 function Notes({user,onUpdateUser}){
   const notes=user.notes||[];
-  const [input,setInput]=useState("");
-  const [editId,setEditId]=useState(null);
+  const [showEditor,setShowEditor]=useState(false);
+  const [editEntry,setEditEntry]=useState(null);
   const [search,setSearch]=useState("");
-  const save=()=>{if(!input.trim())return;const u=editId?notes.map(n=>n.id===editId?{...n,text:input.trim(),edited:Date.now()}:n):[...notes,{id:Date.now(),text:input.trim(),source:"Manual",timestamp:Date.now()}];onUpdateUser({notes:u});setInput("");setEditId(null);};
-  const del=(id)=>{if(window.confirm("Delete this note?"))onUpdateUser({notes:notes.filter(n=>n.id!==id)});};
-  const filtered=notes.filter(n=>n.text.toLowerCase().includes(search.toLowerCase()));
+  const [filterType,setFilterType]=useState("all");
+
+  const saveEntry=(entry)=>{
+    const existing=notes.find(n=>n.id===entry.id);
+    const updated=existing
+      ?notes.map(n=>n.id===entry.id?entry:n)
+      :[...notes,entry];
+    onUpdateUser({notes:updated});
+  };
+
+  const deleteEntry=(id)=>{
+    if(window.confirm("Delete this journal entry?"))
+      onUpdateUser({notes:notes.filter(n=>n.id!==id)});
+  };
+
+  const changeColor=(id,color)=>{
+    onUpdateUser({notes:notes.map(n=>n.id===id?{...n,color}:n)});
+  };
+
+  const filtered=notes
+    .filter(n=>filterType==="all"||n.type===filterType)
+    .filter(n=>!search||(n.title+n.text+(n.tags||[]).join(" "))
+      .toLowerCase().includes(search.toLowerCase()))
+    .slice().reverse();
+
   return(
-    <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Study Notes</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:22}}>Insights added during practice appear here automatically.</p>
-      <Card style={{marginBottom:14}}><label htmlFor="note-area" style={{display:"block",fontSize:13,color:C.textSub,marginBottom:6,fontWeight:600}}>{editId?"Edit note":"Add a note"}</label><textarea id="note-area" value={input} onChange={e=>setInput(e.target.value)} placeholder="Pattern, strategy, concept to review…" rows={3} style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",color:C.text,fontSize:14,fontFamily:T.sans,resize:"none",boxSizing:"border-box",outline:"none"}}/><div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={save} disabled={!input.trim()} small>{editId?"Update":"Save Note"}</Btn>{editId&&<Btn ghost onClick={()=>{setEditId(null);setInput("");}} small>Cancel</Btn>}</div></Card>
-      {notes.length>3&&<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search notes…" aria-label="Search" style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 13px",color:C.text,fontSize:14,fontFamily:T.sans,boxSizing:"border-box",outline:"none",marginBottom:12}}/>}
-      {filtered.length===0&&<p style={{textAlign:"center",padding:"36px 0",color:C.textMuted}}>{notes.length===0?"No notes yet. Insights added during practice appear here automatically.":"No notes match."}</p>}
-      {filtered.slice().reverse().map(n=><Card key={n.id} style={{marginBottom:10}}>
-        <p style={{color:C.text,fontSize:14,lineHeight:1.75,marginBottom:10,whiteSpace:"pre-wrap"}}>{n.text}</p>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",gap:8,alignItems:"center"}}>{n.source&&n.source!=="Manual"&&<Tag color={C.purple}>{n.source}</Tag>}<span style={{fontSize:12,color:C.textMuted}}>{new Date(n.timestamp).toLocaleDateString()}</span></div><div style={{display:"flex",gap:8}}><Btn ghost onClick={()=>{setEditId(n.id);setInput(n.text);}} small>Edit</Btn><Btn ghost danger onClick={()=>del(n.id)} small>Delete</Btn></div></div>
-      </Card>)}
+    <main style={{maxWidth:720,margin:"0 auto",padding:"24px 20px 100px"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+        marginBottom:6,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:2}}>
+            Study Journal
+          </h1>
+          <p style={{color:C.textMuted,fontSize:13}}>
+            {notes.length} {notes.length===1?"entry":"entries"} — scratch paper, insights, mistakes
+          </p>
+        </div>
+        <button onClick={()=>{setEditEntry(null);setShowEditor(true);}}
+          style={{background:"linear-gradient(135deg,#4f7fff,#a78bfa)",border:"none",
+            borderRadius:12,padding:"10px 18px",color:"white",fontSize:14,
+            fontWeight:700,cursor:"pointer",fontFamily:T.sans}}>
+          + New Entry
+        </button>
+      </div>
+
+      {/* Editor */}
+      {showEditor&&(
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,
+          borderRadius:16,padding:20,marginBottom:20,
+          boxShadow:"0 4px 24px #00000033"}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:12}}>
+            {editEntry?"Edit Entry":"New Journal Entry"}
+          </div>
+          <JournalEditor
+            initial={editEntry}
+            onSave={saveEntry}
+            onClose={()=>{setShowEditor(false);setEditEntry(null);}}
+          />
+        </div>
+      )}
+
+      {/* Filters */}
+      {notes.length>0&&(
+        <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+          <button onClick={()=>setFilterType("all")}
+            style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${filterType==="all"?C.accent:C.border}`,
+              background:filterType==="all"?C.accentSoft:"transparent",
+              color:filterType==="all"?C.accent:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+            All ({notes.length})
+          </button>
+          {JOURNAL_TYPES.map(t=>{
+            const count=notes.filter(n=>n.type===t.id).length;
+            if(!count)return null;
+            return(
+              <button key={t.id} onClick={()=>setFilterType(t.id)}
+                style={{padding:"5px 12px",borderRadius:20,
+                  border:`1px solid ${filterType===t.id?C.accent:C.border}`,
+                  background:filterType===t.id?C.accentSoft:"transparent",
+                  color:filterType===t.id?C.accent:C.textMuted,
+                  fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+                {t.icon} {t.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search */}
+      {notes.length>3&&(
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Search journal…"
+          style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,
+            borderRadius:10,padding:"9px 14px",color:C.text,fontSize:14,
+            fontFamily:T.sans,boxSizing:"border-box",outline:"none",marginBottom:14}}/>
+      )}
+
+      {/* Empty state */}
+      {filtered.length===0&&(
+        <div style={{textAlign:"center",padding:"48px 20px"}}>
+          <div style={{fontSize:48,marginBottom:12}}>📓</div>
+          <h3 style={{color:C.text,fontFamily:T.serif,marginBottom:8}}>
+            {notes.length===0?"Your journal is empty":"No entries match"}
+          </h3>
+          <p style={{color:C.textMuted,fontSize:14,lineHeight:1.7,marginBottom:20}}>
+            {notes.length===0
+              ?"Use your journal as scratch paper during questions, record insights, or log wrong answers with your analysis."
+              :"Try a different filter or search term."}
+          </p>
+          {notes.length===0&&(
+            <button onClick={()=>setShowEditor(true)}
+              style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,
+                borderRadius:12,padding:"10px 20px",color:C.accent,
+                fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:T.sans}}>
+              Write your first entry →
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Entries */}
+      {filtered.map(entry=>(
+        <JournalEntry key={entry.id} entry={entry}
+          onEdit={(e)=>{setEditEntry(e);setShowEditor(true);}}
+          onDelete={deleteEntry}
+          onColorChange={changeColor}/>
+      ))}
     </main>
   );
 }
+
+// Floating journal button — appears during practice questions
+function JournalFloat({user,onUpdateUser,context}){
+  const [open,setOpen]=useState(false);
+  const [text,setText]=useState("");
+  const [type,setType]=useState("scratch");
+  const [color,setColor]=useState(JOURNAL_COLORS[0]);
+
+  const save=()=>{
+    if(!text.trim())return;
+    const entry={
+      id:Date.now(),
+      title:context||"Practice note",
+      text:text.trim(),
+      type,color,tags:[],
+      timestamp:Date.now(),
+    };
+    const notes=[...(user.notes||[]),entry];
+    onUpdateUser({notes});
+    setText("");
+    setOpen(false);
+  };
+
+  if(!open)return(
+    <button onClick={()=>setOpen(true)}
+      title="Open journal"
+      style={{position:"fixed",bottom:90,left:16,zIndex:300,
+        background:color,border:"none",borderRadius:14,
+        width:44,height:44,cursor:"pointer",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:20,boxShadow:"0 2px 12px #00000044",
+        transition:"all 0.2s"}}>
+      📓
+    </button>
+  );
+
+  return(
+    <div style={{position:"fixed",bottom:80,left:12,width:280,zIndex:400,
+      background:C.surface,border:`1px solid ${color}44`,borderRadius:16,
+      boxShadow:"0 8px 32px #00000055",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{background:color+"22",borderBottom:`1px solid ${color}33`,
+        padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <span style={{fontSize:13,fontWeight:700,color}}>📓 Journal</span>
+        <div style={{display:"flex",gap:6}}>
+          {JOURNAL_COLORS.map(c=>(
+            <button key={c} onClick={()=>setColor(c)}
+              style={{width:14,height:14,borderRadius:"50%",background:c,border:"none",
+                cursor:"pointer",outline:c===color?"2px solid white":"none",outlineOffset:1}}/>
+          ))}
+          <button onClick={()=>setOpen(false)}
+            style={{background:"none",border:"none",color:C.textMuted,
+              fontSize:16,cursor:"pointer",marginLeft:4,lineHeight:1}}>×</button>
+        </div>
+      </div>
+      {/* Type quick-select */}
+      <div style={{display:"flex",gap:4,padding:"8px 12px",borderBottom:`1px solid ${C.border}`}}>
+        {JOURNAL_TYPES.map(t=>(
+          <button key={t.id} onClick={()=>setType(t.id)}
+            style={{flex:1,padding:"4px 0",borderRadius:8,border:"none",
+              background:type===t.id?color+"22":"transparent",
+              color:type===t.id?color:C.textMuted,fontSize:11,
+              cursor:"pointer",fontFamily:T.sans}}>
+            {t.icon}
+          </button>
+        ))}
+      </div>
+      {/* Write area */}
+      <div style={{padding:10}}>
+        <textarea value={text} onChange={e=>setText(e.target.value)}
+          placeholder={
+            type==="scratch"?"Work through the argument…":
+            type==="insight"?"Insight or pattern noticed…":
+            type==="mistake"?"Why was I wrong?":
+            "Concept to remember…"}
+          rows={5}
+          style={{width:"100%",background:C.bg,border:`1px solid ${color}33`,
+            borderRadius:10,padding:"10px 12px",color:C.text,fontSize:13,
+            fontFamily:"Georgia, serif",lineHeight:1.9,resize:"none",
+            boxSizing:"border-box",outline:"none",
+            backgroundImage:`repeating-linear-gradient(transparent,transparent 28px,${color}18 28px,${color}18 29px)`,
+            backgroundSize:"100% 29px",backgroundPosition:"0 10px"}}/>
+        <button onClick={save} disabled={!text.trim()}
+          style={{width:"100%",marginTop:8,background:color,border:"none",
+            borderRadius:10,padding:"8px",color:"white",fontSize:13,
+            fontWeight:700,cursor:"pointer",opacity:!text.trim()?0.5:1}}>
+          Save to Journal
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 // ─── DASHBOARD + SCORE PREDICTOR ─────────────────────────────────────────────
 // ─── MISTAKE JOURNAL ─────────────────────────────────────────────────────────
@@ -6384,10 +6559,16 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
 
   // Check if Lex intro has been done
   useEffect(()=>{
+    if(!user?.email)return;
     try{
-      const done=localStorage.getItem(LEX_INTRO_KEY+(user?.email||""));
-      if(!done)setLexIntroShown(false);
-    }catch{}
+      const done=localStorage.getItem(LEX_INTRO_KEY+(user.email||""));
+      // Only show intro if NEVER done before AND first time signing in
+      if(!done&&(!user.history||user.history.length===0)){
+        setLexIntroShown(false);
+      }else{
+        setLexIntroShown(true); // default to shown (hidden)
+      }
+    }catch{setLexIntroShown(true);}
   },[user?.email]);
 
   // Check for missed days on mount
@@ -6460,7 +6641,10 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
   },[sessionResult]);
 
   const handleLexIntroDone=()=>{
-    try{localStorage.setItem(LEX_INTRO_KEY+(user?.email||""),"1");}catch{}
+    try{
+      localStorage.setItem(LEX_INTRO_KEY+(user?.email||""),"1");
+      // Also mark in all future email-based checks
+    }catch{}
     setLexIntroShown(true);
   };
 
@@ -6494,13 +6678,6 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
 
 // ─── LEX POINTS UTILITY ───────────────────────────────────────────────────────
 // Called from various screens to award Lex Points
-function awardLexPoints(email,pts){
-  if(!email)return;
-  const current=getLexPoints(email);
-  setLexPoints(email,current+pts);
-}
-
-
 // ─── UPGRADE MODAL ────────────────────────────────────────────────────────────
 function UpgradeModal({user,onClose,reason}){
   const [loading,setLoading]=useState(null);
@@ -6510,7 +6687,6 @@ function UpgradeModal({user,onClose,reason}){
     if(!priceId){setError("Price not configured. Contact support.");return;}
     setLoading(period);setError("");
     try{
-      console.log("Creating checkout session for price:",priceId);
       const res=await fetch("/api/create-checkout",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -6523,7 +6699,6 @@ function UpgradeModal({user,onClose,reason}){
       });
       // Read raw text first to avoid "Unexpected end of JSON" error
       const text=await res.text();
-      console.log("Checkout response status:",res.status,"body:",text.slice(0,200));
       if(!text){
         throw new Error("Empty response from server. Check Vercel function logs.");
       }
@@ -6532,7 +6707,6 @@ function UpgradeModal({user,onClose,reason}){
       catch{throw new Error("Server returned invalid response: "+text.slice(0,100));}
       if(!res.ok)throw new Error(data.error||"Failed to create checkout ("+res.status+")");
       if(!data.url)throw new Error("No checkout URL returned");
-      console.log("Redirecting to Stripe Checkout:",data.url.slice(0,60));
       window.location.href=data.url;
     }catch(e){
       console.error("Checkout error:",e);
@@ -6632,6 +6806,106 @@ function UpgradeModal({user,onClose,reason}){
 }
 
 
+// ─── LEGAL PAGES ─────────────────────────────────────────────────────────────
+function LegalPage({title,onBack,children}){
+  return(
+    <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px 100px"}}>
+      <button onClick={onBack}
+        style={{background:"none",border:"none",color:C.textMuted,
+          cursor:"pointer",fontSize:13,fontFamily:T.sans,
+          marginBottom:20,display:"flex",alignItems:"center",gap:6}}>
+        ← Back
+      </button>
+      <h1 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginBottom:8}}>{title}</h1>
+      <div style={{fontSize:11,color:C.textMuted,marginBottom:28}}>
+        Last updated: {new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}
+      </div>
+      <div style={{fontSize:14,color:C.textSub,lineHeight:1.9}}>{children}</div>
+    </main>
+  );
+}
+
+function H2({children}){
+  return <h2 style={{fontFamily:T.serif,fontSize:18,color:C.text,marginTop:28,marginBottom:8}}>{children}</h2>;
+}
+function P({children}){
+  return <p style={{marginBottom:14}}>{children}</p>;
+}
+
+function Terms({onBack}){
+  return(
+    <LegalPage title="Terms of Service" onBack={onBack}>
+      <P>Welcome to Lumora LSAT. By creating an account or using this service, you agree to these terms.</P>
+      <H2>1. Service Description</H2>
+      <P>Lumora LSAT is an AI-powered LSAT preparation platform that generates original practice questions, study plans, and educational content. All questions are generated by artificial intelligence and are not official LSAC questions.</P>
+      <H2>2. AI-Generated Content</H2>
+      <P>Practice questions, explanations, feedback, and study plans are generated by AI. While we work to ensure quality and accuracy, AI-generated content may occasionally contain errors. Lumora LSAT is a study aid and should not be used as a sole source of LSAT preparation. We recommend supplementing with official LSAC PrepTest materials.</P>
+      <H2>3. No LSAC Affiliation</H2>
+      <P>Lumora LSAT is an independent product and is not affiliated with, endorsed by, or sponsored by the Law School Admission Council (LSAC). LSAT is a registered trademark of LSAC.</P>
+      <H2>4. Subscriptions and Billing</H2>
+      <P>Pro subscriptions are billed monthly or annually as selected at checkout. Subscriptions automatically renew until cancelled. You may cancel at any time through your account settings or by contacting us. Refunds are available within 7 days of initial purchase if you are unsatisfied with the service.</P>
+      <H2>5. Account Responsibilities</H2>
+      <P>You are responsible for maintaining the security of your account credentials. You must be at least 13 years old to use this service. One account per person — sharing accounts is not permitted.</P>
+      <H2>6. Acceptable Use</H2>
+      <P>You may not use Lumora LSAT to reproduce, distribute, or commercially exploit the generated content. You may not attempt to reverse-engineer, scrape, or systematically extract content from the platform.</P>
+      <H2>7. Limitation of Liability</H2>
+      <P>Lumora LSAT is provided "as is" without warranties of any kind. We are not liable for any direct, indirect, incidental, or consequential damages arising from use of the service, including any impact on LSAT scores or law school admissions outcomes.</P>
+      <H2>8. Changes to Terms</H2>
+      <P>We may update these terms at any time. Continued use of the service after changes constitutes acceptance of the updated terms.</P>
+      <H2>9. Contact</H2>
+      <P>Questions about these terms may be directed to our support team through the app.</P>
+    </LegalPage>
+  );
+}
+
+function Privacy({onBack}){
+  return(
+    <LegalPage title="Privacy Policy" onBack={onBack}>
+      <P>This policy describes what information we collect, how we use it, and your rights regarding your data.</P>
+      <H2>1. Information We Collect</H2>
+      <P><strong style={{color:C.text}}>Account information:</strong> Your name, email address, and encrypted password when you create an account.</P>
+      <P><strong style={{color:C.text}}>Study data:</strong> Your practice history, diagnostic results, study plan, mistake journal, and progress data. This data is used solely to personalize your experience and is never sold.</P>
+      <P><strong style={{color:C.text}}>Payment information:</strong> Handled entirely by Stripe. We do not store credit card numbers or payment details on our servers.</P>
+      <H2>2. How We Use Your Information</H2>
+      <P>We use your data exclusively to provide the service: personalizing study plans, tracking progress, generating adaptive questions, and maintaining your account. We do not sell, rent, or share your personal data with third parties for marketing purposes.</P>
+      <H2>3. Data Storage</H2>
+      <P>Your account data is stored on Supabase servers located in the United States. Study data is also cached locally in your browser using localStorage for performance.</P>
+      <H2>4. Third-Party Services</H2>
+      <P><strong style={{color:C.text}}>Anthropic:</strong> AI question generation. Prompts and responses are processed by Anthropic's API. See Anthropic's privacy policy for details.</P>
+      <P><strong style={{color:C.text}}>Stripe:</strong> Payment processing. Stripe's privacy policy governs payment data.</P>
+      <P><strong style={{color:C.text}}>Supabase:</strong> Database hosting. Supabase's privacy policy governs data storage.</P>
+      <P><strong style={{color:C.text}}>Vercel:</strong> Application hosting. Standard access logs may be collected by Vercel.</P>
+      <H2>5. Data Retention</H2>
+      <P>Your data is retained as long as your account is active. You may request deletion of your account and all associated data at any time by contacting us through the app.</P>
+      <H2>6. Your Rights</H2>
+      <P>You have the right to access, correct, export, or delete your personal data. To exercise these rights, contact us through the app.</P>
+      <H2>7. Cookies</H2>
+      <P>We use localStorage (a browser storage mechanism) to maintain your session and cache study data locally. We do not use third-party tracking cookies or advertising cookies.</P>
+      <H2>8. Children</H2>
+      <P>This service is not directed at children under 13. We do not knowingly collect personal information from children under 13.</P>
+      <H2>9. Changes</H2>
+      <P>We may update this policy periodically. We will notify users of material changes via email or in-app notification.</P>
+    </LegalPage>
+  );
+}
+
+function Disclaimer({onBack}){
+  return(
+    <LegalPage title="LSAC Disclaimer" onBack={onBack}>
+      <P><strong style={{color:C.text}}>Lumora LSAT is an independent test preparation service and is not affiliated with, endorsed by, or sponsored by the Law School Admission Council (LSAC).</strong></P>
+      <H2>About Our Content</H2>
+      <P>All practice questions on Lumora LSAT are original content generated by artificial intelligence. We do not reproduce, license, or use any official LSAT PrepTest questions. Our questions are designed to mirror the style, structure, and difficulty of the LSAT but are entirely independent works.</P>
+      <H2>LSAT Trademark</H2>
+      <P>LSAT® is a registered trademark of the Law School Admission Council, Inc. (LSAC). Use of the term "LSAT" on this platform is purely descriptive — it identifies the test that this service helps students prepare for. It does not imply any relationship with or endorsement by LSAC.</P>
+      <H2>Official Preparation Materials</H2>
+      <P>For official LSAT preparation materials, including licensed PrepTest questions, visit LSAC's official website at lsac.org. We strongly recommend supplementing Lumora LSAT practice with official LSAC materials as part of a comprehensive preparation strategy.</P>
+      <H2>No Score Guarantee</H2>
+      <P>Lumora LSAT does not guarantee any particular score improvement or law school admissions outcome. Individual results vary based on many factors including baseline skills, study time, and test-day performance.</P>
+    </LegalPage>
+  );
+}
+
+
 export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
@@ -6653,12 +6927,6 @@ export default function App(){
     C=darkMode?DARK:LIGHT;
     FONT_SCALE=fontScale;
   },[darkMode,fontScale]);
-
-  useEffect(()=>{
-    const handleTestUpgrade=(e)=>setUpgradeModal(e.detail?.reason||"default");
-    window.addEventListener("lumora:showUpgrade",handleTestUpgrade);
-    return()=>window.removeEventListener("lumora:showUpgrade",handleTestUpgrade);
-  },[]);
 
   useEffect(()=>{
     (async()=>{
@@ -6720,7 +6988,6 @@ export default function App(){
     if(!user)return false;
     const check=checkLimit(user,feature);
     if(!check.allowed){
-      console.log("Limit hit for",feature,"- showing upgrade modal. Reason:",check.reason);
       setUpgradeModal(check.reason||"limit_reached");
       return false;
     }
@@ -6786,7 +7053,6 @@ export default function App(){
     if(s==="quick5"){
       const check=checkLimit(user,"quick5");
       if(!check.allowed){
-        console.log("Quick5 limit hit:",check);
         setUpgradeModal(check.reason||"limit_reached");
         return;
       }
@@ -6809,8 +7075,10 @@ export default function App(){
     plan:<StudyPlan user={user} onUpdateUser={handleUpdateUser} setScreen={handleSetScreen}/>,
     upload:<Upload/>,
     notes:<Notes user={user} onUpdateUser={handleUpdateUser}/>,
+    terms:<Terms onBack={()=>setScreen("home")}/>,
+    privacy:<Privacy onBack={()=>setScreen("home")}/>,
+    disclaimer:<Disclaimer onBack={()=>setScreen("home")}/>,
     dashboard:<Dashboard user={user} onUpdateUser={handleUpdateUser}/>,
-    lexshop:<LexShop user={user} onBack={()=>setScreen("home")}/>,
     profile:<Profile user={user} onUpdateUser={handleUpdateUser} onLogout={handleLogout} setScreen={handleSetScreen} onRetakeDiagnostic={()=>setRetakingDiagnostic(true)}/>,
   };
 
@@ -6826,6 +7094,10 @@ export default function App(){
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
       <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
         onNavigate={handleSetScreen} onUpdateUser={handleUpdateUser}/>
+      {user&&["practice","flaw","writing","fullsection","quick5"].includes(screen)&&(
+        <JournalFloat user={user} onUpdateUser={handleUpdateUser}
+          context={screen.charAt(0).toUpperCase()+screen.slice(1)+" session"}/>
+      )}
       {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
         onClose={()=>setUpgradeModal(null)}/>}
     </div>
