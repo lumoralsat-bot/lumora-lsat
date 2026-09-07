@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Component } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
@@ -7231,6 +7232,7 @@ export default function App(){
               transform:"translateY(-2px)"}}/>
         </button>
       )}
+      <Analytics />
     </div>
     </ErrorBoundary>
   );
