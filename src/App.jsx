@@ -141,6 +141,22 @@ function rowToUser(row){
   };
 }
 
+// ─── PASSWORD HASHING (Web Crypto — no npm needed) ───────────────────────────
+async function hashPassword(password){
+  const encoder=new TextEncoder();
+  const salt="lumora_v1_"+password.length; // simple salt — upgrade to bcrypt for production
+  const data=encoder.encode(salt+password);
+  const hashBuffer=await crypto.subtle.digest("SHA-256",data);
+  const hashArray=Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function verifyPassword(password,hash){
+  // Support plain text passwords from old accounts — rehash them
+  if(hash&&hash.length!==64)return hash===password; // old plain text
+  const computed=await hashPassword(password);
+  return computed===hash;
+}
+
 // ─── DB LAYER ─────────────────────────────────────────────────────────────────
 const DB={
   // Session (always localStorage)
@@ -2346,16 +2362,14 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
     const navTarget=detectNav(userMsg);
 
     try{
-      const sys="You are Lex, a friendly, witty monkey mascot for Lumora LSAT — an AI-powered LSAT prep app. "+
-        "You are helpful, encouraging, and occasionally make light monkey puns (never overdo it). "+
-        "You guide students through the app and answer LSAT questions. Keep responses SHORT — 1-3 sentences max. "+
-        "If the user asks about a feature, explain it briefly. If they ask an LSAT question, answer it directly. "+
-        "App sections: Practice (adaptive LR/RC questions), Learn (17 question type lessons), Quick 5 (5 timed LR questions), "+
-        "Daily Challenge (1 question per day, 2x XP), Flaw Lab (identify logical flaws), Writing (LSAC-format essays), "+
-        "Full Section (35-min simulation), Mistake Journal (review wrong answers + Teach It Back), "+
-        "SRS Review (spaced repetition), Study Plan, Progress (score predictor + analytics). "+
-        "The LSAT has Logical Reasoning (argument analysis) and Reading Comprehension sections. "+
-        "Be warm, brief, and always end with encouragement. Sign off as Lex.";
+      const sys="You are Lex, the Lumora LSAT study assistant. "+
+        "Keep every response to 2-3 sentences maximum. Be direct, clear, and professional. "+
+        "Do not use emojis, asterisks, bullet points, or any markdown formatting. Plain prose only. "+
+        "Do not make puns or jokes. Do not sign off with your name each time. "+
+        "App sections: Practice (adaptive questions), Learn (question type lessons), Quick 5 (5 timed questions), "+
+        "Daily Challenge, Flaw Lab, Writing, Full Section (35-min timed), Mistake Journal, SRS Review, Study Plan, Progress. "+
+        "The LSAT tests Logical Reasoning and Reading Comprehension. "+
+        "If you do not know something, say so. If the user asks to navigate somewhere, name the destination clearly.";
       const raw=await callClaude(sys,userMsg,300);
       const lexMsg={role:"lex",text:raw};
       if(navTarget){
@@ -3047,8 +3061,9 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade}){
           )}
           {user&&(
             <button onClick={()=>{setScreen("profile");close();}}
-              style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-              <Avatar user={user} size={34}/>
+              title="Profile"
+              style={{background:"none",border:"none",cursor:"pointer",padding:"2px"}}>
+              <Avatar user={user} size={32}/>
             </button>
           )}
 
@@ -3085,10 +3100,10 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade}){
 
           {/* Drawer panel */}
           <div style={{position:"fixed",top:0,right:0,bottom:0,width:280,
-            background:C.surface,borderLeft:`1px solid ${C.border}`,
+            background:C.surface,borderLeft:"1px solid "+C.border,
             zIndex:199,overflowY:"auto",
             boxShadow:"-8px 0 32px #00000044",
-            display:"flex",flexDirection:"column"}}>
+            display:"flex",flexDirection:"column",paddingBottom:80}}>
 
             {/* Drawer header */}
             <div style={{padding:"18px 20px 12px",borderBottom:`1px solid ${C.border}`,
@@ -3244,14 +3259,22 @@ function Auth({onLogin}){
       if(password.length<6){setError("Password must be at least 6 characters.");setLoading(false);return;}
       const exists=await DB.checkUserExists(email.toLowerCase());
       if(exists){setError("An account already exists with this email.");setLoading(false);return;}
-      const u={name:name.trim(),email:email.toLowerCase(),password,avatarColor:Math.floor(Math.random()*8),avatarEmoji:"",diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},earnedBadges:[],stats:{xp:0,streak:0,lastDay:null},isPro:false};
+      const hashedPw=await hashPassword(password);
+      const u={name:name.trim(),email:email.toLowerCase(),password:hashedPw,avatarColor:Math.floor(Math.random()*8),avatarEmoji:"",diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},earnedBadges:[],stats:{xp:0,streak:0,lastDay:null},isPro:false};
       await DB.createUser(u);
       DB.saveSession(email.toLowerCase());
       onLogin(u);
     }else{
       const u=await DB.getUser(email.toLowerCase());
       if(!u){setError("No account found with this email.");setLoading(false);return;}
-      if(u.password!==password){setError("Incorrect password.");setLoading(false);return;}
+      const pwMatch=await verifyPassword(password,u.password);
+      if(!pwMatch){setError("Incorrect password.");setLoading(false);return;}
+      // Rehash plain text passwords from old accounts
+      if(u.password&&u.password.length!==64){
+        const rehashed=await hashPassword(password);
+        await DB.saveUser(u.email,{...u,password:rehashed});
+        u.password=rehashed;
+      }
       DB.saveSession(email.toLowerCase());
       onLogin(u);
     }
@@ -3806,51 +3829,101 @@ function Home({user,setScreen,onUpdateUser}){
           </Card>
         ))}
       </div>
+      {/* Footer */}
+      <div style={{textAlign:"center",padding:"20px 0 10px",display:"flex",
+        justifyContent:"center",gap:16,flexWrap:"wrap"}}>
+        {[["terms","Terms"],["privacy","Privacy"],["disclaimer","LSAC Disclaimer"]].map(([s,l])=>(
+          <button key={s} onClick={()=>setScreen(s)}
+            style={{background:"none",border:"none",color:C.textMuted,
+              fontSize:12,cursor:"pointer",fontFamily:T.sans,
+              textDecoration:"underline"}}>
+            {l}
+          </button>
+        ))}
+      </div>
     </main>
   );
 }
 
 // ─── LEARN SECTION ────────────────────────────────────────────────────────────
 
-function Learn({user,onUpdateUser}){
-  const [selected,setSelected]=useState(null); // {section, typeObj}
+function Learn({user,onUpdateUser,onUpgrade}){
+  const [selected,setSelected]=useState(null);
   const [activeSection,setActiveSection]=useState("Logical Reasoning");
   const learnProgress=user.learnProgress||{};
+  const isPro=user?.isPro||false;
 
   if(selected)return <LearnLesson key={selected.typeObj.type} user={user} onUpdateUser={onUpdateUser} typeObj={selected.typeObj} section={selected.section} onBack={()=>setSelected(null)}/>;
 
   const sectionTypes=LEARN_CURRICULUM[activeSection];
   return(
     <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Learn</h1>
-      <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>Master every LSAT question type from first principles. Each lesson starts simple and builds to full test difficulty — guided by AI throughout.</p>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:4}}>Learn</h1>
+          <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>Master every LSAT question type from first principles.</p>
+        </div>
+        {!isPro&&(
+          <div style={{background:"linear-gradient(135deg,#4f7fff22,#a78bfa22)",border:"1px solid #4f7fff44",borderRadius:12,padding:"8px 14px",fontSize:12,color:C.accent,maxWidth:220}}>
+            <strong>Free preview:</strong> First topic only. Upgrade for all {sectionTypes.length} types.
+          </div>
+        )}
+      </div>
 
-      <div style={{display:"flex",gap:8,marginBottom:20}}>
-        {SECTIONS.map(s=><button key={s} onClick={()=>setActiveSection(s)} style={{padding:"8px 18px",borderRadius:10,border:`1.5px solid ${activeSection===s?C.accent:C.border}`,background:activeSection===s?C.accentSoft:"transparent",color:activeSection===s?C.accent:C.textMuted,fontSize:13,fontWeight:activeSection===s?700:400,cursor:"pointer",fontFamily:T.sans,transition:"all 0.15s",outline:"none"}}>{s}</button>)}
+      <div style={{display:"flex",gap:8,marginBottom:20,marginTop:16}}>
+        {SECTIONS.map(s=>(
+          <button key={s} onClick={()=>setActiveSection(s)}
+            style={{padding:"8px 18px",borderRadius:10,
+              border:"1.5px solid "+(activeSection===s?C.accent:C.border),
+              background:activeSection===s?C.accentSoft:"transparent",
+              color:activeSection===s?C.accent:C.textMuted,
+              fontSize:13,fontWeight:activeSection===s?700:400,
+              cursor:"pointer",fontFamily:T.sans,outline:"none"}}>
+            {s}
+          </button>
+        ))}
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
-        {sectionTypes.map(t=>{
+        {sectionTypes.map((t,idx)=>{
           const prog=learnProgress[t.type]||0;
           const mastered=prog>=4;
           const started=prog>0;
           const pct=Math.round(prog/4*100);
+          const locked=!isPro&&idx>0; // free users only get first topic
           return(
-            <Card key={t.type} onClick={()=>setSelected({section:activeSection,typeObj:t})} role="button" ariaLabel={`Learn ${t.type}`}
-              style={{cursor:"pointer",borderColor:mastered?C.success+"44":started?C.accent+"33":C.border,transition:"all 0.2s"}}
-              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.borderColor=mastered?C.success+"66":C.accent+"66";}}
-              onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.borderColor=mastered?C.success+"44":started?C.accent+"33":C.border;}}>
+            <Card key={t.type}
+              onClick={()=>locked?(onUpgrade&&onUpgrade("pro_only")):setSelected({section:activeSection,typeObj:t})}
+              role="button"
+              style={{cursor:"pointer",position:"relative",
+                borderColor:locked?"transparent":mastered?C.success+"44":started?C.accent+"33":C.border,
+                opacity:locked?0.7:1,transition:"all 0.2s"}}>
+              {locked&&(
+                <div style={{position:"absolute",inset:0,borderRadius:14,
+                  background:"linear-gradient(135deg,#0a0f1e88,#1a1a2e88)",
+                  backdropFilter:"blur(2px)",display:"flex",alignItems:"center",
+                  justifyContent:"center",zIndex:2,borderRadius:12}}>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:22,marginBottom:4}}>🔒</div>
+                    <div style={{fontSize:12,color:"white",fontWeight:600}}>Pro Only</div>
+                  </div>
+                </div>
+              )}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 <div style={{fontWeight:700,fontSize:15,color:C.text}}>{t.type}</div>
                 {mastered&&<span style={{fontSize:16}}>✅</span>}
-                {!mastered&&started&&<span style={{fontSize:11,color:C.accent,fontWeight:700,background:C.accentSoft,padding:"2px 8px",borderRadius:10}}>In Progress</span>}
+                {!mastered&&started&&!locked&&<span style={{fontSize:11,color:C.accent,fontWeight:700,background:C.accentSoft,padding:"2px 8px",borderRadius:10}}>In Progress</span>}
               </div>
               <div style={{fontSize:13,color:C.textMuted,lineHeight:1.55,marginBottom:12}}>{t.tagline}</div>
-              {started&&!mastered&&<div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textMuted,marginBottom:4}}><span>Level {prog} of 4</span><span>{pct}%</span></div>
-                <div style={{background:C.surfaceHigh,borderRadius:4,height:4}}><div style={{height:"100%",width:`${pct}%`,background:C.accent,borderRadius:4}}/></div>
+              {started&&!mastered&&!locked&&<div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textMuted,marginBottom:4}}>
+                  <span>Level {prog} of 4</span><span>{pct}%</span>
+                </div>
+                <div style={{background:C.surfaceHigh,borderRadius:4,height:4}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:C.accent,borderRadius:4}}/>
+                </div>
               </div>}
-              {!started&&<div style={{fontSize:12,color:C.textMuted}}>Not started</div>}
+              {!started&&!locked&&<div style={{fontSize:12,color:C.textMuted}}>Not started</div>}
             </Card>
           );
         })}
@@ -5593,235 +5666,180 @@ function JournalEditor({initial,onSave,onClose}){
 // Full-page journal
 function Notes({user,onUpdateUser}){
   const notes=user.notes||[];
-  const [showEditor,setShowEditor]=useState(false);
-  const [editEntry,setEditEntry]=useState(null);
+  const [tab,setTab]=useState("scratch"); // scratch | notebook | wronganswers
+  const [writing,setWriting]=useState(false);
+  const [editId,setEditId]=useState(null);
+  const [title,setTitle]=useState("");
+  const [text,setText]=useState("");
   const [search,setSearch]=useState("");
-  const [filterType,setFilterType]=useState("all");
 
-  const saveEntry=(entry)=>{
-    const existing=notes.find(n=>n.id===entry.id);
-    const updated=existing
-      ?notes.map(n=>n.id===entry.id?entry:n)
-      :[...notes,entry];
+  const scratchNotes=notes.filter(n=>n.type==="scratch");
+  const notebookNotes=notes.filter(n=>n.type==="concept"||n.type==="insight"||!n.type||n.type==="notebook");
+  const wrongAnswers=notes.filter(n=>n.type==="mistake");
+
+  const save=()=>{
+    if(!text.trim()&&!title.trim())return;
+    const entry={
+      id:editId||Date.now(),
+      title:title.trim()||(tab==="scratch"?"Scratch note":tab==="notebook"?"Note":"Wrong answer"),
+      text:text.trim(),
+      type:tab==="scratch"?"scratch":tab==="wronganswers"?"mistake":"notebook",
+      color:tab==="scratch"?"#4f7fff":tab==="wronganswers"?"#ef4444":"#a78bfa",
+      timestamp:editId?notes.find(n=>n.id===editId)?.timestamp||Date.now():Date.now(),
+      tags:[],
+    };
+    const updated=editId?notes.map(n=>n.id===editId?entry:n):[...notes,entry];
     onUpdateUser({notes:updated});
+    setText("");setTitle("");setEditId(null);setWriting(false);
   };
 
-  const deleteEntry=(id)=>{
-    if(window.confirm("Delete this journal entry?"))
-      onUpdateUser({notes:notes.filter(n=>n.id!==id)});
+  const del=(id)=>{
+    if(window.confirm("Delete this entry?"))onUpdateUser({notes:notes.filter(n=>n.id!==id)});
   };
 
-  const changeColor=(id,color)=>{
-    onUpdateUser({notes:notes.map(n=>n.id===id?{...n,color}:n)});
+  const edit=(n)=>{
+    setEditId(n.id);setTitle(n.title||"");setText(n.text||"");
+    setTab(n.type==="scratch"?"scratch":n.type==="mistake"?"wronganswers":"notebook");
+    setWriting(true);
+    window.scrollTo(0,0);
   };
 
-  const filtered=notes
-    .filter(n=>filterType==="all"||n.type===filterType)
-    .filter(n=>!search||(n.title+n.text+(n.tags||[]).join(" "))
-      .toLowerCase().includes(search.toLowerCase()))
-    .slice().reverse();
+  const TABS=[
+    {id:"scratch",label:"Scratch Paper",icon:"✏️",color:"#4f7fff",
+      desc:"Working space during questions — jot down argument maps, conclusions, and eliminations."},
+    {id:"notebook",label:"Notebook",icon:"📓",color:"#a78bfa",
+      desc:"Save insights, strategies, and concepts you want to remember long-term."},
+    {id:"wronganswers",label:"Wrong Answer Log",icon:"❌",color:"#ef4444",
+      desc:"Review questions you got wrong and record your analysis of each mistake."},
+  ];
+  const activeTab=TABS.find(t=>t.id===tab);
+  const activeNotes=tab==="scratch"?scratchNotes:tab==="notebook"?notebookNotes:wrongAnswers;
+  const filtered=activeNotes.filter(n=>!search||(n.title+n.text).toLowerCase().includes(search.toLowerCase())).slice().reverse();
 
   return(
-    <main style={{maxWidth:720,margin:"0 auto",padding:"24px 20px 100px"}}>
+    <main style={{maxWidth:720,margin:"0 auto",padding:"24px 20px 120px"}}>
       {/* Header */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-        marginBottom:6,flexWrap:"wrap",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
-          <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:2}}>
-            Study Journal
-          </h1>
-          <p style={{color:C.textMuted,fontSize:13}}>
-            {notes.length} {notes.length===1?"entry":"entries"} — scratch paper, insights, mistakes
-          </p>
+          <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:2}}>Study Journal</h1>
+          <p style={{color:C.textMuted,fontSize:13}}>{notes.length} total {notes.length===1?"entry":"entries"}</p>
         </div>
-        <button onClick={()=>{setEditEntry(null);setShowEditor(true);}}
-          style={{background:"linear-gradient(135deg,#4f7fff,#a78bfa)",border:"none",
-            borderRadius:12,padding:"10px 18px",color:"white",fontSize:14,
-            fontWeight:700,cursor:"pointer",fontFamily:T.sans}}>
-          + New Entry
-        </button>
+        <Btn onClick={()=>{setEditId(null);setTitle("");setText("");setWriting(true);}}>+ New</Btn>
+      </div>
+
+      {/* Tab selector */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:20}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>{setTab(t.id);setWriting(false);}}
+            style={{padding:"10px 8px",borderRadius:12,textAlign:"center",
+              border:"2px solid "+(tab===t.id?t.color:C.border),
+              background:tab===t.id?t.color+"18":"transparent",
+              cursor:"pointer",fontFamily:T.sans,transition:"all 0.15s"}}>
+            <div style={{fontSize:18,marginBottom:3}}>{t.icon}</div>
+            <div style={{fontSize:12,fontWeight:700,color:tab===t.id?t.color:C.textMuted}}>{t.label}</div>
+            <div style={{fontSize:10,color:C.textMuted,marginTop:1}}>
+              {t.id==="scratch"?scratchNotes.length:t.id==="notebook"?notebookNotes.length:wrongAnswers.length} entries
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab description */}
+      <div style={{background:activeTab.color+"12",border:"1px solid "+activeTab.color+"33",
+        borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:C.textSub}}>
+        {activeTab.desc}
       </div>
 
       {/* Editor */}
-      {showEditor&&(
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,
+      {writing&&(
+        <div style={{background:C.surface,border:"2px solid "+activeTab.color+"44",
           borderRadius:16,padding:20,marginBottom:20,
-          boxShadow:"0 4px 24px #00000033"}}>
-          <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:12}}>
-            {editEntry?"Edit Entry":"New Journal Entry"}
+          boxShadow:"0 4px 20px #00000033"}}>
+          <div style={{fontSize:14,fontWeight:700,color:activeTab.color,marginBottom:12}}>
+            {activeTab.icon} {editId?"Edit":"New"} {activeTab.label}
           </div>
-          <JournalEditor
-            initial={editEntry}
-            onSave={saveEntry}
-            onClose={()=>{setShowEditor(false);setEditEntry(null);}}
-          />
-        </div>
-      )}
-
-      {/* Filters */}
-      {notes.length>0&&(
-        <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-          <button onClick={()=>setFilterType("all")}
-            style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${filterType==="all"?C.accent:C.border}`,
-              background:filterType==="all"?C.accentSoft:"transparent",
-              color:filterType==="all"?C.accent:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
-            All ({notes.length})
-          </button>
-          {JOURNAL_TYPES.map(t=>{
-            const count=notes.filter(n=>n.type===t.id).length;
-            if(!count)return null;
-            return(
-              <button key={t.id} onClick={()=>setFilterType(t.id)}
-                style={{padding:"5px 12px",borderRadius:20,
-                  border:`1px solid ${filterType===t.id?C.accent:C.border}`,
-                  background:filterType===t.id?C.accentSoft:"transparent",
-                  color:filterType===t.id?C.accent:C.textMuted,
-                  fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
-                {t.icon} {t.label} ({count})
-              </button>
-            );
-          })}
+          {tab!=="scratch"&&(
+            <input value={title} onChange={e=>setTitle(e.target.value)}
+              placeholder={tab==="notebook"?"Topic or concept name…":"Question type / what went wrong…"}
+              style={{width:"100%",background:C.surfaceHigh,border:"1px solid "+C.border,
+                borderRadius:10,padding:"9px 12px",color:C.text,fontSize:14,
+                fontFamily:T.sans,outline:"none",marginBottom:10,boxSizing:"border-box"}}/>
+          )}
+          <textarea value={text} onChange={e=>setText(e.target.value)}
+            placeholder={
+              tab==="scratch"?"Work through the argument here. What is the conclusion? What are the premises? What is the gap?":
+              tab==="notebook"?"Record the strategy, insight, or rule you want to remember. Be specific — vague notes are useless later.":
+              "Describe what the question asked. What did you answer and why? What was the correct answer and why is it better?"}
+            rows={tab==="scratch"?5:7}
+            style={{width:"100%",background:C.bg,
+              border:"1px solid "+activeTab.color+"44",
+              borderRadius:12,padding:"14px 16px",color:C.text,fontSize:14,
+              fontFamily:"Georgia, serif",lineHeight:2,resize:"vertical",
+              boxSizing:"border-box",outline:"none"}}/>
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <Btn onClick={save} disabled={!text.trim()&&!title.trim()} small>Save Entry</Btn>
+            <Btn ghost onClick={()=>{setWriting(false);setEditId(null);}} small>Cancel</Btn>
+          </div>
         </div>
       )}
 
       {/* Search */}
-      {notes.length>3&&(
+      {activeNotes.length>3&&(
         <input value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder="Search journal…"
-          style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,
+          placeholder={"Search "+activeTab.label.toLowerCase()+"…"}
+          style={{width:"100%",background:C.surface,border:"1px solid "+C.border,
             borderRadius:10,padding:"9px 14px",color:C.text,fontSize:14,
-            fontFamily:T.sans,boxSizing:"border-box",outline:"none",marginBottom:14}}/>
+            fontFamily:T.sans,boxSizing:"border-box",outline:"none",marginBottom:12}}/>
       )}
 
       {/* Empty state */}
-      {filtered.length===0&&(
-        <div style={{textAlign:"center",padding:"48px 20px"}}>
-          <div style={{fontSize:48,marginBottom:12}}>📓</div>
-          <h3 style={{color:C.text,fontFamily:T.serif,marginBottom:8}}>
-            {notes.length===0?"Your journal is empty":"No entries match"}
+      {filtered.length===0&&!writing&&(
+        <Card style={{textAlign:"center",padding:40}}>
+          <div style={{fontSize:44,marginBottom:12}}>{activeTab.icon}</div>
+          <h3 style={{color:C.text,fontFamily:T.serif,marginBottom:6}}>
+            {activeNotes.length===0?"Nothing here yet":"No matches"}
           </h3>
           <p style={{color:C.textMuted,fontSize:14,lineHeight:1.7,marginBottom:20}}>
-            {notes.length===0
-              ?"Use your journal as scratch paper during questions, record insights, or log wrong answers with your analysis."
-              :"Try a different filter or search term."}
+            {tab==="scratch"?"Use scratch paper during practice to work through arguments before choosing an answer.":
+             tab==="notebook"?"Save important strategies and patterns here. Review this before test day.":
+             "Wrong answers are added automatically when you review mistakes, or add one manually."}
           </p>
-          {notes.length===0&&(
-            <button onClick={()=>setShowEditor(true)}
-              style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,
-                borderRadius:12,padding:"10px 20px",color:C.accent,
-                fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:T.sans}}>
-              Write your first entry →
-            </button>
-          )}
-        </div>
+          <Btn onClick={()=>setWriting(true)} small>Create First Entry</Btn>
+        </Card>
       )}
 
       {/* Entries */}
-      {filtered.map(entry=>(
-        <JournalEntry key={entry.id} entry={entry}
-          onEdit={(e)=>{setEditEntry(e);setShowEditor(true);}}
-          onDelete={deleteEntry}
-          onColorChange={changeColor}/>
+      {filtered.map(n=>(
+        <div key={n.id} style={{background:C.surface,
+          borderLeft:"4px solid "+(n.color||activeTab.color),
+          border:"1px solid "+(n.color||activeTab.color)+"33",
+          borderRadius:12,marginBottom:10,padding:"14px 16px"}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              {n.title&&n.title!=="Scratch note"&&n.title!=="Note"&&n.title!=="Wrong answer"&&(
+                <div style={{fontWeight:700,color:C.text,fontSize:14,marginBottom:6}}>{n.title}</div>
+              )}
+              <p style={{color:C.textSub,fontSize:13,lineHeight:1.75,margin:0,whiteSpace:"pre-wrap"}}>{n.text}</p>
+              <div style={{fontSize:11,color:C.textMuted,marginTop:8}}>
+                {new Date(n.timestamp).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>edit(n)}
+                style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
+                  padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Edit</button>
+              <button onClick={()=>del(n.id)}
+                style={{background:"none",border:"1px solid "+C.danger+"44",borderRadius:8,
+                  padding:"4px 8px",color:C.danger,fontSize:12,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>
+        </div>
       ))}
     </main>
   );
 }
 
-// Floating journal button — appears during practice questions
-function JournalFloat({user,onUpdateUser,context}){
-  const [open,setOpen]=useState(false);
-  const [text,setText]=useState("");
-  const [type,setType]=useState("scratch");
-  const [color,setColor]=useState(JOURNAL_COLORS[0]);
 
-  const save=()=>{
-    if(!text.trim())return;
-    const entry={
-      id:Date.now(),
-      title:context||"Practice note",
-      text:text.trim(),
-      type,color,tags:[],
-      timestamp:Date.now(),
-    };
-    const notes=[...(user.notes||[]),entry];
-    onUpdateUser({notes});
-    setText("");
-    setOpen(false);
-  };
-
-  if(!open)return(
-    <button onClick={()=>setOpen(true)}
-      title="Open journal"
-      style={{position:"fixed",bottom:90,left:16,zIndex:300,
-        background:color,border:"none",borderRadius:14,
-        width:44,height:44,cursor:"pointer",
-        display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:20,boxShadow:"0 2px 12px #00000044",
-        transition:"all 0.2s"}}>
-      📓
-    </button>
-  );
-
-  return(
-    <div style={{position:"fixed",bottom:80,left:12,width:280,zIndex:400,
-      background:C.surface,border:`1px solid ${color}44`,borderRadius:16,
-      boxShadow:"0 8px 32px #00000055",overflow:"hidden"}}>
-      {/* Header */}
-      <div style={{background:color+"22",borderBottom:`1px solid ${color}33`,
-        padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <span style={{fontSize:13,fontWeight:700,color}}>📓 Journal</span>
-        <div style={{display:"flex",gap:6}}>
-          {JOURNAL_COLORS.map(c=>(
-            <button key={c} onClick={()=>setColor(c)}
-              style={{width:14,height:14,borderRadius:"50%",background:c,border:"none",
-                cursor:"pointer",outline:c===color?"2px solid white":"none",outlineOffset:1}}/>
-          ))}
-          <button onClick={()=>setOpen(false)}
-            style={{background:"none",border:"none",color:C.textMuted,
-              fontSize:16,cursor:"pointer",marginLeft:4,lineHeight:1}}>×</button>
-        </div>
-      </div>
-      {/* Type quick-select */}
-      <div style={{display:"flex",gap:4,padding:"8px 12px",borderBottom:`1px solid ${C.border}`}}>
-        {JOURNAL_TYPES.map(t=>(
-          <button key={t.id} onClick={()=>setType(t.id)}
-            style={{flex:1,padding:"4px 0",borderRadius:8,border:"none",
-              background:type===t.id?color+"22":"transparent",
-              color:type===t.id?color:C.textMuted,fontSize:11,
-              cursor:"pointer",fontFamily:T.sans}}>
-            {t.icon}
-          </button>
-        ))}
-      </div>
-      {/* Write area */}
-      <div style={{padding:10}}>
-        <textarea value={text} onChange={e=>setText(e.target.value)}
-          placeholder={
-            type==="scratch"?"Work through the argument…":
-            type==="insight"?"Insight or pattern noticed…":
-            type==="mistake"?"Why was I wrong?":
-            "Concept to remember…"}
-          rows={5}
-          style={{width:"100%",background:C.bg,border:`1px solid ${color}33`,
-            borderRadius:10,padding:"10px 12px",color:C.text,fontSize:13,
-            fontFamily:"Georgia, serif",lineHeight:1.9,resize:"none",
-            boxSizing:"border-box",outline:"none",
-            backgroundImage:"repeating-linear-gradient(transparent,transparent 28px,"+color+"18 28px,"+color+"18 29px)",
-            backgroundSize:"100% 29px",backgroundPosition:"0 10px"}}/>
-        <button onClick={save} disabled={!text.trim()}
-          style={{width:"100%",marginTop:8,background:color,border:"none",
-            borderRadius:10,padding:"8px",color:"white",fontSize:13,
-            fontWeight:700,cursor:"pointer",opacity:!text.trim()?0.5:1}}>
-          Save to Journal
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
-// ─── DASHBOARD + SCORE PREDICTOR ─────────────────────────────────────────────
-// ─── MISTAKE JOURNAL ─────────────────────────────────────────────────────────
 function MistakeJournal({user,onUpdateUser}){
   const [mistakes,setMistakes]=useState([]);
   const [active,setActive]=useState(null); // index of expanded mistake
@@ -5996,6 +6014,14 @@ function MistakeJournal({user,onUpdateUser}){
                     ✍️ Teach It Back
                   </Btn>
                   {!m.reviewed&&<Btn ghost onClick={()=>markReviewed(m.id)} small>Mark Reviewed ✓</Btn>}
+                  <Btn ghost small onClick={()=>{
+                    const entry={id:Date.now(),
+                      title:(m.qType||"Wrong Answer")+" — "+new Date(m.created_at||Date.now()).toLocaleDateString("en-US",{month:"short",day:"numeric"}),
+                      text:"Question: "+m.question+"\n\nMy answer: "+(m.user_answer||"?")+"\nCorrect: "+(m.correct||"?")+"\n\nExplanation: "+(m.explanation||"N/A"),
+                      type:"mistake",color:"#ef4444",tags:[m.qType||""].filter(Boolean),timestamp:Date.now()};
+                    onUpdateUser({notes:[...(user.notes||[]),entry]});
+                    alert("Saved to Wrong Answer Log.");
+                  }}>Save to Journal</Btn>
                 </div>
               )}
             </div>
@@ -6862,6 +6888,71 @@ function Disclaimer({onBack}){
 }
 
 
+function JournalFloat({user,onUpdateUser,context}){
+  const [open,setOpen]=useState(false);
+  const [text,setText]=useState("");
+  const [type,setType]=useState("scratch");
+  const typeColor=type==="scratch"?"#4f7fff":type==="mistake"?"#ef4444":"#a78bfa";
+
+  const save=()=>{
+    if(!text.trim())return;
+    const entry={id:Date.now(),
+      title:context||(type==="scratch"?"Scratch note":type==="mistake"?"Wrong answer":"Note"),
+      text:text.trim(),type,color:typeColor,tags:[],timestamp:Date.now()};
+    onUpdateUser({notes:[...(user.notes||[]),entry]});
+    setText("");setOpen(false);
+  };
+
+  if(!open)return(
+    <button onClick={()=>setOpen(true)} title="Open journal"
+      style={{position:"fixed",bottom:90,left:16,zIndex:300,
+        background:"#4f7fff",border:"none",borderRadius:14,
+        width:44,height:44,cursor:"pointer",fontSize:20,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        boxShadow:"0 2px 12px #00000044"}}>
+      📓
+    </button>
+  );
+
+  return(
+    <div style={{position:"fixed",bottom:80,left:12,width:270,zIndex:400,
+      background:C.surface,border:"1px solid "+typeColor+"44",borderRadius:16,
+      boxShadow:"0 8px 32px #00000055"}}>
+      <div style={{padding:"10px 14px",borderBottom:"1px solid "+C.border,
+        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:6}}>
+          {[["scratch","✏️","#4f7fff"],["notebook","📓","#a78bfa"],["mistake","❌","#ef4444"]].map(([t,icon,col])=>(
+            <button key={t} onClick={()=>setType(t)}
+              style={{background:type===t?col+"22":"none",border:"none",
+                borderRadius:8,padding:"3px 8px",color:type===t?col:C.textMuted,
+                fontSize:13,cursor:"pointer"}}>
+              {icon}
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>setOpen(false)}
+          style={{background:"none",border:"none",color:C.textMuted,fontSize:18,cursor:"pointer"}}>×</button>
+      </div>
+      <div style={{padding:10}}>
+        <textarea value={text} onChange={e=>setText(e.target.value)}
+          placeholder={type==="scratch"?"Work through the argument…":type==="mistake"?"Why was I wrong?":"Note to remember…"}
+          rows={5}
+          style={{width:"100%",background:C.bg,border:"1px solid "+typeColor+"33",
+            borderRadius:10,padding:"10px 12px",color:C.text,fontSize:13,
+            fontFamily:"Georgia, serif",lineHeight:1.9,resize:"none",
+            boxSizing:"border-box",outline:"none"}}/>
+        <button onClick={save} disabled={!text.trim()}
+          style={{width:"100%",marginTop:8,background:typeColor,border:"none",
+            borderRadius:10,padding:"8px",color:"white",fontSize:13,
+            fontWeight:700,cursor:"pointer",opacity:!text.trim()?0.5:1}}>
+          Save to Journal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
@@ -7023,7 +7114,7 @@ export default function App(){
     home:<Home user={user} setScreen={handleSetScreen} onUpdateUser={handleUpdateUser}/>,
     daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
     mistakes:<MistakeJournal user={user} onUpdateUser={handleUpdateUser}/>,
-    learn:<Learn user={user} onUpdateUser={handleUpdateUser}/>,
+    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
     writing:<Writing/>,
     flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
@@ -7040,7 +7131,7 @@ export default function App(){
 
   return(
     <ErrorBoundary>
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,paddingBottom:80,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
