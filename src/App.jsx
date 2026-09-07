@@ -2456,39 +2456,6 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
 }
 
 // ─── MONKEY BAR (always-visible bottom bar) ───────────────────────────────────
-function MonkeyBar({user,onNavigate,onUpdateUser,currentPose,currentMsg}){
-  const [chatOpen,setChatOpen]=useState(false);
-  const lexO={outfit:"none",hat:"none",glasses:"none"};
-
-
-  return(
-    <>
-      {chatOpen&&<MonkeyChat user={user} onUpdateUser={onUpdateUser}
-        onClose={()=>setChatOpen(false)} onNavigate={onNavigate}/>}
-
-      <div style={{position:"fixed",bottom:0,left:0,right:0,height:70,background:C.surface+"f8",borderTop:"1px solid "+C.border,backdropFilter:"blur(12px)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 20px"}}>
-
-        <div/>
-
-        {/* Center: Lex button */}
-        <button onClick={()=>setChatOpen(o=>!o)}
-          aria-label="Open Lex assistant"
-          style={{background:"transparent",border:"none",
-            cursor:"pointer",padding:0,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            transition:"filter 0.2s, transform 0.2s",
-            transform:chatOpen?"translateY(-16px) scale(1.05)":"translateY(-12px)",
-            filter:chatOpen?"drop-shadow(0 0 12px #4f7fff)":"drop-shadow(0 2px 4px #00000044)"}}>
-          <LexSVG pose={chatOpen?"think":"idle"} size={68}
-            outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
-        </button>
-
-        <div/>
-      </div>
-    </>
-  );
-}
-
 // ─── LEX SHOP (customizer) ────────────────────────────────────────────────────
 
 function LexIntro({user,onDone}){
@@ -2998,7 +2965,7 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
-function Nav({screen,setScreen,user,onLogout,onUpgrade}){
+function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat}){
   const [menuOpen,setMenuOpen]=useState(false);
 
   const PAGES=[
@@ -3010,6 +2977,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade}){
     {id:"writing",label:"Writing",icon:"✍",group:"study"},
     {id:"flaw",label:"Flaw Lab",icon:"⚖",group:"study"},
     {id:"fullsection",label:"Full Section",icon:"⏱",group:"study"},
+    {id:"notes",label:"Study Journal",icon:"📓",group:"tools"},
     {id:"mistakes",label:"Mistake Journal",icon:"❌",group:"tools"},
     {id:"srs",label:"SRS Review",icon:"🔁",group:"tools"},
     {id:"plan",label:"Study Plan",icon:"📋",group:"tools"},
@@ -3059,6 +3027,10 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade}){
               Upgrade ✦
             </button>
           )}
+          {user&&user.isPro&&(
+            <span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",
+              fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:20}}>PRO</span>
+          )}
           {user&&(
             <button onClick={()=>{setScreen("profile");close();}}
               title="Profile"
@@ -3103,7 +3075,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade}){
             background:C.surface,borderLeft:"1px solid "+C.border,
             zIndex:199,overflowY:"auto",
             boxShadow:"-8px 0 32px #00000044",
-            display:"flex",flexDirection:"column",paddingBottom:80}}>
+            display:"flex",flexDirection:"column"}}>
 
             {/* Drawer header */}
             <div style={{padding:"18px 20px 12px",borderBottom:`1px solid ${C.border}`,
@@ -3168,6 +3140,16 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade}){
                       color:C.textMuted,fontSize:13,cursor:"pointer",
                       fontFamily:T.sans,textAlign:"left"}}>
                     Sign Out
+                  </button>
+                  <button onClick={()=>{onLexChat&&onLexChat();close();}}
+                    style={{width:"100%",marginTop:8,padding:"9px 12px",borderRadius:10,
+                      border:"1px solid #4f7fff44",background:"linear-gradient(135deg,#1a1a3e,#2d1a4e)",
+                      color:"#a78bfa",fontSize:13,cursor:"pointer",
+                      fontFamily:T.sans,textAlign:"left",
+                      display:"flex",alignItems:"center",gap:8}}>
+                    <img src={LEX_IDLE} alt="Lex"
+                      style={{width:24,height:24,objectFit:"contain"}}/>
+                    Ask Lex
                   </button>
                 </>
               )}
@@ -3710,6 +3692,13 @@ function Home({user,setScreen,onUpdateUser}){
   const hour=new Date().getHours();
   const greeting=hour<12?"Good morning":hour<18?"Good afternoon":"Good evening";
   const learnProgress=user.learnProgress||{};
+  const testDate=user.diagnostic?.test_date||null;
+  const daysUntilTest=testDate?(()=>{
+    const td=new Date(testDate);
+    const now=new Date();
+    const diff=Math.ceil((td-now)/(1000*60*60*24));
+    return diff>0?diff:null;
+  })():null;
   const totalTypes=LEARN_CURRICULUM["Logical Reasoning"].length+LEARN_CURRICULUM["Reading Comprehension"].length;
   const learnedTypes=Object.keys(learnProgress).filter(k=>learnProgress[k]>=4).length;
   const earnedBadges=BADGES.filter(b=>(user.earnedBadges||[]).includes(b.id));
@@ -4083,7 +4072,21 @@ Respond ONLY with valid JSON (no markdown):
               {submitted&&(
                 <div>
                   {xpGained>0&&<div role="status" style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}><span>⭐</span><span style={{color:C.gold,fontWeight:700}}>+{xpGained} XP!</span></div>}
-                  <Card style={{borderColor:selected===question.correct?C.success:C.danger,marginBottom:12}}>
+                  {question?.assignedLevel&&(
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{fontSize:12,color:C.textMuted}}>Difficulty:</span>
+                  {[1,2,3,4].map(l=>(
+                    <div key={l} style={{width:18,height:6,borderRadius:3,
+                      background:l<=question.assignedLevel?(
+                        question.assignedLevel===1?C.success:question.assignedLevel===2?C.gold:question.assignedLevel===3?"#f97316":C.danger
+                      ):C.surfaceHigh}}/>
+                  ))}
+                  <span style={{fontSize:12,fontWeight:700,color:question.assignedLevel===1?C.success:question.assignedLevel===2?C.gold:question.assignedLevel===3?"#f97316":C.danger}}>
+                    Level {question.assignedLevel}
+                  </span>
+                </div>
+              )}
+              <Card style={{borderColor:selected===question.correct?C.success:C.danger,marginBottom:12}}>
                     <div style={{fontSize:16,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:10}}>
                       {selected===question.correct?"✓ Correct!":"✗ Not quite — here's why:"}
                     </div>
@@ -4354,7 +4357,7 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
   const [sparLoading,setSparLoading]=useState(false);
   const [note,setNote]=useState("");
   const [noteOpen,setNoteOpen]=useState(false);
-  const [questionTimer,setQuestionTimer]=useState(90);
+  const [questionTimer,setQuestionTimer]=useState(75); // 75s = LSAT target per question
   const questionTimerRef=useRef(null);
   const bottomRef=useRef(null);
   const domainWheelRef=useRef(0);
@@ -4591,7 +4594,19 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
       {question&&(
         <div>
           <Card style={{marginBottom:12}}>
-            <p style={{lineHeight:1.85,fontSize:Math.round(15*FONT_SCALE)+"px",color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
+            {question.section==="Reading Comprehension"&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,
+                paddingBottom:10,borderBottom:"1px solid "+C.border}}>
+                <span style={{fontSize:11,fontWeight:700,color:C.accent,
+                  textTransform:"uppercase",letterSpacing:"0.08em"}}>Reading Comprehension</span>
+                <span style={{fontSize:11,color:C.textMuted}}>— {question.qType}</span>
+              </div>
+            )}
+            <p style={{lineHeight:question.section==="Reading Comprehension"?2:1.85,
+              fontSize:Math.round(15*FONT_SCALE)+"px",
+              color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap",
+              borderLeft:question.section==="Reading Comprehension"?"3px solid "+C.accent+"44":"none",
+              paddingLeft:question.section==="Reading Comprehension"?14:0}}>{question.stimulus}</p>
             <p style={{fontWeight:600,fontSize:Math.round(15*FONT_SCALE)+"px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{question.question}</p>
             <div role="radiogroup">{Object.entries(question.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
             {!submitted&&<Btn onClick={submit} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit Answer</Btn>}
@@ -4638,6 +4653,14 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
                 <button onClick={()=>setNoteOpen(v=>!v)} aria-expanded={noteOpen} style={{background:"none",border:"none",color:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans,padding:0}}>{noteOpen?"▾":"▸"} Add a study note</button>
                 {noteOpen&&<div style={{marginTop:10}}><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Key insight, pattern, or strategy to remember…" rows={3} aria-label="Study note" style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",color:C.text,fontSize:14,fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",outline:"none"}}/><Btn ghost onClick={saveNote} small style={{marginTop:8}}>Save Note</Btn></div>}
               </Card>
+              {question?.key_concept&&(
+                <div style={{marginTop:8,padding:"10px 14px",
+                  background:C.accentSoft,borderRadius:10,
+                  display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{color:C.accent,fontSize:13,fontWeight:700,flexShrink:0}}>Concept:</span>
+                  <span style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{question.key_concept}</span>
+                </div>
+              )}
               <Btn onClick={nextQ} style={{width:"100%",padding:16,fontSize:16}}>Next Question →</Btn>
             </div>
           )}
@@ -6295,6 +6318,11 @@ function Onboarding({user,onUpdateUser,onDone}){
       title:"Progress",
       desc:"Your Lumora Score Predictor projects your current LSAT score range based on your accuracy across difficulty levels. The score trajectory chart shows how your projected score has changed over time. Your weakness breakdown by question type shows exactly where to focus.",
     },
+    {
+      icon:"📓",color:"#a78bfa",
+      title:"Study Journal",
+      desc:"Your personal study notebook — always accessible from the sidebar. Use Scratch Paper to work through arguments during practice, the Notebook to save strategies and insights you want to remember, and the Wrong Answer Log to analyze mistakes in depth. Everything saves to your account.",
+    },
   ];
 
   const PRACTICE_STEPS=[
@@ -6569,6 +6597,41 @@ function Dashboard({user,onUpdateUser}){
       <div style={{textAlign:"center",marginTop:20}}>
         <Btn ghost danger onClick={()=>{if(window.confirm("Reset all progress? Cannot be undone."))onUpdateUser({history:[],notes:[],studyPlan:null,learnProgress:{},stats:{xp:0,streak:0,lastDay:null}});}}>Reset All Progress</Btn>
       </div>
+      {/* Study Insights */}
+      {(user.history||[]).length>=5&&(()=>{
+        const h=user.history||[];
+        const insights=[];
+        // Find weakest type
+        const tStats2={};
+        h.forEach(q=>{if(!tStats2[q.qType])tStats2[q.qType]={c:0,t:0};tStats2[q.qType].t++;if(q.correct)tStats2[q.qType].c++;});
+        const weakest=Object.entries(tStats2).filter(([,v])=>v.t>=3).sort((a,b)=>(a[1].c/a[1].t)-(b[1].c/b[1].t))[0];
+        if(weakest&&weakest[1].c/weakest[1].t<0.6)insights.push("Your weakest type is "+weakest[0]+" ("+Math.round(weakest[1].c/weakest[1].t*100)+"%). Focus your next practice session here.");
+        // Check if doing harder questions
+        const l4=h.filter(q=>q.level===4);
+        if(l4.length===0&&h.length>20)insights.push("You have not attempted any Level 4 questions yet. Push into harder difficulty to accelerate improvement.");
+        // RC check
+        const rc=h.filter(q=>q.section==="Reading Comprehension");
+        const lr=h.filter(q=>q.section==="Logical Reasoning");
+        if(lr.length>0&&rc.length===0)insights.push("You have not practiced Reading Comprehension yet. Both sections appear on the LSAT.");
+        if(rc.length>0&&lr.length>0){
+          const rcAcc=Math.round(rc.filter(h=>h.correct).length/rc.length*100);
+          const lrAcc=Math.round(lr.filter(h=>h.correct).length/lr.length*100);
+          if(Math.abs(rcAcc-lrAcc)>20)insights.push("Large gap between your RC ("+rcAcc+"%) and LR ("+lrAcc+"%) accuracy. Balance your practice between both sections.");
+        }
+        if(insights.length===0)return null;
+        return(
+          <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:12,fontWeight:700}}>Study Insights</div>
+            {insights.map((insight,i)=>(
+              <div key={i} style={{display:"flex",gap:10,marginBottom:i<insights.length-1?10:0,
+                padding:"10px 12px",background:C.surfaceHigh,borderRadius:10}}>
+                <span style={{color:C.accent,fontSize:14,flexShrink:0}}>→</span>
+                <span style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{insight}</span>
+              </div>
+            ))}
+          </Card>
+        );
+      })()}
     </main>
   );
 }
@@ -6692,13 +6755,7 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
           position="bottom-right"
         />
       )}
-      <MonkeyBar
-        user={user}
-        onNavigate={onNavigate}
-        onUpdateUser={onUpdateUser}
-        currentPose={lexPose}
-        currentMsg={lexMsg}
-      />
+
     </>
   );
 }
@@ -6852,7 +6909,7 @@ function Terms({onBack}){
   return(
     <LegalPage title="Terms of Service" onBack={onBack}>
       <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>1. Service Description</h2>
-      <p style={{marginBottom:14}}>Lumora LSAT is an AI-powered LSAT preparation platform. All questions are generated by artificial intelligence and are not official LSAC questions.</p>
+      <p style={{marginBottom:14}}>Lumora LSAT is an AI-powered LSAT preparation platform. All practice questions are original practice content created by Lumora, designed to mirror LSAT methodology, and are not official LSAC questions.</p>
       <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>2. No LSAC Affiliation</h2>
       <p style={{marginBottom:14}}>Lumora LSAT is not affiliated with, endorsed by, or sponsored by LSAC. LSAT is a registered trademark of LSAC.</p>
       <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>3. Subscriptions</h2>
@@ -6880,7 +6937,7 @@ function Disclaimer({onBack}){
   return(
     <LegalPage title="LSAC Disclaimer" onBack={onBack}>
       <p style={{marginBottom:14,fontWeight:600,color:C.text}}>Lumora LSAT is independent and not affiliated with, endorsed by, or sponsored by LSAC.</p>
-      <p style={{marginBottom:14}}>All practice questions are original AI-generated content. We do not reproduce any official LSAT PrepTest questions.</p>
+      <p style={{marginBottom:14}}>All practice questions are original practice content created by Lumora. We do not reproduce any official LSAT PrepTest questions.</p>
       <p style={{marginBottom:14}}>LSAT is a registered trademark of LSAC. Use of the term is purely descriptive.</p>
       <p style={{marginBottom:14}}>For official materials, visit lsac.org. We strongly recommend supplementing Lumora with official LSAC PrepTests.</p>
     </LegalPage>
@@ -6967,6 +7024,7 @@ export default function App(){
   const [retakingDiagnostic,setRetakingDiagnostic]=useState(false);
   const [lexSessionResult,setLexSessionResult]=useState(null);
   const [upgradeModal,setUpgradeModal]=useState(null); // null | reason string
+  const [showLexChat,setShowLexChat]=useState(false);
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme globally
@@ -7131,13 +7189,13 @@ export default function App(){
 
   return(
     <ErrorBoundary>
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,paddingBottom:80,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
       {showSRS&&user&&<SRSReview user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowSRS(false)}/>}
       {showOnboarding&&user&&!user.onboardingDone&&<Onboarding user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowOnboarding(false)}/>}
-      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout} onUpgrade={(reason)=>setUpgradeModal(reason)}/>}
+      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout} onUpgrade={(reason)=>setUpgradeModal(reason)} onLexChat={()=>setShowLexChat(true)}/>}
       {pages[screen]||pages.home}
       {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
       <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
@@ -7148,6 +7206,31 @@ export default function App(){
       )}
       {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
         onClose={()=>setUpgradeModal(null)}/>}
+      {showLexChat&&user&&<MonkeyChat user={user} onUpdateUser={handleUpdateUser}
+        onClose={()=>setShowLexChat(false)} onNavigate={handleSetScreen}/>}
+      {/* Floating Lex button — always visible */}
+      {user&&!showLexChat&&(
+        <button
+          onClick={()=>setShowLexChat(true)}
+          title="Ask Lex"
+          aria-label="Open Lex assistant"
+          style={{
+            position:"fixed",bottom:20,right:20,zIndex:300,
+            width:58,height:58,borderRadius:"50%",
+            background:"linear-gradient(135deg,#1a1a3e,#2d1a4e)",
+            border:"2px solid #4f7fff66",
+            cursor:"pointer",padding:0,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            boxShadow:"0 4px 20px #00000066, 0 0 0 1px #4f7fff22",
+            transition:"transform 0.2s, box-shadow 0.2s",
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.transform="scale(1.08)";e.currentTarget.style.boxShadow="0 6px 28px #00000088, 0 0 16px #4f7fff44";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow="0 4px 20px #00000066, 0 0 0 1px #4f7fff22";}}>
+          <img src={LEX_IDLE} alt="Lex"
+            style={{width:46,height:46,objectFit:"contain",
+              transform:"translateY(-2px)"}}/>
+        </button>
+      )}
     </div>
     </ErrorBoundary>
   );
