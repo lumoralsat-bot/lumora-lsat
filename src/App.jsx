@@ -2965,7 +2965,7 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
-function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat}){
+function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDarkMode,fontScale,setFontScale}){
   const [menuOpen,setMenuOpen]=useState(false);
 
   const PAGES=[
@@ -3038,6 +3038,31 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat}){
               <Avatar user={user} size={32}/>
             </button>
           )}
+
+          {/* Accessibility quick controls */}
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            <button onClick={()=>{const v=!darkMode;setDarkMode(v);try{localStorage.setItem("lumora_dark",v?"1":"0");}catch{}}}
+              title={darkMode?"Light mode":"Dark mode"}
+              style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
+                width:30,height:30,color:C.textMuted,cursor:"pointer",
+                fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {darkMode?"☀️":"🌙"}
+            </button>
+            <button onClick={()=>{const f=Math.min(1.3,fontScale+0.1);setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}
+              title="Increase text size"
+              style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
+                width:30,height:30,color:C.textMuted,cursor:"pointer",
+                fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              A+
+            </button>
+            <button onClick={()=>{const f=Math.max(0.85,fontScale-0.1);setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}
+              title="Decrease text size"
+              style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
+                width:30,height:30,color:C.textMuted,cursor:"pointer",
+                fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              A-
+            </button>
+          </div>
 
           {/* Hamburger */}
           <button onClick={()=>setMenuOpen(o=>!o)}
@@ -6972,7 +6997,7 @@ function JournalFloat({user,onUpdateUser,context}){
   );
 
   return(
-    <div style={{position:"fixed",bottom:80,left:12,width:270,zIndex:400,
+    <div style={{position:"fixed",bottom:24,left:108,width:270,zIndex:400,
       background:C.surface,border:"1px solid "+typeColor+"44",borderRadius:16,
       boxShadow:"0 8px 32px #00000055"}}>
       <div style={{padding:"10px 14px",borderBottom:"1px solid "+C.border,
@@ -7014,8 +7039,12 @@ export default function App(){
   const [user,setUser]=useState(null);
   const [screen,setScreen]=useState("landing");
   const [ready,setReady]=useState(false);
-  const [darkMode,setDarkMode]=useState(true);
-  const [fontScale,setFontScale]=useState(1);
+  const [darkMode,setDarkMode]=useState(()=>{
+    try{const s=localStorage.getItem("lumora_dark");return s===null?true:s==="1";}catch{return true;}
+  });
+  const [fontScale,setFontScale]=useState(()=>{
+    try{const s=localStorage.getItem("lumora_font");return s?parseFloat(s):1;}catch{return 1;}
+  });
   const [streakCelebrate,setStreakCelebrate]=useState(false);
   const [showQuick5,setShowQuick5]=useState(false);
   const [quick5Key,setQuick5Key]=useState(0);
@@ -7027,11 +7056,9 @@ export default function App(){
   const [showLexChat,setShowLexChat]=useState(false);
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
-  // Apply theme globally
-  useEffect(()=>{
-    C=darkMode?DARK:LIGHT;
-    FONT_SCALE=fontScale;
-  },[darkMode,fontScale]);
+  // Apply theme and font globally - sync before render
+  C=darkMode?DARK:LIGHT;
+  FONT_SCALE=fontScale;
 
   useEffect(()=>{
     (async()=>{
@@ -7189,15 +7216,15 @@ export default function App(){
 
   return(
     <ErrorBoundary>
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
+    <div key={darkMode?"dark":"light"} style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
       {showSRS&&user&&<SRSReview user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowSRS(false)}/>}
       {showOnboarding&&user&&!user.onboardingDone&&<Onboarding user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowOnboarding(false)}/>}
-      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout} onUpgrade={(reason)=>setUpgradeModal(reason)} onLexChat={()=>setShowLexChat(true)}/>}
+      {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout} onUpgrade={(reason)=>setUpgradeModal(reason)} onLexChat={()=>setShowLexChat(true)} darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}/>}
       {pages[screen]||pages.home}
-      {user&&<AccessibilityBar darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;}}/>}
+
       <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
         onNavigate={handleSetScreen} onUpdateUser={handleUpdateUser}/>
       {user&&["practice","flaw","writing","fullsection","quick5"].includes(screen)&&(
@@ -7215,20 +7242,20 @@ export default function App(){
           title="Ask Lex"
           aria-label="Open Lex assistant"
           style={{
-            position:"fixed",bottom:20,right:20,zIndex:300,
-            width:58,height:58,borderRadius:"50%",
+            position:"fixed",bottom:24,left:24,zIndex:300,
+            width:68,height:68,borderRadius:"50%",
             background:"linear-gradient(135deg,#1a1a3e,#2d1a4e)",
-            border:"2px solid #4f7fff66",
+            border:"2px solid #4f7fff55",
             cursor:"pointer",padding:0,
             display:"flex",alignItems:"center",justifyContent:"center",
-            boxShadow:"0 4px 20px #00000066, 0 0 0 1px #4f7fff22",
+            boxShadow:"0 4px 24px #00000077, 0 0 0 1px #4f7fff22",
             transition:"transform 0.2s, box-shadow 0.2s",
           }}
-          onMouseEnter={e=>{e.currentTarget.style.transform="scale(1.08)";e.currentTarget.style.boxShadow="0 6px 28px #00000088, 0 0 16px #4f7fff44";}}
-          onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow="0 4px 20px #00000066, 0 0 0 1px #4f7fff22";}}>
+          onMouseEnter={e=>{e.currentTarget.style.transform="scale(1.1)";e.currentTarget.style.boxShadow="0 8px 32px #00000088, 0 0 20px #4f7fff55";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";e.currentTarget.style.boxShadow="0 4px 24px #00000077, 0 0 0 1px #4f7fff22";}}>
           <img src={LEX_IDLE} alt="Lex"
-            style={{width:46,height:46,objectFit:"contain",
-              transform:"translateY(-2px)"}}/>
+            style={{width:54,height:54,objectFit:"contain",
+              transform:"translateY(-3px)"}}/>
         </button>
       )}
     </div>
