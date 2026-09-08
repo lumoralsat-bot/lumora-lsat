@@ -3916,7 +3916,7 @@ function Learn({user,onUpdateUser,onUpgrade}){
                 <div style={{position:"absolute",inset:0,borderRadius:14,
                   background:"linear-gradient(135deg,#0a0f1e88,#1a1a2e88)",
                   backdropFilter:"blur(2px)",display:"flex",alignItems:"center",
-                  justifyContent:"center",zIndex:2,borderRadius:12}}>
+                  justifyContent:"center",zIndex:2}}>
                   <div style={{textAlign:"center"}}>
                     <div style={{fontSize:22,marginBottom:4}}>🔒</div>
                     <div style={{fontSize:12,color:"white",fontWeight:600}}>Pro Only</div>
@@ -6987,17 +6987,19 @@ function JournalFloat({user,onUpdateUser,context}){
 
   if(!open)return(
     <button onClick={()=>setOpen(true)} title="Open journal"
-      style={{position:"fixed",bottom:90,left:16,zIndex:300,
-        background:"#4f7fff",border:"none",borderRadius:14,
-        width:44,height:44,cursor:"pointer",fontSize:20,
-        display:"flex",alignItems:"center",justifyContent:"center",
-        boxShadow:"0 2px 12px #00000044"}}>
-      📓
+      style={{position:"fixed",bottom:104,left:24,zIndex:300,
+        background:C.surface,border:"1px solid "+C.border,
+        borderRadius:20,padding:"5px 14px",cursor:"pointer",
+        fontSize:12,fontWeight:700,color:C.textSub,
+        display:"flex",alignItems:"center",gap:6,
+        boxShadow:"0 2px 8px #00000033",fontFamily:T.sans}}>
+      <span style={{fontSize:16}}>📓</span>
+      <span>Journal</span>
     </button>
   );
 
   return(
-    <div style={{position:"fixed",bottom:24,left:108,width:270,zIndex:400,
+    <div style={{position:"fixed",bottom:148,left:24,width:270,zIndex:400,
       background:C.surface,border:"1px solid "+typeColor+"44",borderRadius:16,
       boxShadow:"0 8px 32px #00000055"}}>
       <div style={{padding:"10px 14px",borderBottom:"1px solid "+C.border,
@@ -7059,11 +7061,6 @@ export default function App(){
   // Apply theme and font globally - sync before render
   C=darkMode?DARK:LIGHT;
   FONT_SCALE=fontScale;
-  // Inject global font scale via CSS on the html element
-  if(typeof document!=="undefined"){
-    document.documentElement.style.fontSize=Math.round(16*fontScale)+"px";
-    document.body.style.background=C.bg;
-  }
 
   useEffect(()=>{
     (async()=>{
@@ -7090,32 +7087,38 @@ export default function App(){
     })();
   },[]);
 
+  const userRef=useRef(user);
+  useEffect(()=>{userRef.current=user;},[user]);
+  const streakFreezesRef=useRef(streakFreezes);
+  useEffect(()=>{streakFreezesRef.current=streakFreezes;},[streakFreezes]);
+
   const checkStreak=useCallback(()=>{
-    if(!user)return;
+    const u=userRef.current;
+    if(!u)return;
     const today=new Date().toDateString();
-    if(user.stats?.lastDay===today)return;
+    if(u.stats?.lastDay===today)return;
     const yesterday=new Date(Date.now()-86400000).toDateString();
-    const wasMissed=user.stats?.lastDay&&user.stats.lastDay!==yesterday&&user.stats.lastDay!==today;
+    const wasMissed=u.stats?.lastDay&&u.stats.lastDay!==yesterday&&u.stats.lastDay!==today;
     let streak;
-    if(user.stats?.lastDay===yesterday){
-      streak=(user.stats?.streak||0)+1;
-    }else if(wasMissed&&streakFreezes>0){
-      streak=user.stats?.streak||1;
-      const newFreezes=streakFreezes-1;
+    if(u.stats?.lastDay===yesterday){
+      streak=(u.stats?.streak||0)+1;
+    }else if(wasMissed&&streakFreezesRef.current>0){
+      streak=u.stats?.streak||1;
+      const newFreezes=streakFreezesRef.current-1;
       setStreakFreezes(newFreezes);
       try{localStorage.setItem("lumora_freezes",String(newFreezes));}catch{}
     }else{
       streak=1;
     }
-    const updated={...user,stats:{...user.stats,streak,lastDay:today}};
+    const updated={...u,stats:{...u.stats,streak,lastDay:today}};
     setUser(updated);
     (async()=>{try{await DB.saveUser(updated.email,updated);}catch(e){console.warn("saveUser failed:",e);}})();
     if([3,7,14,30,60,100].includes(streak))setStreakCelebrate(true);
-  },[user,streakFreezes]);
+  },[]);
 
   useEffect(()=>{
+    if(!user?.email)return;
     checkStreak();
-    // Re-check when user returns to tab next day
     window.addEventListener("focus",checkStreak);
     return()=>window.removeEventListener("focus",checkStreak);
   },[user?.email]);
@@ -7226,7 +7229,14 @@ export default function App(){
 
   return(
     <ErrorBoundary>
-    <div key={darkMode?"dark":"light"} style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,fontSize:Math.round(16*fontScale)+"px",paddingBottom:user?90:0}}>
+    <div key={darkMode?"dark":"light"} style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,paddingBottom:user?90:0}}>
+      <style>{`
+        :root { font-size: ${Math.round(16*fontScale)}px; }
+        body { background: ${C.bg}; }
+        p, span, div, button, input, textarea, label, a {
+          font-size: inherit;
+        }
+      `}</style>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
       {showQuick5&&user&&<Quick5 key={quick5Key} user={user} onUpdateUser={handleUpdateUser} onDone={()=>setShowQuick5(false)}/>}
