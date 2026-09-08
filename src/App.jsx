@@ -2319,7 +2319,7 @@ function MonkeyBubble({pose="happy",message,onDismiss,size=70,outfit,hat,glasses
 function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
   const [input,setInput]=useState("");
   const [msgs,setMsgs]=useState([
-    {role:"lex",text:"Hey! I'm Lex 🐵 Ask me anything about the app or the LSAT. I can guide you anywhere!"}
+    {role:"lex",text:"Hi, I'm Lex. Ask me anything about the app, the LSAT, or where to get started."}
   ]);
   const [loading,setLoading]=useState(false);
   const bottomRef=useRef(null);
@@ -2384,8 +2384,8 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
   };
 
   return(
-    <div style={{position:"fixed",bottom:72,right:16,width:300,
-      background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,
+    <div style={{position:"fixed",bottom:104,left:24,width:310,
+      background:C.surface,border:"1px solid "+C.border,borderRadius:20,
       boxShadow:"0 8px 40px #00000055",zIndex:490,
       display:"flex",flexDirection:"column",overflow:"hidden"}}>
 
@@ -2412,7 +2412,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
                 <LexSVG pose="idle" size={40} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
               </div>}
               <div style={{maxWidth:"80%",padding:"8px 12px",borderRadius:14,fontSize:13,lineHeight:1.55,
-                background:m.role==="user"?"linear-gradient(135deg,#3a6bff,#6a9fff)":"#1e2d4e",
+                background:m.role==="user"?"linear-gradient(135deg,#3a6bff,#6a9fff)":C.surfaceHigh,
                 color:m.role==="user"?"white":C.text,
                 borderBottomRightRadius:m.role==="user"?4:14,
                 borderBottomLeftRadius:m.role==="lex"?4:14}}>
@@ -7059,6 +7059,11 @@ export default function App(){
   // Apply theme and font globally - sync before render
   C=darkMode?DARK:LIGHT;
   FONT_SCALE=fontScale;
+  // Inject global font scale via CSS on the html element
+  if(typeof document!=="undefined"){
+    document.documentElement.style.fontSize=Math.round(16*fontScale)+"px";
+    document.body.style.background=C.bg;
+  }
 
   useEffect(()=>{
     (async()=>{
@@ -7085,7 +7090,7 @@ export default function App(){
     })();
   },[]);
 
-  useEffect(()=>{
+  const checkStreak=useCallback(()=>{
     if(!user)return;
     const today=new Date().toDateString();
     if(user.stats?.lastDay===today)return;
@@ -7095,7 +7100,6 @@ export default function App(){
     if(user.stats?.lastDay===yesterday){
       streak=(user.stats?.streak||0)+1;
     }else if(wasMissed&&streakFreezes>0){
-      // Use a streak freeze to preserve the streak
       streak=user.stats?.streak||1;
       const newFreezes=streakFreezes-1;
       setStreakFreezes(newFreezes);
@@ -7106,8 +7110,14 @@ export default function App(){
     const updated={...user,stats:{...user.stats,streak,lastDay:today}};
     setUser(updated);
     (async()=>{try{await DB.saveUser(updated.email,updated);}catch(e){console.warn("saveUser failed:",e);}})();
-    // Celebrate milestones
     if([3,7,14,30,60,100].includes(streak))setStreakCelebrate(true);
+  },[user,streakFreezes]);
+
+  useEffect(()=>{
+    checkStreak();
+    // Re-check when user returns to tab next day
+    window.addEventListener("focus",checkStreak);
+    return()=>window.removeEventListener("focus",checkStreak);
   },[user?.email]);
 
   const handleLogin=(u)=>{
