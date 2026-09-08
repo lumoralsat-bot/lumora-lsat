@@ -195,29 +195,54 @@ const DB={
     }catch(e){console.warn("Supabase createUser failed:",e);}
   },
 
-  // Get user by email
+  // Get user by email — merge local and remote, prefer most data
   getUser:async(email)=>{
     const em=email.toLowerCase();
+    const local=DB._getLocal(em);
     if(USE_SUPA){
       try{
         const rows=await supaFetch("/users?email=eq."+encodeURIComponent(em)+"&limit=1","GET",null,"");
         if(rows&&rows.length>0){
-          const user=rowToUser(rows[0]);
-          DB._setLocal(em,user);
-          return user;
+          const remote=rowToUser(rows[0]);
+          // Keep whichever has more history/notes (in case local is newer)
+          const merged={
+            ...remote,
+            history:(local?.history||[]).length>(remote.history||[]).length
+              ?local.history:remote.history,
+            notes:(local?.notes||[]).length>(remote.notes||[]).length
+              ?local.notes:remote.notes,
+            learnProgress:Object.keys(local?.learnProgress||{}).length>Object.keys(remote.learnProgress||{}).length
+              ?local.learnProgress:remote.learnProgress,
+          };
+          DB._setLocal(em,merged);
+          return merged;
         }
       }catch(e){console.warn("Supabase getUser failed, using local:",e);}
     }
-    return DB._getLocal(em);
+    return local;
   },
 
-  // Save user (upsert)
+  // Save user — PATCH existing, POST if new
   saveUser:async(email,data)=>{
     const em=email.toLowerCase();
-    DB._setLocal(em,data); // always local first
+    DB._setLocal(em,data); // always local first (instant)
     if(!USE_SUPA)return;
     try{
-      await supaFetch("/users","POST",userToRow(data),"resolution=merge-duplicates,return=minimal");
+      // Try PATCH first (update existing row)
+      const patchRes=await fetch(SUPA_URL+"/rest/v1/users?email=eq."+encodeURIComponent(em),{
+        method:"PATCH",
+        headers:{
+          "apikey":SUPA_KEY,
+          "Authorization":"Bearer "+SUPA_KEY,
+          "Content-Type":"application/json",
+          "Prefer":"return=minimal",
+        },
+        body:JSON.stringify(userToRow(data)),
+      });
+      if(!patchRes.ok){
+        // Row doesn't exist yet — insert it
+        await supaFetch("/users","POST",userToRow(data),"resolution=merge-duplicates,return=minimal");
+      }
     }catch(e){console.warn("Supabase saveUser failed:",e);}
   },
 
@@ -1919,8 +1944,8 @@ function Pill({children,active,onClick,color=C.accent}){
   return <button onClick={onClick} aria-pressed={active} style={{background:active?color+"20":"transparent",border:`1.5px solid ${active?color:C.border}`,borderRadius:10,padding:"10px 16px",cursor:"pointer",color:active?color:C.textMuted,fontSize:14,textAlign:"left",transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.4,fontWeight:active?600:400,outline:"none"}}>{children}</button>;
 }
 function Btn({children,onClick,disabled,ghost,danger:isDanger,style={},small,type="button",ariaLabel}){
-  if(ghost)return <button type={type} onClick={onClick} aria-label={ariaLabel} style={{background:"transparent",border:`1px solid ${isDanger?C.danger+"66":C.border}`,borderRadius:10,color:isDanger?C.danger:C.textSub,fontSize:small?12:13,padding:small?"6px 14px":"9px 18px",cursor:"pointer",fontFamily:T.sans,outline:"none",transition:"all 0.15s",...style}}>{children}</button>;
-  return <button type={type} onClick={onClick} disabled={disabled} aria-label={ariaLabel} style={{background:disabled?C.surfaceHigh:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:disabled?C.textMuted:"#fff",border:"none",borderRadius:12,padding:small?"9px 20px":"14px 28px",fontSize:small?13:15,fontWeight:700,cursor:disabled?"not-allowed":"pointer",fontFamily:T.sans,opacity:disabled?0.5:1,boxShadow:disabled?"none":"0 4px 24px #3a6bff55",transition:"all 0.2s",outline:"none",...style}}>{children}</button>;
+  if(ghost)return <button type={type} onClick={onClick} aria-label={ariaLabel} style={{background:"transparent",border:`1px solid ${isDanger?C.danger+"66":C.border}`,borderRadius:10,color:isDanger?C.danger:C.textSub,fontSize:Math.round((small?12:13)*FONT_SCALE),padding:small?"6px 14px":"9px 18px",cursor:"pointer",fontFamily:T.sans,outline:"none",transition:"all 0.15s",...style}}>{children}</button>;
+  return <button type={type} onClick={onClick} disabled={disabled} aria-label={ariaLabel} style={{background:disabled?C.surfaceHigh:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:disabled?C.textMuted:"#fff",border:"none",borderRadius:12,padding:small?"9px 20px":"14px 28px",fontSize:Math.round((small?13:15)*FONT_SCALE),fontWeight:700,cursor:disabled?"not-allowed":"pointer",fontFamily:T.sans,opacity:disabled?0.5:1,boxShadow:disabled?"none":"0 4px 24px #3a6bff55",transition:"all 0.2s",outline:"none",...style}}>{children}</button>;
 }
 function Card({children,style={},onClick,role,ariaLabel}){
   return <div onClick={onClick} role={role} aria-label={ariaLabel} tabIndex={onClick?0:undefined}
@@ -1930,9 +1955,9 @@ function Card({children,style={},onClick,role,ariaLabel}){
 function Finput({label,type="text",value,onChange,placeholder,id,autoFocus,required}){
   return(
     <div style={{marginBottom:14}}>
-      {label&&<label htmlFor={id} style={{display:"block",fontSize:13,color:C.textSub,marginBottom:6,fontWeight:600}}>{label}{required&&<span style={{color:C.danger,marginLeft:3}}>*</span>}</label>}
+      {label&&<label htmlFor={id} style={{display:"block",fontSize:Math.round(13*FONT_SCALE),color:C.textSub,marginBottom:6,fontWeight:600}}>{label}{required&&<span style={{color:C.danger,marginLeft:3}}>*</span>}</label>}
       <input id={id} type={type} value={value} onChange={onChange} placeholder={placeholder} autoFocus={autoFocus} required={required}
-        style={{width:"100%",background:C.surfaceHigh,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:15,fontFamily:T.sans,outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}
+        style={{width:"100%",background:C.surfaceHigh,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"12px 14px",color:C.text,fontSize:Math.round(15*FONT_SCALE),fontFamily:T.sans,outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}
         onFocus={e=>e.target.style.borderColor=C.accent} onBlur={e=>e.target.style.borderColor=C.border}/>
     </div>
   );
@@ -2484,7 +2509,7 @@ function LexIntro({user,onDone}){
         <div style={{animation:"lexCelebrate 0.8s ease both"}}>
           <LexSVG pose="celebrate" size={200} outfit="none" hat="none" glasses="none"/>
         </div>
-        <h2 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginTop:16,marginBottom:8}}>
+        <h2 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,marginTop:16,marginBottom:8}}>
           Meet Your Study Buddy!
         </h2>
         <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:28}}>
@@ -2534,7 +2559,7 @@ function LexIntro({user,onDone}){
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
         padding:36,maxWidth:420,width:"100%",textAlign:"center"}}>
         <LexSVG pose="celebrate" size={170} outfit="none" hat="none" glasses="none"/>
-        <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginTop:16,marginBottom:10}}>
+        <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginTop:16,marginBottom:10}}>
           Nice to meet you!
         </h2>
         <div style={{background:"white",borderRadius:16,padding:"14px 18px",
@@ -2776,7 +2801,7 @@ function Quick5({user,onUpdateUser,onDone}){
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,
           padding:36,maxWidth:400,width:"100%",textAlign:"center"}}>
           <div style={{fontSize:52,marginBottom:12}}>{pct>=80?"🏆":pct>=60?"🎯":"📈"}</div>
-          <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:8}}>Quick 5 Done!</h2>
+          <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:8}}>Quick 5 Done!</h2>
           <div style={{fontSize:44,fontWeight:900,
             color:pct>=70?C.success:pct>=50?C.gold:C.danger,
             fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
@@ -3001,7 +3026,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
             display:"flex",alignItems:"center",justifyContent:"center",
             fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,
             boxShadow:"0 0 16px #3a6bff44"}}>L</div>
-          <span style={{fontFamily:T.serif,fontSize:17,color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
+          <span style={{fontFamily:T.serif,fontSize:Math.round(17*FONT_SCALE),color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
             <span style={{color:C.accent}}>Lumora</span> LSAT
           </span>
           {user?.isPro&&<span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:20,letterSpacing:"0.05em"}}>PRO</span>}
@@ -3105,7 +3130,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
             {/* Drawer header */}
             <div style={{padding:"18px 20px 12px",borderBottom:`1px solid ${C.border}`,
               display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span style={{fontFamily:T.serif,fontSize:16,color:C.text,fontWeight:700}}>
+              <span style={{fontFamily:T.serif,fontSize:Math.round(16*FONT_SCALE),color:C.text,fontWeight:700}}>
                 <span style={{color:C.accent}}>Lumora</span> LSAT
               </span>
               <button onClick={close}
@@ -3240,7 +3265,7 @@ function Landing({onGetStarted}){
         <div style={{textAlign:"center",paddingBottom:80}}>
           <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}33`,borderRadius:24,padding:"48px 32px",maxWidth:600,margin:"0 auto"}}>
             <div style={{fontSize:32,marginBottom:16}}>⚖</div>
-            <h2 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginBottom:12,fontWeight:700}}>Ready to dominate the LSAT?</h2>
+            <h2 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,marginBottom:12,fontWeight:700}}>Ready to dominate the LSAT?</h2>
             <p style={{color:C.textSub,fontSize:15,marginBottom:28,lineHeight:1.7}}>Create your free account and start your personalized prep today. No credit card required.</p>
             <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"16px 40px",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55"}}>Get Started Free →</button>
           </div>
@@ -3292,10 +3317,10 @@ function Auth({onLogin}){
       <div style={{width:"100%",maxWidth:440}}>
         <div style={{textAlign:"center",marginBottom:32}}>
           <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:900,color:"#fff",fontFamily:T.serif,margin:"0 auto 16px",boxShadow:"0 0 32px #3a6bff44"}}>L</div>
-          <div style={{fontFamily:T.serif,fontSize:26,color:C.text,fontWeight:700}}><span style={{color:C.accent}}>Lumora</span> LSAT</div>
+          <div style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,fontWeight:700}}><span style={{color:C.accent}}>Lumora</span> LSAT</div>
         </div>
         <Card>
-          <h1 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:6,fontWeight:700}}>{mode==="login"?"Welcome back":"Create your account"}</h1>
+          <h1 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginBottom:6,fontWeight:700}}>{mode==="login"?"Welcome back":"Create your account"}</h1>
           <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":"Your progress saves automatically every session."}</p>
           <ErrBanner message={error} onDismiss={()=>setError("")}/>
           <form onSubmit={submit} noValidate>
@@ -3329,7 +3354,7 @@ function Diagnostic({user,onComplete,onCancel}){
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:520}}>
         <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{fontFamily:T.serif,fontSize:22,color:C.text,fontWeight:700}}>
+          <div style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,fontWeight:700}}>
             {isRetake?"Update your study profile":"Welcome, "+user.name.split(" ")[0]+"!"}
           </div>
           <p style={{color:C.textSub,fontSize:14,marginTop:6,lineHeight:1.6}}>
@@ -3386,7 +3411,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
   return(
     <main style={{maxWidth:640,margin:"0 auto",padding:"32px 20px"}}>
       <button onClick={()=>setScreen("home")} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:24}}>Your Profile</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:24}}>Your Profile</h1>
 
       {/* Avatar section */}
       <Card style={{marginBottom:14,textAlign:"center",padding:"32px 24px"}}>
@@ -3874,7 +3899,7 @@ function Learn({user,onUpdateUser,onUpgrade}){
     <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
         <div>
-          <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:4}}>Learn</h1>
+          <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Learn</h1>
           <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>Master every LSAT question type from first principles.</p>
         </div>
         {!isPro&&(
@@ -4041,7 +4066,7 @@ Respond ONLY with valid JSON (no markdown):
           {/* Why this matters banner */}
           <Card style={{marginBottom:14,background:`linear-gradient(135deg,${C.accentSoft},${C.surface})`,borderColor:C.accent+"44"}}>
             <div style={{fontSize:13,color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Why This Matters</div>
-            <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,marginBottom:8,fontWeight:700}}>{typeObj.type}</h2>
+            <h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,marginBottom:8,fontWeight:700}}>{typeObj.type}</h2>
             <p style={{fontSize:15,color:C.textSub,fontStyle:"italic",marginBottom:10,lineHeight:1.6}}>{typeObj.tagline}</p>
             <p style={{fontSize:14,color:C.textSub,lineHeight:1.75}}>{typeObj.why}</p>
           </Card>
@@ -4058,7 +4083,7 @@ Respond ONLY with valid JSON (no markdown):
           {/* Current section content */}
           {currentSection&&(
             <Card style={{marginBottom:14}}>
-              <h3 style={{fontFamily:T.serif,fontSize:18,color:C.text,marginBottom:16,fontWeight:700,borderBottom:`1px solid ${C.border}`,paddingBottom:12}}>{currentSection.title}</h3>
+              <h3 style={{fontFamily:T.serif,fontSize:Math.round(18*FONT_SCALE),color:C.text,marginBottom:16,fontWeight:700,borderBottom:`1px solid ${C.border}`,paddingBottom:12}}>{currentSection.title}</h3>
               <div style={{fontSize:15,color:C.text,lineHeight:1.95,whiteSpace:"pre-wrap"}}>{currentSection.content}</div>
             </Card>
           )}
@@ -4143,7 +4168,7 @@ Respond ONLY with valid JSON (no markdown):
       {view==="complete"&&(
         <Card style={{textAlign:"center",padding:"48px 32px",borderColor:C.success+"44"}}>
           <div style={{fontSize:56,marginBottom:16}}>🎓</div>
-          <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:10}}>Lesson Complete!</h2>
+          <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:10}}>Lesson Complete!</h2>
           <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:8}}>You've worked through all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
           <p style={{color:C.textSub,fontSize:13,lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
@@ -4337,7 +4362,7 @@ function SessionDebrief({sessionHistory,user,onDismiss,onRecord}){
         {loading?<Spinner label="Analyzing your session…"/>:<div>
           <div style={{fontSize:48,marginBottom:12}}>{debrief?.emoji||"📊"}</div>
           <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontWeight:700}}>Session Complete</div>
-          <h3 style={{fontFamily:T.serif,fontSize:20,color:C.text,marginBottom:16,lineHeight:1.4}}>{debrief?.headline}</h3>
+          <h3 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,marginBottom:16,lineHeight:1.4}}>{debrief?.headline}</h3>
           {debrief?.insight&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.accent,fontWeight:700}}>💡 </span>{debrief.insight}</div>}
           {debrief?.tip&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"12px 16px",marginBottom:20,fontSize:14,color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.gold,fontWeight:700}}>→ Next time: </span>{debrief.tip}</div>}
           <Btn onClick={onDismiss} style={{width:"100%"}}>Continue →</Btn>
@@ -4553,7 +4578,7 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
   // ── CONFIG SCREEN ──
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Practice</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Practice</h1>
       <p style={{color:C.textSub,fontSize:14,marginBottom:16}}>Lumora generates a fresh question every time — infinite practice, no repeats.</p>
       <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);startPractice();}}/>
       <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(s);setQType(null);}}>{s}</Pill>)}</div></Card>
@@ -4818,7 +4843,7 @@ Respond ONLY with valid JSON:
           <LexSVG pose={sparLoading?"think":sparMsgs.length>0&&sparMsgs[sparMsgs.length-1]?.conceding?"sad":"excited"}
             size={64} animate={true}/>
           <div>
-            <div style={{fontFamily:T.serif,fontSize:18,color:C.text,fontWeight:700}}>Spar with Lex</div>
+            <div style={{fontFamily:T.serif,fontSize:Math.round(18*FONT_SCALE),color:C.text,fontWeight:700}}>Spar with Lex</div>
             <div style={{fontSize:12,color:C.danger,fontWeight:600}}>⚖️ {seed.style} — Lex is defending this argument</div>
           </div>
         </div>
@@ -4911,7 +4936,7 @@ Respond ONLY with valid JSON:
   if(phase==="sparfeedback"&&feedback)return(
     <main style={{maxWidth:680,margin:"0 auto",padding:"32px 20px 100px",textAlign:"center"}}>
       <LexSVG pose={feedback.identified_flaw?"sad":"celebrate"} size={120} animate={true}/>
-      <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginTop:12,marginBottom:6}}>
+      <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginTop:12,marginBottom:6}}>
         {feedback.verdict||"Debate Complete"}
       </h2>
       <div style={{fontSize:48,fontWeight:900,color:feedback.overall_score>=70?C.success:feedback.overall_score>=50?C.gold:C.danger,
@@ -4938,7 +4963,7 @@ Respond ONLY with valid JSON:
 
   if(phase==="config")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Flaw Lab ⚖️</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Flaw Lab ⚖️</h1>
       <p style={{color:C.textMuted,fontSize:14,marginBottom:16,lineHeight:1.7}}>Each session, Lumora generates a fresh, unique flawed legal argument — you'll never see the same argument twice. Identify the flaw, explain the reasoning error, and argue against it.</p>
       <Card style={{marginBottom:14,background:C.accentSoft,borderColor:C.accent+"44"}}>
         <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:13}}>How It Works</strong>
@@ -4983,7 +5008,7 @@ Respond ONLY with valid JSON:
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
       {argument&&<>
         <div style={{marginBottom:16}}><Tag color={C.purple}>Flaw Lab</Tag><Tag color={C.danger}>{seed.style}</Tag>
-          <h2 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginTop:10,marginBottom:4}}>{argument.title}</h2>
+          <h2 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginTop:10,marginBottom:4}}>{argument.title}</h2>
           <p style={{color:C.textMuted,fontSize:13}}>{argument.context}</p>
         </div>
         <Card style={{marginBottom:16}}>
@@ -5027,7 +5052,7 @@ Respond ONLY with valid JSON:
 
   if(phase==="feedback")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
-      <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:22}}>Flaw Lab Feedback</h2>
+      <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:22}}>Flaw Lab Feedback</h2>
       {loadingFb&&<Spinner label="Evaluating your argument…"/>}
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
       {feedback&&!loadingFb&&<div>
@@ -5140,7 +5165,7 @@ Respond ONLY with valid JSON:
 
   if(phase==="config")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Argumentative Writing</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Argumentative Writing</h1>
       <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>Choose a topic theme — Lumora generates a completely fresh, unique prompt every session. Infinite practice, never the same twice.</p>
       <Card style={{marginBottom:14,background:C.accentSoft,borderColor:C.accent+"44"}}>
         <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:13}}>2026 LSAC Format</strong>
@@ -5184,7 +5209,7 @@ Respond ONLY with valid JSON:
       <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
         <Card style={{marginBottom:16,background:C.accentSoft,borderColor:C.accent+"44"}}>
           <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:6,fontWeight:700}}>Your Prompt</div>
-          <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,marginBottom:8}}>{prompt.topic}</h2>
+          <h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,marginBottom:8}}>{prompt.topic}</h2>
           <p style={{fontSize:13,color:C.textSub,lineHeight:1.7,marginBottom:12}}>{prompt.context}</p>
           <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>Key Question:</div>
           <p style={{fontSize:15,color:C.text,fontStyle:"italic",lineHeight:1.6,paddingLeft:12,borderLeft:`3px solid ${C.accent}`}}>{prompt.keyQuestion}</p>
@@ -5246,7 +5271,7 @@ Respond ONLY with valid JSON:
 
   if(phase==="feedback")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
-      <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:22}}>Writing Feedback</h2>
+      <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:22}}>Writing Feedback</h2>
       {loadingFb&&<Spinner label="Evaluating your essay…"/>}
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
       {feedback&&!loadingFb&&<div>
@@ -5350,7 +5375,7 @@ function FullSection({user,onUpdateUser,requirePro}){
 
   if(phase==="config")return(
     <main style={{maxWidth:620,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Full Section</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Full Section</h1>
       <p style={{color:C.textMuted,fontSize:14,marginBottom:24}}>35 minutes · 25 Lumora-generated questions · Level 1→4 ramp. The first question appears immediately — the rest generate in the background as you work.</p>
       <ErrBanner message={genError} onDismiss={()=>setGenError(null)}/>
       <Card style={{marginBottom:16}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Choose Section</div><div style={{display:"flex",flexDirection:"column",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={sel===s} onClick={()=>setSel(s)}>{s}</Pill>)}</div></Card>
@@ -5398,7 +5423,7 @@ function FullSection({user,onUpdateUser,requirePro}){
 
   if(phase==="review"&&results)return(
     <main style={{maxWidth:640,margin:"0 auto",padding:"32px 20px"}}>
-      <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:22}}>Section Complete</h2>
+      <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:22}}>Section Complete</h2>
       <Card style={{marginBottom:14,textAlign:"center",padding:28}}><Arc pct={results.pct} size={120} color={results.pct>=70?C.success:results.pct>=50?C.gold:C.danger} label={`Score: ${results.pct}%`}/><div style={{marginTop:14,fontSize:17,fontWeight:700,color:C.text}}>{results.correct}/{results.total} correct</div><div style={{fontSize:13,color:C.textMuted,marginTop:3}}>Time: {fmt(results.timeUsed)}</div></Card>
       <Card style={{marginBottom:14}}>
         <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>By Difficulty Level</div>
@@ -5466,7 +5491,7 @@ function StudyPlan({user,onUpdateUser,setScreen}){
   return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:22}}>
-        <div><h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:14}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
+        <div><h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:14}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
         <Btn onClick={gen} small>{plan?"Regenerate":"Generate Plan"}</Btn>
       </div>
       {(!user.diagnostic||Object.keys(user.diagnostic).length===0)&&(
@@ -5513,7 +5538,7 @@ function Upload(){
   };
   return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:6}}>Ask Lumora LSAT</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Ask Lumora LSAT</h1>
       <p style={{color:C.textMuted,fontSize:14,marginBottom:22}}>Paste any LSAT question — correct answer identified with certainty, every choice explained.</p>
       <Card style={{marginBottom:14}}><label htmlFor="q-input" style={{display:"block",fontSize:13,color:C.textSub,marginBottom:8,fontWeight:600}}>Paste your question here</label><textarea id="q-input" value={text} onChange={e=>setText(e.target.value)} placeholder="Paste the full question — stimulus, question stem, and all five answer choices (A–E)…" rows={8} style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"13px 15px",color:C.text,fontSize:14,fontFamily:T.sans,resize:"vertical",lineHeight:1.75,boxSizing:"border-box",outline:"none"}}/><Btn onClick={analyze} disabled={!text.trim()||loading} style={{width:"100%",marginTop:12}}>{loading?"Analyzing…":"Analyze Question"}</Btn></Card>
       {loading&&<Spinner label="Working through the logic…"/>}
@@ -5769,7 +5794,7 @@ function Notes({user,onUpdateUser}){
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
-          <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:2}}>Study Journal</h1>
+          <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:2}}>Study Journal</h1>
           <p style={{color:C.textMuted,fontSize:13}}>{notes.length} total {notes.length===1?"entry":"entries"}</p>
         </div>
         <Btn onClick={()=>{setEditId(null);setTitle("");setText("");setWriting(true);}}>+ New</Btn>
@@ -5959,7 +5984,7 @@ function MistakeJournal({user,onUpdateUser}){
   return(
     <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
-        <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text}}>Mistake Journal</h1>
+        <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Mistake Journal</h1>
         <div style={{display:"flex",gap:8}}>
           {["all","unreviewed"].map(f=>(
             <button key={f} onClick={()=>setFilter(f)}
@@ -6144,7 +6169,7 @@ function SRSReview({user,onUpdateUser,onDone}){
     <div style={{position:"fixed",inset:0,background:C.bg+"f2",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:40,maxWidth:400,width:"100%",textAlign:"center"}}>
         <div style={{fontSize:48,marginBottom:12}}>✅</div>
-        <h2 style={{fontFamily:T.serif,fontSize:24,color:C.text,marginBottom:8}}>All Caught Up!</h2>
+        <h2 style={{fontFamily:T.serif,fontSize:Math.round(24*FONT_SCALE),color:C.text,marginBottom:8}}>All Caught Up!</h2>
         <p style={{color:C.textSub,fontSize:14,lineHeight:1.7,marginBottom:24}}>No question types are due for review today. Keep practicing to build your SRS queue.</p>
         <Btn onClick={onDone}>Back to Home</Btn>
       </div>
@@ -6405,7 +6430,7 @@ function Onboarding({user,onUpdateUser,onDone}){
         {tourStep===0&&(
           <div style={{textAlign:"center",marginBottom:24,maxWidth:480}}>
             <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:900,color:"#fff",fontFamily:T.serif,margin:"0 auto 14px",boxShadow:"0 0 28px #3a6bff44"}}>L</div>
-            <h2 style={{fontFamily:T.serif,fontSize:24,color:C.text,marginBottom:6}}>Welcome to Lumora LSAT</h2>
+            <h2 style={{fontFamily:T.serif,fontSize:Math.round(24*FONT_SCALE),color:C.text,marginBottom:6}}>Welcome to Lumora LSAT</h2>
             <p style={{color:C.textMuted,fontSize:14,lineHeight:1.6}}>Here's a quick tour of what's available. You can skip any time.</p>
           </div>
         )}
@@ -6415,7 +6440,7 @@ function Onboarding({user,onUpdateUser,onDone}){
           <div style={{width:64,height:64,borderRadius:18,background:`${card.color}20`,border:`2px solid ${card.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 16px"}}>
             {card.icon}
           </div>
-          <h3 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:10,fontWeight:700}}>{card.title}</h3>
+          <h3 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginBottom:10,fontWeight:700}}>{card.title}</h3>
           <p style={{color:C.textSub,fontSize:14,lineHeight:1.8,marginBottom:24}}>{card.desc}</p>
 
           {/* Dot indicators */}
@@ -6455,7 +6480,7 @@ function Onboarding({user,onUpdateUser,onDone}){
       <div style={{position:"fixed",inset:0,background:C.bg+"f8",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:20}}>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:40,maxWidth:440,width:"100%",textAlign:"center"}}>
           <div style={{fontSize:52,marginBottom:16}}>🎯</div>
-          <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:12}}>You're ready.</h2>
+          <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:12}}>You're ready.</h2>
           <p style={{color:C.textSub,fontSize:15,lineHeight:1.8,marginBottom:24}}>
             You've seen the three most important question types. Lumora adapts to your weaknesses as you practice — the more you do, the smarter it gets.
           </p>
@@ -6559,7 +6584,7 @@ function Dashboard({user,onUpdateUser}){
   return(
     <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
-        <h1 style={{fontFamily:T.serif,fontSize:26,color:C.text}}>Progress</h1>
+        <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Progress</h1>
         {srsDue.length>0&&<div style={{background:C.gold+"20",border:`1px solid ${C.gold}44`,borderRadius:12,padding:"6px 14px",fontSize:13,color:C.gold,fontWeight:600}}>
           🔁 {srsDue.length} type{srsDue.length!==1?"s":""} due for review
         </div>}
@@ -6843,7 +6868,7 @@ function UpgradeModal({user,onClose,reason}){
           <LexSVG pose="excited" size={100} animate={true}/>
         </div>
 
-        <h2 style={{fontFamily:T.serif,fontSize:26,color:C.text,marginBottom:8}}>
+        <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:8}}>
           Upgrade to Lumora Pro
         </h2>
         <p style={{color:C.textSub,fontSize:14,lineHeight:1.7,marginBottom:24}}>
@@ -6925,7 +6950,7 @@ function LegalPage({title,onBack,children}){
         cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20}}>
         ← Back
       </button>
-      <h1 style={{fontFamily:T.serif,fontSize:28,color:C.text,marginBottom:28}}>{title}</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,marginBottom:28}}>{title}</h1>
       <div style={{fontSize:14,color:C.textSub,lineHeight:1.9}}>{children}</div>
     </main>
   );
@@ -7231,11 +7256,22 @@ export default function App(){
     <ErrorBoundary>
     <div key={darkMode?"dark":"light"} style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,paddingBottom:user?90:0}}>
       <style>{`
-        :root { font-size: ${Math.round(16*fontScale)}px; }
-        body { background: ${C.bg}; }
-        p, span, div, button, input, textarea, label, a {
-          font-size: inherit;
+        :root {
+          --fs: ${Math.round(16*fontScale)}px;
+          --fs-sm: ${Math.round(13*fontScale)}px;
+          --fs-xs: ${Math.round(11*fontScale)}px;
+          --fs-lg: ${Math.round(18*fontScale)}px;
+          --fs-xl: ${Math.round(22*fontScale)}px;
+          --fs-2xl: ${Math.round(26*fontScale)}px;
+          --fs-3xl: ${Math.round(32*fontScale)}px;
         }
+        body { background: ${C.bg}; margin: 0; }
+        html { font-size: ${Math.round(16*fontScale)}px; }
+        * { box-sizing: border-box; }
+        h1 { font-size: ${Math.round(26*fontScale)}px !important; }
+        h2 { font-size: ${Math.round(20*fontScale)}px !important; }
+        h3 { font-size: ${Math.round(17*fontScale)}px !important; }
+        p { font-size: ${Math.round(14*fontScale)}px !important; }
       `}</style>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
