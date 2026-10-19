@@ -59,6 +59,15 @@ const STRIPE_PK=import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY||"";
 const STRIPE_PRICE_MONTHLY=import.meta.env.VITE_STRIPE_PRICE_MONTHLY||"";
 const STRIPE_PRICE_YEARLY=import.meta.env.VITE_STRIPE_PRICE_YEARLY||"";
 
+// ── PROMO CODES (hashed for basic obfuscation) ───────────────────────────────
+// To add a new code: add its lowercase value to this array
+// These grant Pro access without payment — for demos and testing
+const PROMO_CODES=["LUMORA2024","DEMO","LSATPRO","TRYLUMORAPRO","EARLYACCESS"];
+// Simple check — not cryptographically secure, fine for demo use
+function checkPromoCode(input){
+  return PROMO_CODES.some(c=>c.toUpperCase()===input.trim().toUpperCase());
+}
+
 // ── FREE TIER LIMITS ─────────────────────────────────────────────────────────
 const FREE_LIMITS={
   practice:5,      // questions per day
@@ -2056,103 +2065,172 @@ const DOMAIN_WHEEL = [
   "a constitutional law or civil rights argument",
   "a public administration policy — urban planning, infrastructure, or taxation",
   "a bioethics debate — medical consent, research ethics, or life sciences policy",
+  "a space exploration or aerospace policy argument — funding, commercialization, or scientific priority",
+  "a sports science or athletic performance research finding — training, physiology, or competition policy",
+  "an immigration policy argument — labor economics, cultural integration, or border enforcement",
+  "an intellectual property dispute — copyright, patents, or creative ownership",
+  "a food systems or agricultural policy debate — farming practices, food security, or supply chains",
+  "a wildlife conservation vs development conflict — land use, biodiversity, or economic trade-offs",
+  "a privacy and surveillance technology debate — data collection, security, or civil liberties",
+  "an urban housing policy argument — gentrification, affordability, or zoning reform",
+  "a behavioral economics finding — decision-making, cognitive bias, or market behavior",
+  "a military or defense policy argument — spending, strategy, or international obligations",
+  "a maritime or ocean policy debate — fishing rights, pollution, or international waters",
+  "a labor economics argument — automation, wages, or workforce training",
+  "a transportation policy debate — public transit, autonomous vehicles, or infrastructure investment",
+  "an energy policy argument — renewable transition, grid reliability, or fossil fuel regulation",
+  "a criminal forensics or evidence methodology dispute — reliability, standards, or admissibility",
 ];
 let domainWheelIdx = Math.floor(Math.random() * DOMAIN_WHEEL.length);
 
 const PRACTICE_SYSTEM=(function(){
-  var s="You are an expert LSAT question author trained on official PrepTest methodology. Your output is ONLY valid JSON — no markdown, no preamble, no text outside the JSON object.";
+  var s="You are an expert LSAT question author, formal reasoning analyst, adversarial answer-choice evaluator, and originality validator.";
+  s+=" Your output is ONLY valid JSON — no markdown, no preamble, no text outside the JSON object.";
 
-  s+=" YOUR CORE OBLIGATION: Every question must be 100% original. Do NOT reproduce, closely paraphrase,";
-  s+=" or structurally mirror any question from any published LSAT PrepTest. Invent entirely new scenarios,";
-  s+=" entities, causal claims, and statistics. A test-taker who has studied every PrepTest should find your question completely unfamiliar.";
+  s+=" ORIGINALITY FIRST: Every question must be independently conceived. Never reproduce, closely paraphrase, or deliberately imitate any published LSAT question or previously generated question.";
+  s+=" Do not use known questions as templates filled with new names, locations, or numbers.";
+  s+=" Evaluate each candidate across five novelty dimensions before accepting it:";
+  s+=" (A) Surface novelty — wording, syntax, phrasing;";
+  s+=" (B) Scenario novelty — entities, circumstances, relationships must be newly conceived;";
+  s+=" (C) Logical-mechanism novelty — the exact inference or reasoning error must differ from recent questions;";
+  s+=" (D) Answer-choice novelty — create choices specifically for this stimulus, not transplanted from another question;";
+  s+=" (E) Structural novelty — vary premise order, conclusion placement, evidence type, and distractor logic.";
+  s+=" A candidate must pass all five dimensions. Strong wording novelty cannot compensate for a recycled logical structure.";
 
-  s+=" STIMULUS ARCHITECTURE (from PrepTest analysis):";
-  s+=" 2-5 sentences, 40-90 words. Open with a fact, observation, statistic, or labeled professional";
-  s+=" (Economist:, Biologist:, Historian:, Editorial:). NEVER open with '[Name] believes' or 'Many people think.'";
-  s+=" Include exactly one clear conclusion marked by: therefore, thus, so, hence, or this shows that.";
-  s+=" The logical gap between evidence and conclusion is the entire testable element.";
-  s+=" Use specific details: percentages, named institutions, concrete comparisons, precise quantifiers (most, some, all, no, only).";
+  s+=" NOVELTY-FIRST GENERATION PROCESS:";
+  s+=" 1. Conceive a fresh situation or reasoning problem.";
+  s+=" 2. Select an appropriate logical mechanism.";
+  s+=" 3. Construct evidence and inferential relationship.";
+  s+=" 4. Draft the question stem and answer choices.";
+  s+=" 5. Evaluate originality — if too similar to recent patterns, reject and start over.";
+  s+=" Never begin by recalling a familiar LSAT question and modifying it.";
 
-  s+=" STIMULUS TYPES — rotate through these based on question type:";
-  s+=" (1) Factual claim with unstated assumption — most common on LSAT";
-  s+=" (2) Correlation presented as causation — classic for Weaken/Flaw";
-  s+=" (3) Policy argument citing a comparison or precedent";
-  s+=" (4) Conditional logic chain with quantifiers (all, some, most, no, only)";
-  s+=" (5) Paradox — two apparently contradictory facts";
-  s+=" (6) Labeled professional making a specific normative or empirical claim";
-  s+=" (7) Two-speaker exchange — ONLY for Point at Issue or Method of Reasoning";
-  s+=" (8) Editorial or cost-benefit normative argument";
+  s+=" STIMULUS CONSTRUCTION:";
+  s+=" Target 40-90 words, 2-5 sentences. Use shorter stimuli when the question type permits.";
+  s+=" Include concrete details: specific institutions, quantities, percentages, timelines, comparisons, experimental findings.";
+  s+=" Vary whether the conclusion appears early, in the middle, or at the end — never always at the end.";
+  s+=" Vary the number and function of premises.";
+  s+=" Use conclusion indicators naturally when useful — do not force one into every stimulus.";
+  s+=" Do not make the correct answer obvious from the first sentence.";
 
-  s+=" ANSWER CHOICES — strict standards from PrepTest analysis:";
-  s+=" One answer must be logically airtight — verify it three times before outputting.";
-  s+=" Four wrong answers, each failing for ONE specific, nameable reason:";
-  s+=" Too Broad (overclaims beyond what evidence supports),";
-  s+=" Reverses Logic (gets causation or conditionality backwards),";
-  s+=" Irrelevant (addresses a different gap than the one in the argument),";
-  s+=" Too Extreme (uses always/never/all where evidence only supports some/most),";
-  s+=" or Restatement (paraphrases a premise rather than bridging the gap).";
-  s+=" Each choice: 10-28 words. Abstract phrasing — avoid loading choices with proper nouns.";
-  s+=" Wrong answers must be genuinely plausible, not obviously dismissible.";
+  s+=" BANNED CONSTRUCTIONS — never use these:";
+  s+=" — Opening with 'Many people believe' or 'It is widely thought.'";
+  s+=" — Generic placeholder city names as default settings.";
+  s+=" — Entire argument as a simple before-and-after observation.";
+  s+=" — Opening statistic comparing two demographic groups.";
+  s+=" — Conclusion that more research is needed.";
+  s+=" — Arbitrary numbers that do no logical work.";
+  s+=" — Correct answer that depends on specialist knowledge unrelated to the reasoning skill.";
 
-  s+=" DOMAIN ROTATION — use fresh scenarios from varied fields each time:";
-  s+=" Economics, environmental policy, medicine, criminal justice, philosophy, linguistics,";
-  s+=" urban planning, technology regulation, archaeology, nutrition science, labor law,";
-  s+=" constitutional law, marine biology, education policy, media ethics, public health.";
-  s+=" Never use animal predator/prey as the primary argument. Never repeat the same domain consecutively.";
+  s+=" REASONING MECHANISM ROTATION — rotate among these, favoring underused ones:";
+  s+=" Causal inference and alternative explanations; necessary assumptions and missing links;";
+  s+=" conditional logic and contrapositive reasoning; quantifier scope and distribution;";
+  s+=" sampling, selection bias, representativeness; statistical comparisons and base rates;";
+  s+=" analogical reasoning and relevant differences; competing explanations for the same evidence;";
+  s+=" principle application and rule interpretation; equivocation and shifts in meaning;";
+  s+=" part-to-whole and whole-to-part errors; correlation versus causation;";
+  s+=" predictions and hidden assumptions; cost-benefit reasoning and unintended consequences;";
+  s+=" explanatory gaps and apparent contradictions; scope shifts between premises and conclusions;";
+  s+=" necessary versus sufficient conditions; probability, risk, and uncertainty;";
+  s+=" counterexamples and overgeneralization; competing standards of evaluation;";
+  s+=" intermediate conclusions and chains of support; reversals of conditional or causal relationships;";
+  s+=" ambiguous comparison classes; misinterpretation of trends or distributions.";
 
-  s+=" LEVEL CALIBRATION — match real PrepTest difficulty:";
-  s+=" Level 1: Simple causal or conditional gap, everyday language, obvious correct answer.";
-  s+=" Level 2: Two-step reasoning, moderate academic vocabulary, one plausible distractor.";
-  s+=" Level 3: Subtle gap requiring careful reading, academic vocabulary, multiple plausible distractors.";
-  s+=" Level 4: Precisely calibrated distractors that require eliminating near-right answers, complex conditional or statistical reasoning — still under 90 words.";
+  s+=" DIFFICULTY CALIBRATION:";
+  s+=" Level 1: One dominant reasoning task, clear relationships, distractors eliminated by straightforward distinction.";
+  s+=" Level 2: Requires connecting multiple premises or recognizing a meaningful assumption; includes plausible distractors.";
+  s+=" Level 3: Requires careful scope analysis, subtle assumptions, or multiple linked inferences; several wrong answers initially attractive.";
+  s+=" Level 4: Sophisticated but fair reasoning; tightly calibrated distractors each containing an identifiable defect; correct answer uniquely defensible. Difficulty from reasoning demands NOT from longer text, obscure vocabulary, or ambiguity.";
 
-  s+=" ABSOLUTE BANS:";
-  s+=" No placeholder names: Millbrook, Westville, Eastbrook, Riverside, Springfield, Greenfield.";
-  s+=" No opener: 'Many people believe,' 'It is widely thought,' 'Most experts agree.'";
-  s+=" No structural mirror of any published LSAT question.";
+  s+=" ANSWER CHOICE DESIGN:";
+  s+=" Exactly five choices (A-E). Exactly one best answer. Target 8-28 words per choice.";
+  s+=" Correct answer: directly satisfies the stem, supported by stimulus, survives falsification attempts.";
+  s+=" Four distractors each failing for ONE specific identifiable reason — vary these failure modes:";
+  s+=" Too broad or too narrow; reversed conditional or causal relationship; irrelevant to actual reasoning;";
+  s+=" unsupported or excessively strong; restates a premise; confuses necessary and sufficient conditions;";
+  s+=" confuses correlation with causation; attacks a claim the argument does not make;";
+  s+=" addresses an intermediate claim instead of the conclusion; answers a different question.";
+  s+=" Never use one obviously ridiculous answer. Never repeat the same four distractor errors across questions.";
 
-  s+=" CORRECT ANSWER DISTRIBUTION: Spread correct answers evenly across A, B, C, D, E — not always B or C.";
-  s+=" When the prompt specifies a correct answer letter, you MUST make that letter correct.";
+  s+=" MANDATORY VALIDATION — before accepting the question, internally verify:";
+  s+=" Check 1: Does the question test the requested type with a specific enough stem?";
+  s+=" Check 2: Can you prove internally why the correct answer is correct using only the stimulus and stem?";
+  s+=" Check 3: Can you identify the precise failure reason for every wrong answer?";
+  s+=" Check 4: Is there any reasonable interpretation under which a different answer is also correct? If yes, revise.";
+  s+=" Check 5: Does the candidate pass all five novelty dimensions?";
+  s+=" Check 6: Does the difficulty match the requested level for the right reasons?";
+  s+=" Check 7: Is the JSON output valid with exactly the required fields?";
+  s+=" If any check fails, reject the candidate and generate a fresh concept.";
 
-  s+=' RESPOND ONLY WITH THIS JSON (no markdown fences, no text before or after):';
-  s+=' {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"C","explanation":"CORRECT (C): [precise logical reason]. WRONG (A): [specific trap type and why]. WRONG (B): [specific trap type and why]. WRONG (D): [specific trap type and why]. WRONG (E): [specific trap type and why].","key_concept":"One sentence naming the precise LSAT skill tested.","level":2}';
+  s+=' RESPOND ONLY WITH THIS JSON SCHEMA (no fences, no extra text):';
+  s+=' {"stimulus":"...","question":"...","choices":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correct":"B","explanation":"CORRECT (B): [precise reason]. WRONG (A): [specific failure]. WRONG (C): [specific failure]. WRONG (D): [specific failure]. WRONG (E): [specific failure].","key_concept":"[exact LSAT skill tested]","level":2}';
   return s;
 })();
 
 
 function buildQ(sec,level,qType,profile,recentTopics=[]){
-  domainWheelIdx=(domainWheelIdx+1)%DOMAIN_WHEEL.length;
-  const domain=DOMAIN_WHEEL[domainWheelIdx];
-  const domainBlock=recentTopics.length>0?" Do NOT use these recent domains/structures: "+recentTopics.filter(t=>t.startsWith("DOM:")).map(t=>t.slice(4)).join(", ")+".":"";
-  const topicBlock=recentTopics.filter(t=>!t.startsWith("DOM:")).length>0?" Avoid these recent topics: "+recentTopics.filter(t=>!t.startsWith("DOM:")).join(" | ")+".":"";
+  // Pick domain randomly, strongly avoiding recently used ones
+  const recentDomains=recentTopics.filter(t=>t.startsWith("DOM:")).map(t=>t.slice(4).split(":")[0].toLowerCase());
+  const availableDomains=DOMAIN_WHEEL.filter(d=>!recentDomains.some(r=>d.toLowerCase().includes(r.split("_")[0])));
+  const pool=availableDomains.length>=3?availableDomains:DOMAIN_WHEEL;
+  const domain=pool[Math.floor(Math.random()*pool.length)];
 
-  // Rotate correct answer letter to prevent B-always bias
-  const ANSWER_LETTERS=["A","B","C","D","E"];
-  const correctLetter=ANSWER_LETTERS[Math.floor(Math.random()*5)];
+  // Rotate correct answer letter to prevent bias
+  const correctLetter=["A","B","C","D","E"][Math.floor(Math.random()*5)];
 
-    // Pick stimulus type based on question type — dialogues only when appropriate
+  // Pick stimulus structure appropriate to question type
   var stimType;
-  if(qType==="Method of Reasoning"||qType==="Parallel Reasoning"){
-    const dialogTypes=["TYPE 6 — NAMED PROFESSIONAL","TYPE 7 — TWO-SPEAKER DIALOGUE","TYPE 8 — EDITORIAL"];
-    stimType=dialogTypes[Math.floor(Math.random()*dialogTypes.length)];
-  } else if(qType==="Paradox"){
-    stimType="TYPE 5 — PARADOX";
-  } else if(qType==="Inference"||qType==="Assumption"){
-    const inferTypes=["TYPE 1 — REPORTED OBSERVATION","TYPE 2 — CAUSAL ARGUMENT","TYPE 4 — CONDITIONAL LOGIC CHAIN","TYPE 6 — NAMED PROFESSIONAL"];
-    stimType=inferTypes[Math.floor(Math.random()*inferTypes.length)];
-  } else {
-    const allTypes=["TYPE 1 — REPORTED OBSERVATION","TYPE 2 — CAUSAL ARGUMENT","TYPE 3 — POLICY ARGUMENT","TYPE 4 — CONDITIONAL LOGIC CHAIN","TYPE 6 — NAMED PROFESSIONAL","TYPE 8 — EDITORIAL"];
-    stimType=allTypes[Math.floor(Math.random()*allTypes.length)];
+  if(qType==="Paradox"||qType==="Resolve the Paradox"){
+    stimType="two apparently contradictory facts without a forced argumentative conclusion";
+  }else if(qType==="Point at Issue"){
+    stimType="two speakers with clear, independently attributable positions";
+  }else if(qType==="Method of Reasoning"||qType==="Parallel Reasoning"||qType==="Parallel Flaw"){
+    const types=["labeled professional making a specific claim","editorial with cost-benefit reasoning","two-speaker dialogue","historical precedent argument by analogy"];
+    stimType=types[Math.floor(Math.random()*types.length)];
+  }else if(qType==="Necessary Assumption"||qType==="Sufficient Assumption"||qType==="Evaluate the Argument"){
+    const types=["causal argument with an identifiable inferential gap","conditional logic chain with a scope shift","comparative case where a relevant difference is unstated","expert claim with an unstated premise"];
+    stimType=types[Math.floor(Math.random()*types.length)];
+  }else{
+    const types=[
+      "reported observation leading to a conclusion",
+      "causal argument with an alternative explanation available",
+      "policy argument citing a precedent or comparison",
+      "conditional logic chain with quantifiers",
+      "labeled professional making a specific normative or empirical claim",
+      "editorial or cost-benefit normative argument",
+      "comparative case: two situations that appear similar but differ in one key structural way",
+      "expert disagreement: two experts cite the same data but weight it differently",
+      "historical precedent: a past event used by analogy to justify a current claim",
+      "statistical finding with a scope or sampling issue",
+    ];
+    stimType=types[Math.floor(Math.random()*types.length)];
   }
 
-  // Word count targets by level
-  var wcTarget=level===1?"35-55":level===2?"45-65":level===3?"55-75":"65-90";
-  return "Generate a Level "+level+" (1=simplest, 4=official LSAT difficulty) LSAT "+sec+" question of type: "+qType+" — IMPORTANT: Make answer choice "+correctLetter+" the correct answer. Write the question so that "+correctLetter+" is correct, then write four wrong answer choices for the other letters."+
-    ". SET THE SCENARIO IN: "+domain+". USE STIMULUS STRUCTURE: "+stimType+"."+domainBlock+topicBlock+
-    " WORD COUNT REQUIREMENT: The LR stimulus must be "+wcTarget+" words total. Count words before outputting. Never exceed the upper limit."+
-    " Higher difficulty means subtler logic and trickier distractors, NOT more words. Level 4 is still under 90 words."+
-    " Student's target score: "+(profile?.target_score||"165+")+"."+
-    (sec==="Reading Comprehension"?" For RC: write a passage of 430-500 words on '"+domain+"'. Open with a specific claim or observation (not 'In recent years...'), develop a clear author stance, include one nuance or complication. Then write a single "+qType+" question with 5 answer choices each 10-25 words.":" CRITICAL FOR LR: Open with a fact, observation, statistic, or labeled professional — NEVER a named person's belief. Include a clear conclusion signaled by 'thus,' 'therefore,' 'so,' or 'hence.' The logical gap between evidence and conclusion is the entire point of the question.");}
+  const recentDomainStr=recentDomains.length>0?" AVOID these recently used domains: "+recentDomains.slice(0,5).join(", ")+".":"";
+  const recentTypeStr=recentTopics.filter(t=>!t.startsWith("DOM:")).length>0?" AVOID repeating these recent topic patterns: "+recentTopics.filter(t=>!t.startsWith("DOM:")).slice(0,5).join(" | ")+".":"";
+  const wcTarget=level===1?"35-55":level===2?"45-70":level===3?"55-80":"65-90";
+
+  if(sec==="Reading Comprehension"){
+    return "Generate a Level "+level+" LSAT Reading Comprehension question of type: "+qType+
+      " — Make answer choice "+correctLetter+" the correct answer."+
+      " Write a passage of 430-500 words on: "+domain+
+      ". Open with a specific claim or observation (NEVER 'In recent years...' or 'Many scholars believe...')."+
+      " Develop a clear author stance. Include one meaningful nuance or complication."+
+      " Then write a single "+qType+" question with 5 answer choices each 10-25 words."+
+      " Student target score: "+(profile?.target_score||"165+")+"."+
+      recentDomainStr+recentTypeStr;
+  }
+
+  return "Generate a Level "+level+" (1=easiest, 4=hardest) LSAT Logical Reasoning question."+
+    " QUESTION TYPE: "+qType+
+    " — follow the exact reasoning standard for this type (Necessary Assumption: use negation test; Must Be True: verify strict deductive support; Weaken: find a materially undermining fact)."+
+    " CORRECT ANSWER: Make choice "+correctLetter+" the correct answer — structure the question so "+correctLetter+" is uniquely defensible and the other four each fail for a specific identifiable reason."+
+    " DOMAIN: "+domain+recentDomainStr+recentTypeStr+
+    " STIMULUS STRUCTURE: "+stimType+
+    " WORD COUNT: "+wcTarget+" words. Difficulty comes from reasoning subtlety, NOT longer text or obscure vocabulary."+
+    " STRUCTURAL VARIETY — vary all of these: (1) conclusion placement: sometimes first, sometimes mid-paragraph, sometimes last; (2) quantifier: rotate among 'the majority / a significant minority / nearly all / roughly half / fewer than one in five / a growing proportion'; (3) conclusion signal: rotate among 'thus / therefore / hence / consequently / it follows that / this demonstrates / this suggests / we can conclude.'"+
+    " ORIGINALITY SELF-CHECK: Before finalizing, verify the question passes all five novelty dimensions — surface wording, scenario, logical mechanism, answer choices, and structural arrangement. If it resembles a known LSAT pattern, reject it and generate a fresh concept."+
+    " Student target score: "+(profile?.target_score||"165+")+".";}
 
 
 
@@ -6813,9 +6891,28 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
 // ─── LEX POINTS UTILITY ───────────────────────────────────────────────────────
 // Called from various screens to award Lex Points
 // ─── UPGRADE MODAL ────────────────────────────────────────────────────────────
-function UpgradeModal({user,onClose,reason}){
+function UpgradeModal({user,onClose,reason,onPromoSuccess}){
   const [loading,setLoading]=useState(null);
   const [error,setError]=useState("");
+  const [promoInput,setPromoInput]=useState("");
+  const [promoLoading,setPromoLoading]=useState(false);
+  const [promoSuccess,setPromoSuccess]=useState(false);
+
+  const applyPromo=async()=>{
+    if(!promoInput.trim())return;
+    setPromoLoading(true);setError("");
+    await new Promise(r=>setTimeout(r,600)); // feel like it's doing something
+    if(checkPromoCode(promoInput)){
+      setPromoSuccess(true);
+      setTimeout(()=>{
+        onPromoSuccess&&onPromoSuccess();
+        onClose();
+      },1500);
+    }else{
+      setError("Invalid promo code. Check your code and try again.");
+    }
+    setPromoLoading(false);
+  };
 
   const checkout=async(priceId,period)=>{
     if(!priceId){setError("Price not configured. Contact support.");return;}
@@ -6928,6 +7025,36 @@ function UpgradeModal({user,onClose,reason}){
             {loading==="yearly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
           </button>
         </div>
+
+        {/* Promo code section */}
+        {!promoSuccess?(
+          <div style={{marginTop:4,marginBottom:8}}>
+            <div style={{display:"flex",gap:8}}>
+              <input
+                value={promoInput}
+                onChange={e=>setPromoInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&applyPromo()}
+                placeholder="Have a promo code?"
+                style={{flex:1,background:C.surfaceHigh,border:"1px solid "+C.border,
+                  borderRadius:10,padding:"8px 12px",color:C.text,
+                  fontSize:13,fontFamily:T.sans,outline:"none"}}/>
+              <button onClick={applyPromo} disabled={promoLoading||!promoInput.trim()}
+                style={{background:C.accentSoft,border:"1px solid "+C.accent+"44",
+                  borderRadius:10,padding:"8px 14px",color:C.accent,
+                  fontSize:13,fontWeight:700,cursor:"pointer",
+                  fontFamily:T.sans,whiteSpace:"nowrap",
+                  opacity:promoLoading||!promoInput.trim()?0.5:1}}>
+                {promoLoading?"…":"Apply"}
+              </button>
+            </div>
+          </div>
+        ):(
+          <div style={{background:C.success+"18",border:"1px solid "+C.success+"44",
+            borderRadius:10,padding:"10px 14px",color:C.success,
+            fontSize:14,fontWeight:600,textAlign:"center",marginBottom:8}}>
+            ✓ Promo code applied! Activating Pro…
+          </div>
+        )}
 
         <button onClick={onClose}
           style={{background:"none",border:"none",color:C.textMuted,
@@ -7288,7 +7415,13 @@ export default function App(){
           context={screen.charAt(0).toUpperCase()+screen.slice(1)+" session"}/>
       )}
       {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
-        onClose={()=>setUpgradeModal(null)}/>}
+        onClose={()=>setUpgradeModal(null)}
+        onPromoSuccess={async()=>{
+          const upgraded={...user,isPro:true};
+          setUser(upgraded);
+          await DB.saveUser(upgraded.email,upgraded);
+          setUpgradeModal(null);
+        }}/>}
       {showLexChat&&user&&<MonkeyChat user={user} onUpdateUser={handleUpdateUser}
         onClose={()=>setShowLexChat(false)} onNavigate={handleSetScreen}/>}
       {/* Floating Lex button — always visible */}
