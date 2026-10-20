@@ -2244,7 +2244,9 @@ function buildQ(sec,level,qType,profile,recentTopics=[]){
 const LEX_NAME_KEY="lumora_lex_name";
 const LEX_INTRO_KEY="lumora_lex_intro_done";
 
-const LEX_IDLE_MS=60000; // 90s idle before Lex pops up
+const LEX_IDLE_MS=240000; // 4 min idle before Lex pops up
+// Screens where Lex never interrupts (student is concentrating)
+const LEX_QUIET_SCREENS=["practice","quick5","flaw","writing","fullsection","daily","srs","learn","diagnostic","mistakes"];
 
 const LEX_IDLE_QUIPS=[
   "Quit monkeying around! 🐵",
@@ -4490,13 +4492,18 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
   const bottomRef=useRef(null);
   const domainWheelRef=useRef(0);
   const sessionTopics=useRef([]);
+  // Live settings ref — handlers read this so they never use stale state
+  const cfgRef=useRef({section,level,qType,adaptive});
+  cfgRef.current={section,level,qType,adaptive};
 
   // ── Build one question via API ──
+  // Anything left unselected (null) is randomized fresh for EVERY question
   const fetchOne=useCallback(async()=>{
+    const {section,level,qType,adaptive}=cfgRef.current;
     domainWheelRef.current=(domainWheelRef.current+1)%DOMAIN_WHEEL.length;
     const sec=section||SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
-    let lv=level||2;
-    if(adaptive){
+    let lv=level||(adaptive?2:Math.ceil(Math.random()*4));
+    if(adaptive&&!level){
       const h=user.history||[];
       if(h.length>=3){
         const recent=h.filter(x=>x.section===sec).slice(-8);
@@ -4507,8 +4514,8 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
         }
       }
     }
-    let qt=qType||QUESTION_TYPES[sec][Math.floor(Math.random()*QUESTION_TYPES[sec].length)];
-    if(adaptive&&(user.history||[]).length>=4){
+    let qt=(qType&&QUESTION_TYPES[sec].includes(qType))?qType:QUESTION_TYPES[sec][Math.floor(Math.random()*QUESTION_TYPES[sec].length)];
+    if(adaptive&&!qType&&(user.history||[]).length>=4){
       const h=user.history||[];
       const scored=QUESTION_TYPES[sec].map(t=>{const items=h.filter(x=>x.section===sec&&x.qType===t);return{t,s:items.length<2?0.6:items.filter(x=>x.correct).length/items.length};}).sort((a,b)=>a.s-b.s);
       qt=scored[0].t;
@@ -4521,7 +4528,7 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
     const topicKey=(stim.includes("animal")||stim.includes("species")?"BIO":stim.includes("drug")||stim.includes("patient")?"MED":stim.includes("govern")||stim.includes("legislat")?"POL":stim.includes("company")||stim.includes("market")?"BIZ":stim.includes("study")||stim.includes("research")?"RES":"GEN")+":"+stim.split(/\s+/).slice(0,4).join("_");
     sessionTopics.current=[...sessionTopics.current.slice(-8),topicKey];
     return{...parsed,section:sec,qType:qt,assignedLevel:lv};
-  },[section,level,qType,adaptive,user]);
+  },[user]);
 
   // ── Start: load first question, then silently prefetch second ──
   const startPractice=useCallback(async()=>{
@@ -4547,7 +4554,7 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
     setXpEarned(null);setNote("");setNoteOpen(false);setAnsFlash(null);
     if(timedMode){
       clearInterval(questionTimerRef.current);
-      setQuestionTimer(90);
+      setQuestionTimer(75);
       questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);
     }
     if(nextQuestion){
@@ -4658,10 +4665,20 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Practice</h1>
       <p style={{color:C.textSub,fontSize:14,marginBottom:16}}>Lumora generates a fresh question every time — infinite practice, no repeats.</p>
-      <WeaknessRadar user={user} onDrillWeakness={(w)=>{setSection(w.section);setQType(w.type);setAdaptive(false);setConfigured(true);startPractice();}}/>
-      <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(s);setQType(null);}}>{s}</Pill>)}</div></Card>
-      <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>{[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}</div></Card>
-      {section&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Question Type</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>{QUESTION_TYPES[section].map(t=><Pill key={t} active={qType===t} onClick={()=>setQType(t)}>{t}</Pill>)}</div></Card>}
+      <WeaknessRadar user={user} onDrillWeakness={(w)=>{if(requirePro&&!requirePro("practice"))return;cfgRef.current={section:w.section,level:null,qType:w.type,adaptive:false};setSection(w.section);setQType(w.type);setLevel(null);setAdaptive(false);setConfigured(true);startPractice();}}/>
+      <p style={{color:C.textMuted,fontSize:12,marginBottom:12}}>Tap a selected option again to clear it. Anything left on <strong style={{color:C.text}}>Any</strong> is randomized for every question.</p>
+      <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>
+        <Pill active={section===null} onClick={()=>{setSection(null);setQType(null);}}>Any (LR or RC)</Pill>
+        {SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(section===s?null:s);setQType(null);}}>{s}</Pill>)}
+      </div></Card>
+      <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
+        <Pill active={level===null} onClick={()=>setLevel(null)}>{adaptive?"Any (adaptive)":"Any (random)"}</Pill>
+        {[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(level===l?null:l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}
+      </div></Card>
+      {section&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Question Type</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>
+        <Pill active={qType===null} onClick={()=>setQType(null)}>Any type</Pill>
+        {QUESTION_TYPES[section].map(t=><Pill key={t} active={qType===t} onClick={()=>setQType(qType===t?null:t)}>{t}</Pill>)}
+      </div></Card>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
         <Card style={{padding:16}}>
           <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setAdaptive(v=>!v)} role="checkbox" aria-checked={adaptive} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setAdaptive(v=>!v);}}>
@@ -4672,21 +4689,21 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
         <Card style={{padding:16}}>
           <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setTimedMode(v=>!v)} role="checkbox" aria-checked={timedMode} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setTimedMode(v=>!v);}}>
             <div style={{width:36,height:20,borderRadius:10,background:timedMode?C.danger:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:14,height:14,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:timedMode?19:3,transition:"left 0.2s"}}/></div>
-            <div><div style={{fontWeight:600,fontSize:13,color:C.text}}>⏱ Timed</div><div style={{fontSize:11,color:C.textMuted}}>90 sec per question</div></div>
+            <div><div style={{fontWeight:600,fontSize:13,color:C.text}}>⏱ Timed</div><div style={{fontSize:11,color:C.textMuted}}>75 sec per question</div></div>
           </div>
         </Card>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Btn onClick={()=>{if(requirePro&&!requirePro("practice"))return;setConfigured(true);startPractice();if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
+        <Btn onClick={()=>{if(requirePro&&!requirePro("practice"))return;setConfigured(true);startPractice();if(timedMode){setQuestionTimer(75);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}}} style={{padding:15}}>Start Practice →</Btn>
         <Btn onClick={()=>{
           if(requirePro&&!requirePro("practice"))return;
-          const randSec=SECTIONS[Math.floor(Math.random()*SECTIONS.length)];
-          const randType=QUESTION_TYPES[randSec][Math.floor(Math.random()*QUESTION_TYPES[randSec].length)];
-          const randLevel=Math.ceil(Math.random()*4);
-          setSection(randSec);setQType(randType);setLevel(randLevel);setAdaptive(false);
+          // Keep any section/level the user chose; randomize everything else per question
+          const cfg={section,level,qType:null,adaptive:false};
+          cfgRef.current=cfg;
+          setQType(null);setAdaptive(false);
           setConfigured(true);
-          setTimeout(startPractice,50);
-          if(timedMode){setQuestionTimer(90);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}
+          startPractice();
+          if(timedMode){setQuestionTimer(75);questionTimerRef.current=setInterval(()=>setQuestionTimer(t=>{if(t<=1){clearInterval(questionTimerRef.current);return 0;}return t-1;}),1000);}
         }} style={{padding:15,background:"linear-gradient(135deg,#7c3aed,#a78bfa)"}}>🎲 Random</Btn>
       </div>
     </main>
@@ -6808,11 +6825,14 @@ function LexManager({user,screen,sessionResult,onNavigate,onUpdateUser}){
     }
   },[]);
 
-  // Idle timer
+  // Idle timer — silent on focus screens
+  const screenRef=useRef(screen);
+  useEffect(()=>{screenRef.current=screen;if(LEX_QUIET_SCREENS.includes(screen))setShowBubble(false);},[screen]);
   useEffect(()=>{
     const resetIdle=()=>{
       clearTimeout(idleTimer.current);
       idleTimer.current=setTimeout(()=>{
+        if(LEX_QUIET_SCREENS.includes(screenRef.current))return;
         const quip=LEX_IDLE_QUIPS[Math.floor(Math.random()*LEX_IDLE_QUIPS.length)];
         setLexPose("think");
         setLexMsg(quip);
