@@ -1,0 +1,641 @@
+// Resolve/Explain, Causal Reasoning, Must Be True (+ Most Strongly Supported), Flaws,
+// Parallel Reasoning (+ Parallel Flaw), Principles (Curriculum v2.0 §7–§9).
+import { item, REVIEW } from './helpers.js';
+
+export const LESSON_PARADOX = {
+  id: 'lesson.evaluation.paradox', skillId: 'evaluation.paradox', version: '2.0.0', review: REVIEW(false),
+  title: 'Resolve / Explain', estMinutes: 20, classicLabel: 'Paradox',
+  objective: 'By the end, you will be able to find the fact that lets two apparently conflicting statements both be true.',
+  why: 'Resolve questions test whether you can see the hidden difference that dissolves a surprise. The same skill helps you spot alternative explanations everywhere.',
+  sections: [
+    { id: 'tension', title: 'State the tension precisely', body: [
+      'Write the surprise as “X, and yet Y.” Both facts are accepted as true; you are not choosing one.',
+      'The right answer explains how BOTH can hold — usually by revealing a difference between groups, times, or measures.',
+    ] },
+    { id: 'traps', title: 'Common traps', body: [
+      'Answers that explain only one side. Answers that deepen the conflict. Answers that deny a stated fact.',
+    ] },
+  ],
+  workedExamples: [
+    { id: 'we1', prompt: '“The hospital has the best surgeons in the region, yet its surgical death rate is the highest.”', steps: ['Tension: best surgeons vs. highest death rate.', 'Explanation: it receives the most severe cases, which other hospitals refer to it.'], conclusion: 'Both facts can be true; the patient mix differs.' },
+  ],
+  counterexample: { claim: '“The answer can show that one of the facts is mistaken.”', whyInvalid: 'Facts in the stimulus are accepted. A good resolution keeps both true.' },
+  misconceptions: [
+    { tag: 'one_side_only', label: 'Explaining only one fact', fix: 'Check that the answer connects BOTH sides of the tension.' },
+    { tag: 'wrong_direction', label: 'Deepening the conflict', fix: 'Ask whether the answer makes the surprise bigger.' },
+    { tag: 'denies_premise', label: 'Denying a stated fact', fix: 'The facts are given; work with them.' },
+    { tag: 'irrelevant', label: 'Topic match without explanation', fix: 'Does it make both facts expected?' },
+  ],
+  items: [
+    item('px.o1', 'orient', 1, '“Ticket prices at the cinema fell, yet the cinema’s ticket revenue rose.”', 'Which best explains this?', [
+      ['After the price cut, many more people bought tickets.', 'KEY', 'Higher volume can outweigh lower price.'],
+      ['Ticket prices fell by half.', 'wrong_direction', 'Makes the rise more surprising.'],
+      ['The cinema sells popcorn.', 'irrelevant', 'Popcorn is not ticket revenue.'],
+      ['Ticket revenue did not actually rise.', 'denies_premise', 'Denies a stated fact.'],
+    ]),
+    item('px.r1', 'recognize', 1, '“More people own smoke detectors than ten years ago, yet the number of reported home fires has risen.”', 'Which best resolves the conflict?', [
+      ['Smoke detectors cause more small fires to be noticed and reported.', 'KEY', 'Detectors increase reporting.'],
+      ['Smoke detectors are cheap.', 'irrelevant', 'Irrelevant.'],
+      ['Home fires are dangerous.', 'irrelevant', 'Irrelevant.'],
+      ['Fewer people own smoke detectors than before.', 'denies_premise', 'Contradicts the stimulus.'],
+    ]),
+    item('px.r2', 'recognize', 2, '“The diet drink has no sugar, yet people who switch to it often gain weight.”', 'Which best resolves the conflict?', [
+      ['People who switch to diet drinks often eat more food, believing they have saved calories.', 'KEY', 'Explains gain despite no sugar.'],
+      ['The diet drink is popular.', 'irrelevant', 'Irrelevant.'],
+      ['Sugar has calories.', 'one_side_only', 'Explains only why the drink should help.'],
+      ['The drink contains a little sugar.', 'denies_premise', 'Contradicts “no sugar.”'],
+    ]),
+    item('px.r3', 'recognize', 2, '“The town’s population grew last year, but school enrollment fell.”', 'Which best resolves the conflict?', [
+      ['Most new residents were retirees without school-age children.', 'KEY', 'Population can grow without adding students.'],
+      ['The town built a new school.', 'wrong_direction', 'Would lead one to expect more enrollment.'],
+      ['Schools are funded by taxes.', 'irrelevant', 'Irrelevant.'],
+      ['Population fell last year.', 'denies_premise', 'Contradicts the stimulus.'],
+    ]),
+    item('px.a1', 'apply', 2, 'Since the city introduced a free bus service, the number of cars on downtown streets has not declined. Surveys show that many residents now ride the free buses.', 'Which one of the following, if true, most helps to resolve the apparent discrepancy?', [
+      ['Most people now riding the buses previously walked or biked downtown.', 'KEY', 'Riders came from walking/biking, not from cars.'],
+      ['The buses run every ten minutes.', 'irrelevant', 'Explains popularity, not unchanged car traffic.'],
+      ['Car traffic downtown rose before the bus service.', 'irrelevant', 'Not about why traffic stayed the same.'],
+      ['Many residents own more than one car.', 'irrelevant', 'Irrelevant.'],
+      ['The bus service is expensive to run.', 'irrelevant', 'Irrelevant.'],
+    ], { hints: ['Where did the new bus riders come from?'] }),
+    item('px.a2', 'apply', 3, 'A study found that people who take vitamin supplements visit doctors more often than people who do not, even though vitamin supplements generally improve health.', 'Which one of the following, if true, most helps to explain the study’s finding?', [
+      ['People who take supplements are more likely to be concerned about their health and to schedule routine checkups.', 'KEY', 'Health concern drives both supplements and doctor visits.'],
+      ['Supplements are widely available.', 'irrelevant', 'Irrelevant.'],
+      ['Supplements often contain several vitamins.', 'irrelevant', 'Irrelevant.'],
+      ['Doctors often recommend exercise.', 'irrelevant', 'Irrelevant.'],
+      ['Supplements do not improve health.', 'denies_premise', 'Contradicts the stated fact.'],
+    ]),
+    item('px.c1', 'challenge', 3, 'Despite the new safety helmets being far more protective in laboratory impact tests, the number of head injuries reported by cyclists who use them is higher than among cyclists who use older helmets.', 'Which one of the following, if true, most helps to resolve the apparent discrepancy?', [
+      ['Cyclists who wear the new helmets tend to ride faster and in more dangerous conditions because they feel safer.', 'KEY', 'Riskier behavior raises exposure despite better protection.'],
+      ['The new helmets are more expensive.', 'irrelevant', 'Irrelevant.'],
+      ['Older helmets are heavier.', 'irrelevant', 'Irrelevant without more.'],
+      ['Laboratory tests are reliable.', 'wrong_direction', 'Deepens the puzzle.'],
+      ['Some cyclists wear no helmet.', 'irrelevant', 'Not about the comparison.'],
+    ]),
+    item('px.c2', 'challenge', 3, 'Region X’s farmers switched to a pest-resistant crop variety, which requires less pesticide. Yet total pesticide use in Region X increased.', 'Which one of the following, if true, most helps to resolve the apparent discrepancy?', [
+      ['The new variety’s profitability led farmers to plant far more acres, including other crops that require heavy pesticide use.', 'KEY', 'Expanded planting can raise total use despite lower per-acre use.'],
+      ['The new variety is popular in other regions.', 'irrelevant', 'Irrelevant.'],
+      ['Pesticides are regulated.', 'irrelevant', 'Irrelevant.'],
+      ['The new variety requires less water.', 'irrelevant', 'Irrelevant.'],
+      ['The new variety needs more pesticide than the old one.', 'denies_premise', 'Contradicts the stimulus.'],
+    ]),
+    item('px.m1', 'mastery_check', 2, 'The store’s sales of umbrellas increased last month, although last month was the driest month of the year.', 'Which one of the following, if true, most helps to resolve the apparent discrepancy?', [
+      ['Last month the store began marketing its umbrellas as sun shades for an outdoor festival season.', 'KEY', 'A different use explains sales despite dry weather.'],
+      ['Umbrellas are inexpensive.', 'irrelevant', 'Irrelevant.'],
+      ['It rained the month before.', 'irrelevant', 'Without more, irrelevant.'],
+      ['The store sells raincoats.', 'irrelevant', 'Irrelevant.'],
+      ['Last month was rainy.', 'denies_premise', 'Contradicts.'],
+    ]),
+    item('px.m2', 'mastery_check', 3, 'Although the number of reported cases of a certain disease has doubled in the past decade, medical experts agree that the actual number of people who have the disease has not increased.', 'Which one of the following, if true, most helps to resolve the apparent discrepancy?', [
+      ['A new test introduced a decade ago detects the disease in people who would previously have gone undiagnosed.', 'KEY', 'More detection, not more disease.'],
+      ['The disease is not contagious.', 'irrelevant', 'Irrelevant.'],
+      ['Treatment has improved.', 'irrelevant', 'Irrelevant to reporting.'],
+      ['The disease is rare.', 'irrelevant', 'Irrelevant.'],
+      ['More people now have the disease.', 'denies_premise', 'Contradicts the experts.'],
+    ]),
+    item('px.m3', 'mastery_check', 3, 'A company cut the price of its software by 30 percent, yet its profit from the software increased.', 'Which one of the following, if true, most helps to explain this result?', [
+      ['After the price cut, sales volume increased enough that total revenue rose while costs stayed about the same.', 'KEY', 'Profit = revenue − cost; higher volume explains it.'],
+      ['Competitors also cut prices.', 'wrong_direction', 'Makes the profit rise more surprising.'],
+      ['The software is popular.', 'irrelevant', 'Vague.'],
+      ['The company sells other products.', 'irrelevant', 'Not this software’s profit.'],
+      ['The price was raised.', 'denies_premise', 'Contradicts.'],
+    ]),
+  ],
+  placementItemIds: ['px.r3', 'px.a1', 'px.a2', 'px.c2', 'px.m2'],
+  tagToSection: { one_side_only: 'tension', wrong_direction: 'traps', denies_premise: 'tension', irrelevant: 'traps' },
+};
+
+export const LESSON_CAUSAL = {
+  id: 'lesson.evaluation.causal', skillId: 'evaluation.causal', version: '2.0.0', review: REVIEW(false),
+  title: 'Causal Reasoning', estMinutes: 25,
+  objective: 'By the end, you will be able to recognize a causal conclusion, list the main alternatives (chance, reverse causation, common cause, other cause), and evaluate evidence for and against it.',
+  why: 'Causal arguments appear across Strengthen, Weaken, Flaw, and Evaluate questions — and in nearly every news story about a study.',
+  sections: [
+    { id: 'spot', title: 'Spotting causal claims', body: [
+      'Words: causes, leads to, results in, because of, improves, reduces, is responsible for.',
+      'Evidence is usually a correlation: A and B occur together, or B follows A.',
+    ] },
+    { id: 'alternatives', title: 'Four alternatives to A → B', body: [
+      'COINCIDENCE: the association is chance. REVERSE: B causes A. COMMON CAUSE: C causes both. OTHER CAUSE: something else caused B.',
+    ] },
+    { id: 'support', title: 'What supports causation', body: [
+      'A comparison group without A that lacks B; B appearing when A is added and disappearing when it is removed; a plausible mechanism; dose-response (more A, more B).',
+    ] },
+  ],
+  workedExamples: [
+    { id: 'we1', prompt: '“People who own pets live longer. So pets increase lifespan.”', steps: ['Reverse: healthier people may be more able to keep pets.', 'Common cause: wealth may enable both pets and health care.'], conclusion: 'The correlation alone does not establish the causal claim.' },
+  ],
+  counterexample: { claim: '“If B follows A, A caused B.”', whyInvalid: 'The rooster crows before sunrise; it does not cause sunrise.' },
+  misconceptions: [
+    { tag: 'correlation_causation', label: 'Treating correlation as causation', fix: 'List the four alternatives before accepting a causal claim.' },
+    { tag: 'reverse_causation', label: 'Missing reverse causation', fix: 'Ask: could B cause A?' },
+    { tag: 'alternative_cause', label: 'Missing a common or other cause', fix: 'Ask: what else differs between the groups?' },
+    { tag: 'irrelevant', label: 'Choosing an answer that does not bear on causation', fix: 'Ask how it changes the case for A → B.' },
+  ],
+  items: [
+    item('ca.o1', 'orient', 1, '“Students who sit in the front row get higher grades. Sitting in front improves grades.”', 'Which is the best alternative explanation?', [
+      ['More motivated students choose to sit in front.', 'KEY', 'Common cause / self-selection.'],
+      ['The front row is closer to the board.', 'irrelevant', 'A possible mechanism, which supports causation.'],
+      ['Grades are important.', 'irrelevant', 'Irrelevant.'],
+      ['Some students sit in the back.', 'irrelevant', 'Expected.'],
+    ]),
+    item('ca.r1', 'recognize', 1, '“Cities with more police officers have more crime. So police cause crime.”', 'Which alternative is most plausible?', [
+      ['Cities with more crime hire more police officers.', 'KEY', 'Reverse causation.'],
+      ['Police wear uniforms.', 'irrelevant', 'Irrelevant.'],
+      ['Some cities have no police.', 'irrelevant', 'Irrelevant.'],
+      ['Crime is a problem.', 'irrelevant', 'Irrelevant.'],
+    ]),
+    item('ca.r2', 'recognize', 2, '“Towns with more ice cream shops have more sunburn cases. Ice cream causes sunburn.”', 'Which type of alternative best fits?', [
+      ['A common cause: sunny weather increases both.', 'KEY', 'Sunny climates bring both shops and sunburn.'],
+      ['Reverse causation.', 'reverse_causation', 'Sunburn does not create ice cream shops.'],
+      ['Coincidence is the only option.', 'correlation_causation', 'A common cause is more plausible.'],
+      ['No alternative exists.', 'correlation_causation', 'There clearly is one.'],
+    ]),
+    item('ca.r3', 'recognize', 2, '“Patients who received the new drug recovered faster than patients who received an older drug, in a trial where patients were randomly assigned.”', 'What does random assignment help rule out?', [
+      ['Systematic differences between the groups that could explain the result.', 'KEY', 'Randomization balances other causes on average.'],
+      ['Reverse causation alone.', 'reverse_causation', 'It rules out more than that — chiefly pre-existing differences.'],
+      ['The need for a comparison group.', 'irrelevant', 'There is a comparison group.'],
+      ['All possible error.', 'too_strong', 'Chance and other issues remain.'],
+    ]),
+    item('ca.a1', 'apply', 2, 'Researcher: Neighborhoods with more trees have lower rates of childhood asthma. So planting trees reduces childhood asthma.', 'Which one of the following, if true, most weakens the researcher’s argument?', [
+      ['Neighborhoods with more trees are typically farther from highways and factories.', 'KEY', 'Pollution is a common/other cause.'],
+      ['Trees absorb some pollutants.', 'irrelevant', 'A mechanism — supports.'],
+      ['Asthma is common in cities.', 'irrelevant', 'Irrelevant.'],
+      ['Trees are expensive to plant.', 'irrelevant', 'Cost is irrelevant.'],
+      ['Some children with asthma live near trees.', 'irrelevant', 'Expected.'],
+    ]),
+    item('ca.a2', 'apply', 3, 'Economist: Countries with higher coffee consumption have higher average incomes. Therefore drinking coffee increases economic productivity.', 'Which one of the following most accurately describes a weakness in the argument?', [
+      ['It overlooks that higher incomes may lead people to buy more coffee.', 'KEY', 'Reverse causation.'],
+      ['It relies on a sample of only one country.', 'irrelevant', 'Many countries are compared.'],
+      ['It attacks the character of coffee drinkers.', 'irrelevant', 'No such attack.'],
+      ['It assumes all coffee is the same.', 'irrelevant', 'Not central.'],
+      ['It confuses a necessary condition with a sufficient one.', 'irrelevant', 'Not the issue.'],
+    ]),
+    item('ca.c1', 'challenge', 3, 'Health official: Over the past decade, use of the new pain reliever has risen steadily, and so have reported cases of stomach ulcers. The pain reliever causes ulcers.', 'Which one of the following, if true, most strengthens the official’s argument?', [
+      ['Among people with similar health, diet, and age, those who use the pain reliever develop ulcers at a higher rate than non-users.', 'KEY', 'Controls for other causes.'],
+      ['The pain reliever is cheap.', 'irrelevant', 'Irrelevant.'],
+      ['Ulcer diagnosis improved over the decade.', 'alternative_cause', 'Weakens: better detection.'],
+      ['Stress, which causes ulcers, also increased.', 'alternative_cause', 'Weakens: other cause.'],
+      ['Many people use other pain relievers.', 'irrelevant', 'Irrelevant.'],
+    ]),
+    item('ca.c2', 'challenge', 3, 'A study found that adults who sleep fewer than six hours a night are more likely to be overweight. The study’s authors concluded that short sleep causes weight gain.', 'Which one of the following, if true, would most support the authors’ conclusion?', [
+      ['When people in a follow-up experiment were restricted to five hours of sleep, they ate more and gained weight compared with a control group.', 'KEY', 'Experimental manipulation shows the effect follows the cause.'],
+      ['Overweight people often have sleep apnea, which shortens sleep.', 'reverse_causation', 'Weakens: reverse causation.'],
+      ['Short sleepers often work night shifts.', 'alternative_cause', 'Weakens: other cause.'],
+      ['Most adults sleep seven hours.', 'irrelevant', 'Irrelevant.'],
+      ['The study was large.', 'irrelevant', 'Size does not address causation.'],
+    ]),
+    item('ca.m1', 'mastery_check', 2, '“People who use standing desks report less back pain. So standing desks prevent back pain.”', 'Which one of the following, if true, most weakens the argument?', [
+      ['People with back pain avoid standing desks because standing aggravates their pain.', 'KEY', 'Reverse causation / selection.'],
+      ['Standing desks are adjustable.', 'irrelevant', 'Irrelevant.'],
+      ['Back pain is common.', 'irrelevant', 'Irrelevant.'],
+      ['Standing desks are expensive.', 'irrelevant', 'Irrelevant.'],
+      ['Some standing-desk users have back pain.', 'irrelevant', 'Expected.'],
+    ]),
+    item('ca.m2', 'mastery_check', 3, 'Educator: Schools with music programs have higher graduation rates. Adding a music program will raise a school’s graduation rate.', 'Which one of the following, if true, most weakens the educator’s argument?', [
+      ['Schools with music programs tend to have larger budgets, which fund many services that support graduation.', 'KEY', 'Budget is a common cause.'],
+      ['Music is popular with students.', 'irrelevant', 'Irrelevant.'],
+      ['Music programs require instruments.', 'irrelevant', 'Irrelevant.'],
+      ['Graduation rates rose nationally.', 'irrelevant', 'Does not distinguish the groups.'],
+      ['Some schools with music programs have low graduation rates.', 'irrelevant', 'Expected exceptions.'],
+    ]),
+    item('ca.m3', 'mastery_check', 3, 'After a factory near the river closed, fish populations downstream recovered. Scientists concluded that the factory’s discharge had been harming the fish.', 'Which one of the following, if true, most strengthens the scientists’ conclusion?', [
+      ['Fish populations upstream of the factory, which never received its discharge, did not change during the same period.', 'KEY', 'A comparison group rules out region-wide causes.'],
+      ['The factory employed many people.', 'irrelevant', 'Irrelevant.'],
+      ['Rainfall increased that year, improving river conditions.', 'alternative_cause', 'Weakens.'],
+      ['Fishing was banned the same year.', 'alternative_cause', 'Weakens.'],
+      ['Fish are sensitive animals.', 'irrelevant', 'Vague.'],
+    ]),
+  ],
+  placementItemIds: ['ca.r3', 'ca.a1', 'ca.a2', 'ca.c2', 'ca.m3'],
+  tagToSection: { correlation_causation: 'alternatives', reverse_causation: 'alternatives', alternative_cause: 'alternatives', irrelevant: 'support', too_strong: 'support' },
+};
+
+export const LESSON_MBT = {
+  id: 'lesson.inference.must_be_true', skillId: 'inference.must_be_true', version: '2.0.0', review: REVIEW(true),
+  title: 'Must Be True', estMinutes: 25, classicLabel: 'Inference',
+  tracks: [{ id: 'must_be_true', title: 'Must be true' }, { id: 'most_supported', title: 'Most strongly supported' }],
+  objective: 'By the end, you will be able to choose only what the facts guarantee (Must Be True) or most strongly support (Most Strongly Supported) — and reject plausible additions.',
+  why: 'Inference questions reverse the usual task: there is no conclusion to evaluate; you draw one. They punish outside knowledge and overstatement.',
+  sections: [
+    { id: 'facts', title: 'Treat the stimulus as facts', body: [
+      'Accept every statement. Draw nothing from outside knowledge.',
+      'Combine statements: chain conditionals, connect quantifiers.',
+    ] },
+    { id: 'tracks', title: 'Two tracks', body: [
+      'MUST BE TRUE: the answer is guaranteed. If you can imagine the facts true and the answer false, it is wrong.',
+      'MOST STRONGLY SUPPORTED: the answer need not be certain, but it must be better supported than any other. Prefer modest claims that follow closely.',
+    ] },
+    { id: 'traps', title: 'Common traps', body: [
+      'Extreme wording (“always,” “all,” “most”) not earned by the facts; reversed conditionals; answers that require outside assumptions.',
+    ] },
+  ],
+  workedExamples: [
+    { id: 'we1', prompt: '“Every resident of Oak Street owns a bike. Some residents of Oak Street are teachers.”', steps: ['Some Oak residents are teachers; all Oak residents own bikes.', 'So those teachers own bikes.'], conclusion: 'Must be true: some teachers own bikes.' },
+  ],
+  counterexample: { claim: '“A highly plausible answer must be true.”', whyInvalid: 'Plausibility is not guarantee. Imagine a world where the facts hold and the answer fails.' },
+  misconceptions: [
+    { tag: 'outside_knowledge', label: 'Using outside knowledge', fix: 'Use only the stimulus.' },
+    { tag: 'too_strong', label: 'Choosing an overstatement', fix: 'Match the strength of the facts.' },
+    { tag: 'converse', label: 'Reversing a conditional', fix: 'A → B does not give B → A.' },
+    { tag: 'some_all', label: 'Turning “some” into “all” or “most”', fix: '“Some” means at least one.' },
+    { tag: 'unsupported', label: 'Choosing a merely possible claim', fix: 'Possible is not supported.' },
+  ],
+  items: [
+    item('mt.o1', 'orient', 1, '“All of the paintings in the gallery are oil paintings. The portrait of Duval is in the gallery.”', 'Which must be true?', [
+      ['The portrait of Duval is an oil painting.', 'KEY', 'Gallery → oil; the portrait is in the gallery.'],
+      ['All oil paintings are in the gallery.', 'converse', 'Reversed.'],
+      ['The portrait is valuable.', 'outside_knowledge', 'Not stated.'],
+      ['The gallery has only portraits.', 'unsupported', 'Not stated.'],
+    ], { formal: { mode: 'must_be_true', premises: ['Gallery -> Oil', 'Gallery'], choices: ['Oil', 'Oil_y -> Gallery_y', 'Valuable', 'Portraits'] } }),
+    item('mt.r1', 'recognize', 1, '“If the river floods, the bridge closes. The river is flooding.”', 'Which must be true?', [
+      ['The bridge closes.', 'KEY', 'Flood → closed; flood.'],
+      ['The river will stop flooding soon.', 'unsupported', 'Not stated.'],
+      ['Only floods close the bridge.', 'converse', 'Not stated.'],
+      ['The bridge is old.', 'outside_knowledge', 'Not stated.'],
+    ], { formal: { mode: 'must_be_true', premises: ['Flood -> Closed', 'Flood'], choices: ['Closed', 'Stops', 'Closed_y -> Flood_y', 'Old'] } }),
+    item('mt.r2', 'recognize', 2, '“Some of the hikers carried maps. Every hiker who carried a map reached the summit.”', 'Which must be true?', [
+      ['Some hikers reached the summit.', 'KEY', 'The map-carrying hikers reached it.'],
+      ['Most hikers reached the summit.', 'some_all', '“Some” does not give “most.”'],
+      ['Every hiker who reached the summit carried a map.', 'converse', 'Reversed.'],
+      ['Hikers without maps did not reach the summit.', 'converse', 'Inverse; not guaranteed.'],
+    ], { formal: { kind: 'quantified', premises: ['some Hiker Map', 'all Map Summit'], choices: ['some Hiker Summit', 'most Hiker Summit', 'all Summit Map', 'no ~Map Summit'] } }),
+    item('mt.r3', 'recognize', 2, '“In a survey, nearly all of the clinic’s patients said wait times were too long. The clinic recently lost two of its five doctors.”', 'Which is MOST STRONGLY supported?', [
+      ['Many of the clinic’s patients are dissatisfied with wait times.', 'KEY', 'Closely restates the survey result.'],
+      ['The doctors left because of long wait times.', 'unsupported', 'No causal link is given.'],
+      ['All clinics have long wait times.', 'too_strong', 'Generalizes far beyond the facts.'],
+      ['Wait times will shorten soon.', 'unsupported', 'Not supported.'],
+    ], { track: 'most_supported' }),
+    item('mt.a1', 'apply', 2, 'No reptile in the zoo’s collection is venomous. Every snake in the zoo’s collection is a reptile.', 'If the statements above are true, which one of the following must also be true?', [
+      ['No snake in the zoo’s collection is venomous.', 'KEY', 'Snake → reptile → not venomous.'],
+      ['Every reptile in the zoo is a snake.', 'converse', 'Reversed.'],
+      ['Some snakes in the zoo are venomous.', 'unsupported', 'Contradicts the facts.'],
+      ['Most venomous animals are not reptiles.', 'outside_knowledge', 'Not stated.'],
+      ['The zoo has no venomous animals.', 'too_strong', 'Non-reptiles could be venomous.'],
+    ], { formal: { kind: 'quantified', premises: ['no Reptile Venomous', 'all Snake Reptile'], choices: ['no Snake Venomous', 'all Reptile Snake', 'some Snake Venomous', 'most Venomous ~Reptile', 'no Animal Venomous'] } }),
+    item('mt.a2', 'apply', 3, 'Survey researcher: Among the city’s cyclists we surveyed, those who commute more than ten miles each way were far more likely to own an electric bike than those with shorter commutes. Electric bikes reduce physical effort on long rides.', 'Which one of the following is most strongly supported by the information above?', [
+      ['Among the cyclists surveyed, commute length is associated with electric bike ownership.', 'KEY', 'Restates the observed association without overstating.'],
+      ['Long commutes cause people to buy electric bikes.', 'unsupported', 'A causal claim is stronger than the data.'],
+      ['All long-distance commuters own electric bikes.', 'too_strong', '“More likely” is not “all.”'],
+      ['Electric bikes are cheaper than cars.', 'outside_knowledge', 'Not stated.'],
+      ['Most cyclists in the city own electric bikes.', 'some_all', 'Not stated.'],
+    ], { track: 'most_supported', hints: ['Which answer stays closest to what was observed?'] }),
+    item('mt.c1', 'challenge', 3, 'Every applicant who passed the written exam was interviewed. No applicant who was interviewed was rejected without a written explanation. Some applicants who passed the written exam were rejected.', 'If the statements above are true, which one of the following must be true?', [
+      ['Some applicants who were rejected received a written explanation.', 'KEY', 'Some passed and were rejected; passed → interviewed → rejection came with explanation.'],
+      ['Every applicant who was interviewed passed the exam.', 'converse', 'Reversed.'],
+      ['Most applicants were rejected.', 'some_all', 'Not supported.'],
+      ['No applicant who failed the exam received an explanation.', 'unsupported', 'Not stated.'],
+      ['Every rejected applicant was interviewed.', 'unsupported', 'Applicants who failed could be rejected without interviews.'],
+    ]),
+    item('mt.c2', 'challenge', 3, 'Historian: Letters from the period describe frequent food shortages in the capital, but none mention shortages in the provinces. Tax records show that provincial harvests were normal during those years.', 'Which one of the following is most strongly supported by the historian’s statements?', [
+      ['Food shortages in the capital during that period were probably not caused by poor provincial harvests.', 'KEY', 'Normal harvests make poor harvests an unlikely cause.'],
+      ['There were no food shortages in the provinces.', 'too_strong', 'Absence of mention is not proof.'],
+      ['The capital’s government mismanaged food distribution.', 'unsupported', 'A specific cause is not supported.'],
+      ['Tax records are always accurate.', 'too_strong', 'Not stated.'],
+      ['The capital produced most of the region’s food.', 'outside_knowledge', 'Not stated.'],
+    ], { track: 'most_supported' }),
+    item('mt.m1', 'mastery_check', 2, 'Any student who completes the honors project will receive a certificate. Paz will not receive a certificate.', 'If the statements above are true, which one of the following must also be true?', [
+      ['Paz will not complete the honors project.', 'KEY', 'Contrapositive.'],
+      ['Paz is not a student.', 'unsupported', 'Not required.'],
+      ['Only honors students receive certificates.', 'converse', 'Not stated.'],
+      ['Paz will complete a different project.', 'unsupported', 'Not stated.'],
+      ['No student will receive a certificate.', 'too_strong', 'Not stated.'],
+    ], { formal: { mode: 'must_be_true', premises: ['Honors -> Cert', '~Cert'], choices: ['~Honors', '~Student', 'Cert_y -> Honors_y', 'Other', '~Cert_y'] } }),
+    item('mt.m2', 'mastery_check', 3, 'Most of the companies in the industry association use recycled packaging. Every company in the association that uses recycled packaging has received a green certification.', 'If the statements above are true, which one of the following must also be true?', [
+      ['Most of the companies in the association have received a green certification.', 'KEY', 'Most use recycled packaging; all of those are certified.'],
+      ['All certified companies use recycled packaging.', 'converse', 'Reversed.'],
+      ['Every company in the association is certified.', 'too_strong', 'Only most are guaranteed.'],
+      ['Companies outside the association are not certified.', 'unsupported', 'Not stated.'],
+      ['Recycled packaging is cheaper.', 'outside_knowledge', 'Not stated.'],
+    ], { formal: { kind: 'quantified', premises: ['most Member Recycled', 'all Recycled Certified'], choices: ['most Member Certified', 'all Certified Recycled', 'all Member Certified', 'no ~Member Certified', 'some Cheap Cheap'] } }),
+    item('mt.m3', 'mastery_check', 3, 'Field researcher: In each of the twelve ponds we sampled, frogs were absent wherever a particular fungus was present, and the fungus was present in nine of the ponds.', 'Which one of the following is most strongly supported by the field researcher’s statements?', [
+      ['Frogs were absent from at least nine of the ponds sampled.', 'KEY', 'Directly follows from the observations.'],
+      ['The fungus kills frogs.', 'unsupported', 'A causal claim beyond the data.'],
+      ['Frogs were present in exactly three ponds.', 'too_strong', 'Frogs might be absent from fungus-free ponds too.'],
+      ['The fungus is spreading.', 'unsupported', 'No trend data.'],
+      ['All ponds in the region contain the fungus.', 'too_strong', 'Only twelve were sampled.'],
+    ], { track: 'most_supported' }),
+  ],
+  placementItemIds: ['mt.r2', 'mt.a1', 'mt.a2', 'mt.c1', 'mt.m2'],
+  tagToSection: { outside_knowledge: 'facts', too_strong: 'traps', converse: 'traps', some_all: 'traps', unsupported: 'tracks' },
+};
+
+export const LESSON_FLAWS = {
+  id: 'lesson.inference.flaws', skillId: 'inference.flaws', version: '2.0.0', review: REVIEW(false),
+  title: 'Common Reasoning Flaws', estMinutes: 30, classicLabel: 'Flaw',
+  objective: 'By the end, you will be able to name the specific way an argument’s evidence fails to support its conclusion, using the standard flaw families.',
+  why: 'Flaw questions are among the most common on the LSAT, and flaw recognition powers Weaken, Parallel Flaw, and everyday reasoning.',
+  sections: [
+    { id: 'families', title: 'Flaw families', body: [
+      'CONDITIONAL: confusing sufficient and necessary. CAUSAL: correlation as cause. SAMPLING: unrepresentative or small samples. ATTACK: against the person instead of the argument. AUTHORITY: irrelevant expertise. EQUIVOCATION: a key word changes meaning. FALSE CHOICE: only two options when more exist. PART/WHOLE: what is true of parts is true of the whole (or vice versa). CIRCULAR: assumes what it is trying to prove. ABSENCE OF EVIDENCE: no proof that X → X is false.',
+    ] },
+    { id: 'describe', title: 'Read answer choices abstractly', body: [
+      'Flaw answers are written in abstract language. Translate each into the specific argument and check every word.',
+    ] },
+    { id: 'traps', title: 'Common traps', body: [
+      'Choosing a real flaw the argument does not commit. Choosing a description of what the argument does correctly.',
+    ] },
+  ],
+  workedExamples: [
+    { id: 'we1', prompt: '“No study has shown the supplement is harmful. So it is safe.”', steps: ['Evidence: absence of proof of harm.', 'Conclusion: proof of safety.'], conclusion: 'Flaw: treats lack of evidence against a claim as evidence for its opposite.' },
+  ],
+  counterexample: { claim: '“Any argument with a false premise is flawed.”', whyInvalid: 'Flaws are about reasoning, not premise truth; a valid argument can have a false premise.' },
+  misconceptions: [
+    { tag: 'wrong_flaw', label: 'Naming a flaw the argument does not commit', fix: 'Match the abstract description to the actual move.' },
+    { tag: 'converse', label: 'Missing a sufficient/necessary confusion', fix: 'Diagram the conditional.' },
+    { tag: 'correlation_causation', label: 'Missing a causal flaw', fix: 'Look for correlation → cause.' },
+    { tag: 'unrepresentative_sample', label: 'Missing a sampling flaw', fix: 'Ask who was studied and who the conclusion is about.' },
+    { tag: 'equivocation', label: 'Missing a shift in a word’s meaning', fix: 'Check that key words keep the same sense.' },
+  ],
+  items: [
+    item('fl.o1', 'orient', 1, '“Everyone who wins the lottery buys a ticket. Lena bought a ticket. So Lena will win the lottery.”', 'What is the flaw?', [
+      ['It treats a necessary condition for winning as if it were sufficient.', 'KEY', 'Buying a ticket is required to win, not a guarantee.'],
+      ['It attacks Lena’s character.', 'wrong_flaw', 'No attack.'],
+      ['It relies on an unrepresentative sample.', 'wrong_flaw', 'No sample.'],
+      ['It assumes what it sets out to prove.', 'wrong_flaw', 'Not circular.'],
+    ]),
+    item('fl.r1', 'recognize', 1, '“The senator’s plan to reduce pollution should be rejected. The senator once owned shares in an oil company.”', 'What is the flaw?', [
+      ['It attacks the person rather than the plan.', 'KEY', 'Ad hominem.'],
+      ['It confuses correlation with causation.', 'correlation_causation', 'No correlation is cited.'],
+      ['It generalizes from a small sample.', 'unrepresentative_sample', 'No sample.'],
+      ['It shifts the meaning of a key term.', 'equivocation', 'No shift.'],
+    ]),
+    item('fl.r2', 'recognize', 2, '“A ‘light’ beer has fewer calories. A feather is light. So a feather has fewer calories.”', 'What is the flaw?', [
+      ['It uses a word in two different senses.', 'KEY', '“Light” shifts from low-calorie to low-weight.'],
+      ['It reverses a conditional.', 'converse', 'Not the issue.'],
+      ['It attacks a person.', 'wrong_flaw', 'No.'],
+      ['It relies on a biased sample.', 'unrepresentative_sample', 'No sample.'],
+    ]),
+    item('fl.r3', 'recognize', 2, '“Either we ban all cars downtown or traffic will get worse forever. We should ban all cars.”', 'What is the flaw?', [
+      ['It presents only two options when others exist.', 'KEY', 'False choice.'],
+      ['It confuses necessary and sufficient conditions.', 'converse', 'Not central.'],
+      ['It appeals to an inappropriate authority.', 'wrong_flaw', 'No authority.'],
+      ['It mistakes a part for the whole.', 'wrong_flaw', 'No.'],
+    ]),
+    item('fl.a1', 'apply', 2, 'Columnist: Each member of the orchestra is an excellent musician. So the orchestra must be an excellent orchestra.', 'The columnist’s reasoning is most vulnerable to criticism on the grounds that it', [
+      ['presumes that what is true of each part is true of the whole', 'KEY', 'Excellent individuals may not play well together.'],
+      ['relies on an unrepresentative sample', 'unrepresentative_sample', 'Every member is described.'],
+      ['confuses cause and effect', 'correlation_causation', 'No causal claim.'],
+      ['attacks the critics of the orchestra', 'wrong_flaw', 'No critics.'],
+      ['uses a key term in two senses', 'equivocation', '“Excellent” is not equivocal here.'],
+    ]),
+    item('fl.a2', 'apply', 3, 'Researcher: Our survey of visitors to an organic food fair found that 85 percent prefer organic produce. So most consumers in the country prefer organic produce.', 'The reasoning is flawed because it', [
+      ['draws a conclusion about a population from a sample unlikely to be representative of it', 'KEY', 'Fair visitors are self-selected organic fans.'],
+      ['assumes that correlation implies causation', 'correlation_causation', 'No causal claim.'],
+      ['attacks those who disagree', 'wrong_flaw', 'No.'],
+      ['uses circular reasoning', 'wrong_flaw', 'Not circular.'],
+      ['confuses a necessary condition with a sufficient one', 'converse', 'No conditional.'],
+    ]),
+    item('fl.c1', 'challenge', 3, 'Critic: There is no reliable evidence that the new teaching method improves reading scores. Therefore the method does not improve reading scores.', 'The critic’s reasoning is flawed because it', [
+      ['treats the lack of evidence for a claim as proof that the claim is false', 'KEY', 'Absence of evidence ≠ evidence of absence.'],
+      ['relies on an unrepresentative sample', 'unrepresentative_sample', 'No sample.'],
+      ['confuses correlation and causation', 'correlation_causation', 'Not this.'],
+      ['presumes what it seeks to prove', 'wrong_flaw', 'Not circular.'],
+      ['attacks the method’s supporters', 'wrong_flaw', 'No.'],
+    ]),
+    item('fl.c2', 'challenge', 3, 'Manager: To qualify for the bonus, an employee must exceed the sales target. Dana exceeded the sales target, so Dana qualifies for the bonus.', 'The flaw in the manager’s reasoning is that it', [
+      ['treats something required for qualifying as enough to qualify', 'KEY', 'Exceeding the target is necessary, not sufficient.'],
+      ['generalizes from one employee', 'unrepresentative_sample', 'No generalization.'],
+      ['uses the term “bonus” ambiguously', 'equivocation', 'No ambiguity.'],
+      ['assumes Dana is the best employee', 'wrong_flaw', 'Not assumed.'],
+      ['infers a cause from a correlation', 'correlation_causation', 'No.'],
+    ]),
+    item('fl.m1', 'mastery_check', 2, '“My doctor, an expert in medicine, says this mutual fund is a good investment. So it must be.”', 'The argument is flawed because it', [
+      ['relies on an authority outside their area of expertise', 'KEY', 'Medical expertise is not financial expertise.'],
+      ['confuses correlation and causation', 'correlation_causation', 'No.'],
+      ['uses a word in two senses', 'equivocation', 'No.'],
+      ['reasons from a biased sample', 'unrepresentative_sample', 'No sample.'],
+      ['reverses a conditional', 'converse', 'No.'],
+    ]),
+    item('fl.m2', 'mastery_check', 3, 'Politician: The new park will be safe because it is a safe place for families, and places that are safe for families are safe.', 'The politician’s argument is flawed because it', [
+      ['takes for granted the very claim it is trying to establish', 'KEY', 'Circular: “safe because it is safe for families.”'],
+      ['relies on an unrepresentative sample', 'unrepresentative_sample', 'No sample.'],
+      ['attacks opponents of the park', 'wrong_flaw', 'No.'],
+      ['infers causation from correlation', 'correlation_causation', 'No.'],
+      ['presents a false choice', 'wrong_flaw', 'No.'],
+    ]),
+    item('fl.m3', 'mastery_check', 3, 'Scientist: Since the new pesticide was introduced, bee populations have declined. So the pesticide is responsible for the bees’ decline.', 'The scientist’s reasoning is most vulnerable to criticism on the grounds that it', [
+      ['assumes that because one event followed another, the first caused the second', 'KEY', 'Temporal sequence is not causation.'],
+      ['relies on an expert outside their field', 'wrong_flaw', 'No.'],
+      ['uses a word in two senses', 'equivocation', 'No.'],
+      ['treats a necessary condition as sufficient', 'converse', 'No conditional.'],
+      ['generalizes from a single bee', 'unrepresentative_sample', 'Populations are discussed.'],
+    ]),
+  ],
+  placementItemIds: ['fl.r2', 'fl.a1', 'fl.a2', 'fl.c1', 'fl.m3'],
+  tagToSection: { wrong_flaw: 'describe', converse: 'families', correlation_causation: 'families', unrepresentative_sample: 'families', equivocation: 'families' },
+};
+
+export const LESSON_PARALLEL = {
+  id: 'lesson.advanced.parallel', skillId: 'advanced.parallel', version: '2.0.0', review: REVIEW(true),
+  title: 'Parallel Reasoning & Parallel Flaw', estMinutes: 30, classicLabel: 'Parallel Reasoning',
+  tracks: [{ id: 'parallel_reasoning', title: 'Parallel reasoning' }, { id: 'parallel_flaw', title: 'Parallel flaw' }],
+  objective: 'By the end, you will be able to abstract an argument’s logical form and find the answer with the same form — including the same flaw.',
+  why: 'Parallel questions are long and time-consuming; abstracting the form quickly is the skill that saves the most time.',
+  sections: [
+    { id: 'abstract', title: 'Abstract the form', body: [
+      'Replace topics with letters: “All A are B. X is A. So X is B.”',
+      'Match: the conclusion’s type (certain/probable, conditional/fact, recommendation), the quantifiers, and the logical moves.',
+    ] },
+    { id: 'quick', title: 'Eliminate quickly', body: [
+      'Compare conclusions first: a “should” conclusion cannot match a “must be” conclusion; “some” cannot match “all.”',
+      'Topic similarity means nothing.',
+    ] },
+    { id: 'flaw', title: 'Parallel flaw', body: [
+      'Name the flaw first (e.g., affirming the consequent). Then find the answer with exactly that flaw — not a different one.',
+    ] },
+  ],
+  workedExamples: [
+    { id: 'we1', prompt: '“If it rains, the game is canceled. The game was canceled. So it rained.”', steps: ['Form: A → B; B; so A.', 'That is the converse error (affirming the consequent).'], conclusion: 'A parallel flaw answer must also infer A from A → B and B.' },
+  ],
+  counterexample: { claim: '“The answer about the same subject matter is parallel.”', whyInvalid: 'Parallelism is about form. A rain-and-games answer can have a different structure.' },
+  misconceptions: [
+    { tag: 'topic_match', label: 'Matching topic instead of form', fix: 'Replace topics with letters.' },
+    { tag: 'structure_mismatch', label: 'Missing a difference in form (quantifier, certainty, direction)', fix: 'Compare each element of the form.' },
+    { tag: 'wrong_flaw', label: 'Choosing a different flaw', fix: 'Name the flaw before reading answers.' },
+    { tag: 'converse', label: 'Missing a reversed conditional', fix: 'Diagram both arguments.' },
+  ],
+  items: [
+    item('pl.o1', 'orient', 1, '“All birds have feathers. A robin is a bird. So a robin has feathers.”', 'Which has the same form?', [
+      ['All squares have four sides. This shape is a square. So it has four sides.', 'KEY', 'All A are B; X is A; so X is B.'],
+      ['All squares have four sides. This shape has four sides. So it is a square.', 'converse', 'Reversed.'],
+      ['Robins sing in spring. It is spring. So robins sing.', 'topic_match', 'Topic, not form.'],
+      ['Some birds fly. A robin is a bird. So it flies.', 'structure_mismatch', '“Some” is not “all.”'],
+    ], { track: 'parallel_reasoning' }),
+    item('pl.r1', 'recognize', 1, '“If the alarm sounds, the guards respond. The alarm sounded. So the guards responded.”', 'What is the form?', [
+      ['A → B; A; so B.', 'KEY', 'Valid application.'],
+      ['A → B; B; so A.', 'converse', 'That is the converse error.'],
+      ['A → B; not A; so not B.', 'structure_mismatch', 'That is the inverse error.'],
+      ['Some A are B; X is A; so X is B.', 'structure_mismatch', 'Wrong quantifier.'],
+    ], { track: 'parallel_reasoning' }),
+    item('pl.r2', 'recognize', 2, '“Most of the club’s members are students. Most students are under 25. So most of the club’s members are under 25.”', 'Which shares this flaw?', [
+      ['Most dogs in the park are terriers. Most terriers are small. So most dogs in the park are small.', 'KEY', 'Same invalid “most + most” chain.'],
+      ['All dogs in the park are terriers. All terriers are small. So all dogs in the park are small.', 'structure_mismatch', 'That is valid.'],
+      ['Most club members are students, so some are students.', 'structure_mismatch', 'Valid.'],
+      ['Most students are under 25, so the club is young.', 'topic_match', 'Topic match only.'],
+    ], { track: 'parallel_flaw' }),
+    item('pl.r3', 'recognize', 2, 'Argument: “The museum should extend its hours, because doing so would increase visitors, and the museum’s goal is to increase visitors.”', 'Which matches its form?', [
+      ['The team should add practices, because that would improve performance, and the team’s goal is to improve performance.', 'KEY', 'Recommendation from goal + means.'],
+      ['The team will add practices, because the coach said so.', 'structure_mismatch', 'Prediction from authority.'],
+      ['The museum extended its hours, so visitors increased.', 'topic_match', 'Topic match; causal claim.'],
+      ['If the team adds practices, performance must improve.', 'structure_mismatch', 'Conditional claim, not a recommendation.'],
+    ], { track: 'parallel_reasoning' }),
+    item('pl.a1', 'apply', 2, 'No one who is careless in handling money is a good treasurer. Some members of the committee are careless in handling money. So some members of the committee are not good treasurers.', 'Which one of the following is most similar in its reasoning to the argument above?', [
+      ['No one who skips rehearsal performs well. Some cast members skip rehearsal. So some cast members do not perform well.', 'KEY', 'No A is B; some C are A; so some C are not B.'],
+      ['No one who performs well skips rehearsal. Some cast members perform well. So some cast members do not skip rehearsal.', 'structure_mismatch', 'Terms rearranged — a different form, though also valid.'],
+      ['Everyone who skips rehearsal performs poorly. No cast member skips rehearsal. So no cast member performs poorly.', 'structure_mismatch', 'Different form, and invalid.'],
+      ['Some treasurers are careless. So some committee members are careless.', 'topic_match', 'Topic match.'],
+      ['Most cast members skip rehearsal. So most perform poorly.', 'structure_mismatch', 'Different quantifier.'],
+    ], { track: 'parallel_reasoning' }),
+    item('pl.a2', 'apply', 3, 'If the shipment arrived on time, the store would have restocked the shelves. The shelves have been restocked. So the shipment must have arrived on time.', 'Which one of the following exhibits a flawed pattern of reasoning most similar to the argument above?', [
+      ['If Kai had studied, he would have passed. Kai passed. So he must have studied.', 'KEY', 'A → B; B; so A — the same converse error.'],
+      ['If Kai had studied, he would have passed. Kai did not study. So he did not pass.', 'wrong_flaw', 'Inverse error, a different flaw.'],
+      ['If Kai had studied, he would have passed. Kai studied. So he passed.', 'structure_mismatch', 'Valid.'],
+      ['If Kai had studied, he would have passed. Kai did not pass. So he did not study.', 'structure_mismatch', 'Valid contrapositive.'],
+      ['Kai usually passes, so he studied.', 'structure_mismatch', 'No conditional.'],
+    ], { track: 'parallel_flaw' }),
+    item('pl.c1', 'challenge', 3, 'Every painting in the exhibit was created before 1900. Every work created before 1900 is in the public domain. Therefore every painting in the exhibit is in the public domain.', 'Which one of the following arguments is most similar in its pattern of reasoning?', [
+      ['Every employee in the lab has a security badge. Every security badge grants access to the vault. So every employee in the lab can access the vault.', 'KEY', 'All A are B; all B are C; so all A are C.'],
+      ['Every employee has a badge. Some badges grant vault access. So every employee can access the vault.', 'structure_mismatch', '“Some” breaks the chain.'],
+      ['Every painting in the exhibit is old. So the exhibit is valuable.', 'topic_match', 'Different form.'],
+      ['Every vault-access holder has a badge. Every lab employee has a badge. So every lab employee can access the vault.', 'converse', 'Shared middle term in the wrong positions.'],
+      ['Most employees have badges. So most can access the vault.', 'structure_mismatch', 'Different quantifier.'],
+    ], { track: 'parallel_reasoning' }),
+    item('pl.c2', 'challenge', 3, 'Critic: The film was produced by a famous studio, and famous studios usually make profitable films. So the film will certainly be profitable.', 'Which one of the following exhibits flawed reasoning most similar to the critic’s?', [
+      ['The restaurant is run by an award-winning chef, and award-winning chefs usually run successful restaurants. So the restaurant will definitely succeed.', 'KEY', 'Usually → certainly: the same overstatement.'],
+      ['The restaurant is run by an award-winning chef. So it will probably succeed.', 'structure_mismatch', '“Probably” is warranted by “usually.”'],
+      ['The film was profitable, so the studio is famous.', 'wrong_flaw', 'A reversal, not the same flaw.'],
+      ['Famous studios make films. So the film was made.', 'topic_match', 'No parallel.'],
+      ['The chef won awards because the restaurant succeeded.', 'wrong_flaw', 'Causal reversal.'],
+    ], { track: 'parallel_flaw' }),
+    item('pl.m1', 'mastery_check', 2, 'Every boat docked at Gull Marina has a current harbor permit. The Kestrel is docked at Gull Marina. Therefore the Kestrel has a current harbor permit.', 'Which one of the following is most similar in its reasoning?', [
+      ['Every dish on the tasting menu is gluten-free. The lentil soup is on the tasting menu. Therefore the lentil soup is gluten-free.', 'KEY', 'All A are B; X is A; so X is B.'],
+      ['Every dish on the tasting menu is gluten-free. The lentil soup is gluten-free. Therefore it is on the tasting menu.', 'converse', 'Reversed: being B does not make X an A.'],
+      ['Most dishes on the menu are gluten-free. The soup is on the menu. Therefore the soup is gluten-free.', 'structure_mismatch', '“Most” cannot guarantee the conclusion.'],
+      ['Boats with permits may dock overnight. So the Kestrel will stay overnight.', 'topic_match', 'Same topic, different form.'],
+      ['No dish on the menu contains nuts. The soup contains nuts. Therefore the soup is not on the menu.', 'structure_mismatch', 'A valid but different form (contrapositive).'],
+    ], { track: 'parallel_reasoning' }),
+    item('pl.m2', 'mastery_check', 3, 'If the reservoir is low, water restrictions will be imposed. The reservoir is not low. So water restrictions will not be imposed.', 'Which one of the following exhibits flawed reasoning most similar to the argument above?', [
+      ['If the roads are icy, school will close. The roads are not icy. So school will not close.', 'KEY', 'A → B; not A; so not B — the same inverse error.'],
+      ['If the roads are icy, school will close. School closed. So the roads were icy.', 'wrong_flaw', 'Converse error — a different flaw.'],
+      ['If the roads are icy, school will close. The roads are icy. So school will close.', 'structure_mismatch', 'Valid.'],
+      ['If the roads are icy, school will close. School did not close. So the roads were not icy.', 'structure_mismatch', 'Valid.'],
+      ['Icy roads are dangerous. So school will close.', 'topic_match', 'No parallel.'],
+    ], { track: 'parallel_flaw' }),
+    item('pl.m3', 'mastery_check', 3, 'Some of the novels on the list were written by first-time authors. All of the novels on the list received favorable reviews. So some novels by first-time authors received favorable reviews.', 'Which one of the following is most similar in its reasoning?', [
+      ['Some of the cars in the lot are electric. All of the cars in the lot are new. So some electric cars are new.', 'KEY', 'Some A are B; all A are C; so some B are C.'],
+      ['Some cars are electric. Some cars are new. So some electric cars are new.', 'structure_mismatch', '“Some + some” does not link.'],
+      ['All cars in the lot are new. So all electric cars are new.', 'structure_mismatch', 'Overgeneralizes.'],
+      ['Some novels are long. So some novels are reviewed.', 'topic_match', 'No parallel.'],
+      ['All electric cars are new. Some cars in the lot are new. So some are electric.', 'converse', 'Invalid.'],
+    ], { track: 'parallel_reasoning' }),
+  ],
+  placementItemIds: ['pl.r2', 'pl.a1', 'pl.a2', 'pl.c1', 'pl.m2'],
+  tagToSection: { topic_match: 'quick', structure_mismatch: 'abstract', wrong_flaw: 'flaw', converse: 'abstract' },
+};
+
+export const LESSON_PRINCIPLES = {
+  id: 'lesson.advanced.principles', skillId: 'advanced.principles', version: '2.0.0', review: REVIEW(false),
+  title: 'Principles', estMinutes: 25,
+  objective: 'By the end, you will be able to apply a general principle to a specific case — and to identify the principle that justifies a specific judgment.',
+  why: 'Principle questions combine conditional logic with Strengthen/Must Be True skills. They appear in several forms: apply, justify, and conform.',
+  sections: [
+    { id: 'conditional', title: 'Principles are conditionals', body: [
+      'Translate the principle: “One should X only if Y” = X → Y. “Whenever A, one should B” = A → B.',
+      'To APPLY: find the case that satisfies the sufficient condition, then require the result.',
+    ] },
+    { id: 'justify', title: 'Justify a judgment', body: [
+      'Find the principle whose sufficient condition matches the facts and whose result matches the judgment. It works like a sufficient assumption.',
+    ] },
+    { id: 'traps', title: 'Common traps', body: [
+      'Principles that apply only under conditions not met in the case. Principles that would support the opposite judgment. Reversed principles.',
+    ] },
+  ],
+  workedExamples: [
+    { id: 'we1', prompt: 'Principle: “A company should recall a product if it poses a safety risk to children.” Case: a toy has a choking hazard.', steps: ['Sufficient: safety risk to children. Met.', 'Result: should recall.'], conclusion: 'The principle requires recalling the toy.' },
+  ],
+  counterexample: { claim: '“If the principle mentions the same topic, it applies.”', whyInvalid: 'The case must satisfy the principle’s sufficient condition.' },
+  misconceptions: [
+    { tag: 'converse', label: 'Applying the principle in reverse', fix: 'Only the sufficient condition triggers the result.' },
+    { tag: 'condition_not_met', label: 'Applying a principle whose condition is not met', fix: 'Check each condition against the facts.' },
+    { tag: 'wrong_direction', label: 'Choosing a principle that supports the opposite', fix: 'Check that the result matches the judgment.' },
+    { tag: 'irrelevant', label: 'Topic match without logical fit', fix: 'Map conditions.' },
+  ],
+  items: [
+    item('pr.o1', 'orient', 1, 'Principle: “A library should waive late fees for patrons who return books during a declared emergency.” Case: Tomas returned his books late during a declared flood emergency.', 'What does the principle require?', [
+      ['The library should waive Tomas’s late fees.', 'KEY', 'Condition met → result.'],
+      ['The library should charge Tomas double.', 'wrong_direction', 'Opposite.'],
+      ['Tomas should donate books.', 'irrelevant', 'Irrelevant.'],
+      ['Nothing; the principle does not apply.', 'condition_not_met', 'It applies.'],
+    ]),
+    item('pr.r1', 'recognize', 1, 'Principle: “One should accept a job offer only if it pays a living wage.”', 'Which correctly translates the principle?', [
+      ['Accept → living wage.', 'KEY', '“Only if” introduces the necessary condition.'],
+      ['Living wage → accept.', 'converse', 'Reversed.'],
+      ['Not accept → not living wage.', 'converse', 'Inverse of the correct translation.'],
+      ['Accept ↔ living wage.', 'converse', 'Not biconditional.'],
+    ]),
+    item('pr.r2', 'recognize', 2, 'Principle: “One should accept a job offer only if it pays a living wage.” Case: an offer pays a living wage.', 'What follows?', [
+      ['Nothing definite — paying a living wage is necessary, not sufficient, for accepting.', 'KEY', 'The principle gives a requirement, not a trigger.'],
+      ['One should accept.', 'converse', 'Treats the necessary condition as sufficient.'],
+      ['One should decline.', 'wrong_direction', 'Unsupported.'],
+      ['The offer is a good job.', 'irrelevant', 'Not stated.'],
+    ]),
+    item('pr.r3', 'recognize', 2, 'Judgment: “The city was right to close the pool, since its filtration system failed.”', 'Which principle justifies the judgment?', [
+      ['A public facility should be closed if a system essential to its safe use fails.', 'KEY', 'Failure → close.'],
+      ['A public facility should be closed only if its filtration system fails.', 'converse', 'Gives a necessary condition, not a trigger.'],
+      ['Pools are popular in summer.', 'irrelevant', 'Not a principle.'],
+      ['A facility should stay open if most people want it.', 'wrong_direction', 'Supports keeping it open.'],
+    ]),
+    item('pr.a1', 'apply', 2, 'Principle: An employer should offer flexible hours to an employee whenever doing so would not reduce the team’s productivity and the employee requests them.', 'Which one of the following judgments most closely conforms to the principle?', [
+      ['Rosa requested flexible hours, and her manager confirmed this would not reduce productivity, so her employer should offer them.', 'KEY', 'Both conditions met.'],
+      ['Leo did not request flexible hours, but they would not reduce productivity, so his employer should offer them.', 'condition_not_met', 'No request.'],
+      ['Mia requested flexible hours, which would reduce productivity, so her employer should offer them.', 'condition_not_met', 'Productivity condition fails.'],
+      ['Ben received flexible hours, so productivity must not have dropped.', 'converse', 'Reverses the principle.'],
+      ['Most employees want flexible hours, so all should receive them.', 'irrelevant', 'Not the principle.'],
+    ]),
+    item('pr.a2', 'apply', 3, 'Ethicist: The hospital acted wrongly in sharing the patient’s records with the insurer, since the patient had not consented and the sharing was not required by law.', 'Which one of the following principles, if valid, most helps to justify the ethicist’s judgment?', [
+      ['It is wrong to share a patient’s records without the patient’s consent unless the sharing is legally required.', 'KEY', 'No consent + not required → wrong.'],
+      ['It is wrong to share records only if the law forbids it.', 'converse', 'Does not cover this case.'],
+      ['Hospitals should share records with insurers when it reduces costs.', 'wrong_direction', 'Supports sharing.'],
+      ['Patients should read consent forms carefully.', 'irrelevant', 'Irrelevant.'],
+      ['Sharing records is always wrong.', 'condition_not_met', 'Too broad; it would justify the judgment but goes far beyond the reasons given.'],
+    ], { hints: ['The judgment rests on two facts: no consent, not legally required.', 'Find the principle triggered by exactly those facts.'] }),
+    item('pr.c1', 'challenge', 3, 'Principle: A journalist should not publish an anonymous source’s claim unless the claim has been confirmed by an independent source. Application: The editor was right to reject the story about the mayor.', 'Which one of the following, if true, most justifies the application of the principle?', [
+      ['The story relied on an anonymous source’s claim that no independent source had confirmed.', 'KEY', 'Anonymous + unconfirmed → should not publish.'],
+      ['The story relied on an anonymous source’s claim that two independent sources confirmed.', 'condition_not_met', 'Confirmed — the principle allows publication.'],
+      ['The mayor denied the story.', 'irrelevant', 'Not part of the principle.'],
+      ['The editor dislikes anonymous sources.', 'irrelevant', 'Irrelevant.'],
+      ['The story was about local politics.', 'irrelevant', 'Irrelevant.'],
+    ]),
+    item('pr.c2', 'challenge', 3, 'Principle: A landlord should repair a reported problem within a week if the problem affects the tenant’s health or safety.', 'Which one of the following judgments most clearly violates the principle?', [
+      ['A landlord waited three weeks to repair a reported gas leak.', 'KEY', 'Gas leak affects safety; more than a week.'],
+      ['A landlord waited three weeks to repaint a hallway.', 'condition_not_met', 'Not health or safety.'],
+      ['A landlord repaired a broken lock in two days.', 'condition_not_met', 'Within a week.'],
+      ['A tenant reported no problems.', 'irrelevant', 'Nothing to violate.'],
+      ['A landlord fixed an unreported leak.', 'irrelevant', 'Not a violation.'],
+    ]),
+    item('pr.m1', 'mastery_check', 2, 'Principle: A student should be excused from the exam if they provide documentation of illness.', 'Which one of the following most closely conforms to the principle?', [
+      ['Jae provided a doctor’s note documenting his illness, so he should be excused.', 'KEY', 'Condition met.'],
+      ['Jae was excused, so he must have been ill.', 'converse', 'Reversed.'],
+      ['Jae felt unwell but provided no documentation, so he should be excused.', 'condition_not_met', 'No documentation.'],
+      ['Jae should take the exam because he studied.', 'irrelevant', 'Irrelevant.'],
+      ['All students should be excused.', 'irrelevant', 'Not the principle.'],
+    ]),
+    item('pr.m2', 'mastery_check', 3, 'Judgment: “The council should not have approved the tower, because it will block sunlight to the community garden, and residents were not consulted.”', 'Which one of the following principles most helps to justify the judgment?', [
+      ['A project that harms a shared community resource should not be approved without consulting affected residents.', 'KEY', 'Harm + no consultation → should not approve.'],
+      ['A project should be approved if it creates jobs.', 'wrong_direction', 'Supports approval.'],
+      ['Gardens should be moved when towers are built.', 'irrelevant', 'Not a justification.'],
+      ['A project should be approved if residents were consulted.', 'converse', 'Gives a trigger for approval; it says nothing about projects without consultation.'],
+      ['Councils should follow residents’ wishes.', 'irrelevant', 'Vague.'],
+    ]),
+    item('pr.m3', 'mastery_check', 3, 'Principle: When two job candidates are equally qualified, an employer should choose the one who would add a skill the team currently lacks.', 'Which one of the following judgments most closely conforms to the principle?', [
+      ['Since Ada and Ben are equally qualified and only Ada speaks Spanish, which the team lacks, the employer should hire Ada.', 'KEY', 'Equal qualifications + new skill → choose her.'],
+      ['Since Ada is more qualified than Ben, the employer should hire Ada.', 'condition_not_met', 'Not equally qualified.'],
+      ['Since the team lacks Spanish speakers, it should hire anyone who speaks Spanish.', 'condition_not_met', 'Ignores the equal-qualification condition.'],
+      ['Since Ben was hired, he must have added a skill.', 'converse', 'Reversed.'],
+      ['Since both candidates speak Spanish, the employer should hire neither.', 'irrelevant', 'Not supported.'],
+    ]),
+  ],
+  placementItemIds: ['pr.r2', 'pr.a1', 'pr.a2', 'pr.c1', 'pr.m3'],
+  tagToSection: { converse: 'conditional', condition_not_met: 'conditional', wrong_direction: 'traps', irrelevant: 'traps' },
+};

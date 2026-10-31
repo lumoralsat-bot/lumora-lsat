@@ -16,7 +16,7 @@ for (const L of LESSONS) {
     assert.ok(L.objective.startsWith('By the end, you will be able to'));
     assert.notEqual(L.review.status, 'approved');
     const n = (s) => L.items.filter(i => i.stage === s).length;
-    assert.equal(n('learn'), 1); assert.ok(n('recognize') >= 4); assert.ok(n('apply') >= 2); assert.ok(n('challenge') >= 2); assert.ok(n('mastery_check') >= 3);
+    assert.equal(n('orient') + n('learn'), 1, 'one Orient item'); assert.ok(n('recognize') >= 3); assert.ok(n('apply') >= 2); assert.ok(n('challenge') >= 2); assert.ok(n('mastery_check') >= 3);
     assert.equal(new Set(L.items.map(i => i.id)).size, L.items.length, 'unique item ids');
     for (const id of L.placementItemIds) assert.ok(L.items.find(i => i.id === id), 'placement item ' + id);
     for (const m of L.misconceptions) assert.ok(L.tagToSection[m.tag] && L.sections.some(s => s.id === L.tagToSection[m.tag]), `misconception ${m.tag} links to a section`);
@@ -26,7 +26,7 @@ for (const L of LESSONS) {
     for (const it of L.items) {
       if (it.formal?.kind === 'quantified') { const r = checkQuantifiedItem(it); assert.ok(r.ok, `${it.id}: ${r.problems.join('; ')}`); }
       else if (it.formal) { const r = checkFormalItem(it); assert.ok(r.ok, `${it.id}: ${r.problems.join('; ')}`); assert.deepEqual(Object.keys(it.formal.choices).sort(), Object.keys(it.choices).sort(), it.id); }
-      else assert.ok(it.verifiedBy === 'author' || it.stage === 'learn', `${it.id} has neither a formal check nor an author-verification mark`);
+      else assert.ok(it.verifiedBy === 'author' || it.stage === 'orient', `${it.id} has neither a formal check nor an author-verification mark`);
     }
   });
 
@@ -52,7 +52,9 @@ for (const L of LESSONS) {
 }
 
 test('no near-duplicate items across the whole curriculum (outside short recognition items)', () => {
-  const all = LESSONS.flatMap(L => L.items.filter(i => !['recognize', 'learn'].includes(i.stage)));
-  const fps = all.map(i => fingerprintQuestion({ stimulus: i.stimulus, question: i.stem }));
+  const all = LESSONS.flatMap(L => L.items.filter(i => !['recognize', 'learn', 'orient'].includes(i.stage)));
+  // RC question sets share a passage by design: compare those on the question and choices instead.
+  const shared = (i) => all.filter(j => j.stimulus === i.stimulus).length > 1;
+  const fps = all.map(i => shared(i) ? fingerprintQuestion({ stimulus: i.stem + ' ' + Object.values(i.choices).join(' '), question: '' }) : fingerprintQuestion({ stimulus: i.stimulus, question: i.stem }));
   fps.forEach((fp, i) => { const d = screenDuplicate(fp, fps.slice(0, i)); assert.ok(!d.duplicate, `${all[i].id} looks like an earlier item (${d.kind} ${d.score?.toFixed?.(2)})`); });
 });

@@ -44,6 +44,35 @@ export const SKILL_SPECS = {
   },
 };
 
+// Curriculum v2.0 specs for the remaining nodes. G(type, objective, requirements[, align]).
+const G = (questionType, objective, requirements, align) => ({ questionType, objective, requirements, domains: DOMAINS, ...(align ? { align } : {}) });
+const ARG = 'The stimulus must be a short original argument (3–5 sentences) with a clear conclusion and at least one premise.';
+const RC_P = 'The stimulus must be an original expository passage of 150–220 words with a clear structure (e.g., a view, evidence, and the author’s qualification), introduced by "Passage:".';
+Object.assign(SKILL_SPECS, {
+  'found.validity': G('Validity vs. truth', 'separate whether premises are true from whether they support the conclusion; recognize valid arguments with false premises and invalid arguments with true premises', ARG + ' Ask about validity, soundness, or support. Distractors must include confusing true premises with validity and judging by the conclusion’s truth.'),
+  'found.deductive_inductive': G('Deductive vs. inductive strength', 'distinguish arguments that guarantee their conclusion from arguments that make it probable, and judge inductive strength by sample and relevance', ARG + ' Distractors must include calling a strong inductive argument illogical and treating a probable conclusion as certain.'),
+  'analysis.main_conclusion': SKILL_SPECS['found.argument_parts'],
+  'analysis.role': G('Role of a statement', 'describe the function of a quoted claim (premise, conclusion, intermediate conclusion, concession, opposing view, example)', ARG + ' Quote one claim in the stem. Distractors must include confusing a concession with a premise and an intermediate with the main conclusion.'),
+  'analysis.method': G('Method of reasoning', 'describe abstractly how an argument proceeds (counterexample, analogy, elimination, alternative explanation, undermining evidence)', ARG + ' Answer choices must be abstract descriptions; distractors must include one inaccurate element, a topic description, and an overstatement.'),
+  'evaluation.necessary_assumption': G('Necessary assumption', 'identify an assumption the argument requires, confirmed by the negation test', ARG + ' The argument must have one clear gap. Distractors must include a sufficient-but-not-necessary claim, a restated premise, an out-of-scope claim, and an overly strong claim.'),
+  'evaluation.sufficient_assumption': G('Sufficient assumption', 'identify the claim that, added to the premises, guarantees the conclusion (bridge the new term)', ARG + ' Use conditional or quantified premises so that exactly one choice completes a valid argument. Distractors must include the converse of the bridge and a necessary-but-insufficient claim.'),
+  'evaluation.strengthen': G('Strengthen', 'choose new information that makes the conclusion more likely by supporting the gap or ruling out an alternative', ARG + ' Distractors must include a weakener, a topic match with no effect, and support for a different conclusion.'),
+  'evaluation.weaken': G('Weaken', 'choose new information that makes the conclusion less likely by attacking the gap', ARG + ' Distractors must include a strengthener, a topic match with no effect, and an attack on a different claim.'),
+  'evaluation.evaluate': G('Evaluate the argument', 'choose the question whose answer would most help evaluate the argument (different answers push in different directions)', ARG + ' Answer choices are questions or "whether" clauses. Distractors must be questions whose answers would not affect the conclusion.'),
+  'evaluation.paradox': G('Resolve / explain', 'choose the fact that allows two apparently conflicting facts to both be true', 'The stimulus must present two facts in apparent tension and no conclusion. Distractors must include one that explains only one side, one that deepens the conflict, and one that denies a stated fact.'),
+  'evaluation.causal': G('Causal reasoning', 'evaluate a causal conclusion drawn from a correlation: alternative causes, reverse causation, comparison groups', 'The stimulus must draw a causal conclusion from a correlation or sequence. Ask to weaken, strengthen, or identify the flaw. Distractors must include a mechanism that supports when the task is to weaken, and irrelevant facts.', (t) => /caus|because|led to|result|reduc|increas|improv/i.test(t)),
+  'inference.must_be_true': G('Must be true / most strongly supported', 'draw only what the facts guarantee or most strongly support; reject outside knowledge and overstatement', 'The stimulus must be a set of facts with no conclusion. Distractors must include an overstatement, a reversed conditional, an outside-knowledge claim, and a merely possible claim.'),
+  'inference.flaws': G('Flaw', 'name the specific way the evidence fails to support the conclusion (conditional, causal, sampling, ad hominem, authority, equivocation, false choice, part/whole, circular, absence of evidence)', ARG + ' The argument must commit exactly one recognizable flaw. Answer choices are abstract flaw descriptions; distractors must be real flaw types the argument does not commit.'),
+  'advanced.parallel': G('Parallel reasoning / parallel flaw', 'match the logical form of an argument (including its flaw), not its topic', ARG + ' Use a clear form (e.g., A → B; B; so A). Each choice is a full argument on a different topic; distractors must change one element of the form (quantifier, direction, certainty) or commit a different flaw.'),
+  'advanced.principles': G('Principles', 'apply a general principle to a case or identify the principle that justifies a judgment', 'The stimulus must state a principle with explicit conditions, or a judgment with its reasons. Distractors must include a case where a condition is not met, a reversed principle, and a principle that supports the opposite judgment.'),
+  'rc.structure': G('Passage structure (main idea / purpose)', 'map a passage by function and identify its main idea or the purpose of a part', RC_P + ' Ask for the main idea, the organization, or why a detail is included. Distractors must include a detail, a too-broad claim, and a misdescribed function.'),
+  'rc.author': G('Author perspective and tone', 'separate the author’s view from reported views and describe the author’s attitude with calibrated wording', RC_P + ' Include at least one reported view the author qualifies. Distractors must include extreme tones and attributing a reported view to the author.'),
+  'rc.inference': G('RC detail / inference / application', 'locate stated details, draw supported inferences, and apply the passage’s idea to an analogous case', RC_P + ' Distractors must include outside knowledge, overstated inferences, wrong viewpoint, and topic-only analogies.'),
+  'rc.comparative': G('Comparative passages', 'identify agreement, disagreement, and the relationship between two short passages', 'The stimulus must contain two original passages labeled "Passage A:" and "Passage B:" (80–130 words each) on the same question with partly opposed views. Distractors must include claims only one passage supports and shared-topic traps.'),
+  'transfer.statistics': G('Statistics and base rates', 'separate percentages from numbers, account for base rates, and judge whether a sample supports a conclusion', ARG + ' Include invented numbers that create a percent-vs-number, base-rate, or sampling problem. Rationales must state any arithmetic.', (t) => /\d/.test(t)),
+  'transfer.media': G('Evaluating claims in the media', 'apply LSAT reasoning to headlines, ads, and reports: causal overreach, scope shifts, sampling, and source incentives', 'The stimulus must be an invented headline, ad, or report with the underlying finding stated. Do not name real people, brands, or outlets. Distractors must include dismissing a claim because of its source and irrelevant details.'),
+});
+
 export function buildGenerationRequest({ skillId, stage, difficulty = 2, recentErrorTags = [], usedDomains = [] }, rng = Math.random) {
   const spec = SKILL_SPECS[skillId];
   if (!spec) throw new Error('No generation spec for skill ' + skillId);
@@ -167,4 +196,28 @@ function isFatal(e) { return /not configured|rate|429|too many/i.test(String(e?.
 
 function logEntry(req, ctx, outcomes, disposition, started) {
   return { requestId: req.request_id, at: Date.now(), skillId: ctx.skillId, stage: ctx.stage, difficulty: ctx.difficulty, promptVersion: PROMPT_VERSION, attempts: outcomes.length, outcomes, disposition, ms: Date.now() - started };
+}
+
+/**
+ * Approximate "question structure" for the mastery gate (≥3 distinct structures): the reasoning
+ * pattern in the stimulus × the task in the stem. Deterministic and explainable; not a full parse.
+ */
+export function structureKey(content) {
+  const stim = String(content?.stimulus || '').toLowerCase();
+  const stem = String(content?.stem || '').toLowerCase();
+  const pattern =
+    /\b(percent|%|survey|poll|sample|rate|study|studies)\b/.test(stim) ? 'statistical'
+    : /\b(caus|led to|result|because of|reduc|increas|improv|declin|rose|fell)/.test(stim) ? 'causal'
+    : /\b(if|only|unless|every|all|no one|none|whenever|any)\b/.test(stim) ? 'conditional'
+    : /\b(similar|like|unlike|than|compared)\b/.test(stim) ? 'comparative'
+    : /\b(should|ought|must)\b/.test(stim) ? 'recommendation' : 'other';
+  const task =
+    /must (also )?be true|must be false|properly drawn|follows/.test(stem) ? 'deduce'
+    : /strengthen|support/.test(stem) ? 'support'
+    : /weaken|undermine|vulnerable|flaw|criticism/.test(stem) ? 'attack'
+    : /assum|depends|requires/.test(stem) ? 'assume'
+    : /similar|parallel/.test(stem) ? 'match'
+    : /role|function|serves|proceeds|method|describes|organization/.test(stem) ? 'describe'
+    : 'identify';
+  return `${pattern}:${task}`;
 }

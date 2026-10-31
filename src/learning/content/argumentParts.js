@@ -45,7 +45,7 @@ export const LESSON_ARGS = {
     { tag: 'conceptual', label: 'Relying on indicator words alone', fix: 'Indicators can mislead. Confirm with the because check.' },
   ],
   items: [
-    { id: 'ap.l1', stage: 'learn', difficulty: 1, ...A,
+    { id: 'ap.l1', stage: 'orient', difficulty: 1, ...A,
       stimulus: '“The trail should be closed for the season, since the bridge over the creek washed out.”', stem: 'Which part is the conclusion?',
       choices: { A: 'The trail should be closed for the season.', B: 'The bridge over the creek washed out.', C: 'Both are conclusions.', D: 'There is no conclusion.' }, correct: 'A',
       rationale: '“Since” introduces the premise. Because check: “close the trail BECAUSE the bridge washed out.”',

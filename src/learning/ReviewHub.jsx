@@ -1,4 +1,5 @@
 // Review: Due today · Error journal · Weak skills · Flagged questions (spec Master §11, Expanded Journey C).
+import { fz } from '../ui/scale.js';
 import { useState } from 'react';
 import { SKILL_BY_ID } from './skills.js';
 import { LESSONS_BY_SKILL, LESSON_BY_ID } from './content/index.js';
@@ -37,7 +38,7 @@ export function ReviewHub({ user, onUpdateUser, theme: C, fonts: T, callModel, p
   return (
     <main style={{ maxWidth: 820, margin: '0 auto', padding: '28px 18px' }}>
       <FocusStyles C={C} />
-      <h1 style={{ ...S.h1, fontSize: 26 }}>Review</h1>
+      <h1 style={{ ...S.h1, fontSize: Math.round(26 * (globalThis.__LUMORA_FONT_SCALE__ || 1)) }}>Review</h1>
       <p style={S.small}>Turn mistakes into progress: retrieval checks with fresh questions, a journal of what went wrong, and the skills that need attention.</p>
       <div role="tablist" aria-label="Review sections" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '16px 0' }}>
         {tabs.map(([id, label]) => (
@@ -71,7 +72,7 @@ export function ReviewHub({ user, onUpdateUser, theme: C, fonts: T, callModel, p
         </div>
         {errors.length === 0 && <div style={S.card}><p style={S.p}>{filter === 'open' ? 'No open mistakes. Every miss you make in a lesson lands here with an explanation and a link to the right lesson section.' : 'Nothing here yet.'}</p></div>}
         {errors.slice(0, 50).map(e => <ErrorEntry key={e.id} {...{ e, C, S, commit, skillTitle, onOpenLesson: (sid) => setOpen({ mode: 'lesson', skillId: sid }) }} />)}
-        <p style={{ ...S.small, marginTop: 10 }}>Older practice mistakes from the question generator are in the <button className="lp-focus" onClick={() => onNavigate && onNavigate('mistakes')} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, fontSize: 13 }}>classic Mistake Journal</button>.</p>
+        <p style={{ ...S.small, marginTop: 10 }}>Older practice mistakes from the question generator are in the <button className="lp-focus" onClick={() => onNavigate && onNavigate('mistakes')} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, fontSize: fz(13) }}>classic Mistake Journal</button>.</p>
       </section>}
 
       {tab === 'weak' && <section role="tabpanel">
@@ -107,7 +108,7 @@ function ErrorEntry({ e, C, S, commit, skillTitle, onOpenLesson }) {
         <span style={{ ...S.small, fontWeight: 700, color: C.text }}>{skillTitle(e.skillId)}</span>
         <span style={{ ...S.small }}>{new Date(e.at).toLocaleDateString()} · {e.resolvedBy ? '✓ Resolved by a later correct answer' : 'Open'}</span>
       </div>
-      {e.snapshot?.stimulus && <p style={{ ...S.p, fontSize: 14 }}>{e.snapshot.stimulus}{e.snapshot.stimulus.length >= 220 ? '…' : ''}</p>}
+      {e.snapshot?.stimulus && <p style={{ ...S.p, fontSize: fz(14) }}>{e.snapshot.stimulus}{e.snapshot.stimulus.length >= 220 ? '…' : ''}</p>}
       <p style={{ ...S.small }}>You chose ({e.selected}){e.snapshot?.selectedText ? ` “${e.snapshot.selectedText}”` : ''}. Correct: ({e.correctChoice}){e.snapshot?.correctText ? ` “${e.snapshot.correctText}”` : ''}.{e.confidence ? ` Confidence: ${e.confidence}.` : ''}</p>
       <label style={{ ...S.small, display: 'block', margin: '8px 0' }}>What went wrong?{e.categorySource === 'provisional' ? ' (our guess — change it if it doesn’t fit)' : ''}<br />
         <select className="lp-focus" value={e.category} onChange={ev => commit(en => ({ engine: updateErrorRecord(en, e.id, { category: ev.target.value }) }))}
@@ -117,7 +118,7 @@ function ErrorEntry({ e, C, S, commit, skillTitle, onOpenLesson }) {
       </label>
       <label style={{ ...S.small, display: 'block' }}>Your note
         <textarea className="lp-focus" rows={2} maxLength={1000} value={note} onChange={ev => { setNote(ev.target.value); setSaved(false); }}
-          style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: 'inherit', fontSize: 14 }} />
+          style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: 'inherit', fontSize: fz(14) }} />
       </label>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, alignItems: 'center' }}>
         <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} disabled={note === (e.note || '')} onClick={() => { commit(en => ({ engine: updateErrorRecord(en, e.id, { note }) })); setSaved(true); }}>Save note</button>

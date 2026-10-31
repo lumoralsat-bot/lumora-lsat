@@ -39,7 +39,7 @@ export const LESSON_NEG = {
     { tag: 'converse', label: 'Reversing a compound rule', fix: 'A → (B and C) does not mean (B and C) → A.' },
   ],
   items: [
-    { id: 'ng.l1', stage: 'learn', difficulty: 1,
+    { id: 'ng.l1', stage: 'orient', difficulty: 1,
       stimulus: '“It is not true that the store is open on both Saturday and Sunday.”', stem: 'Which statement means the same thing?',
       choices: { A: 'The store is closed on Saturday and closed on Sunday.', B: 'The store is closed on Saturday or closed on Sunday (or both).', C: 'The store is open on exactly one of the two days.', D: 'The store is open on Saturday.' }, correct: 'B',
       formal: { mode: 'equivalent', premises: ['~(Sat & Sun)'], choices: { A: '~Sat & ~Sun', B: '~Sat | ~Sun', C: '(Sat | Sun) & ~(Sat & Sun)', D: 'Sat' } },

@@ -44,11 +44,14 @@ export function formatForDate(dateLike) {
 // Starting values chosen by judgment, NOT yet calibrated on student data.
 // Tune these here (bump the version) — never in components or prompts.
 export const MASTERY_POLICY = {
-  version: 'mastery-v1',
+  version: 'mastery-v2', // Curriculum v2.0 gate
+  // Proficient (spec gate): ≥8 distinct validated items answered correctly on your own, across ≥3 distinct
+  // question structures, ≥80% recent unassisted accuracy, an acceptable explanation, and no unresolved
+  // misconception. Mastered additionally needs a delayed retention check AND a correct answer in mixed review.
   practicing: { minScorable: 2, minCorrect: 1 },
   developing: { minScorable: 4, minIndependentCorrect: 3, recentWindow: 6, recentAccuracy: 0.6 },
-  proficient: { minIndependent: 6, recentWindow: 8, recentIndependentAccuracy: 0.75, minHarderCorrect: 2, harderDifficulty: 2, minDistinctItems: 4 },
-  mastered: { retentionDelayDays: 3, minDelayedCorrect: 1 },
+  proficient: { minIndependent: 8, recentWindow: 10, recentIndependentAccuracy: 0.8, minHarderCorrect: 2, harderDifficulty: 2, minDistinctItems: 8, minDistinctStructures: 3, requireExplanation: true, unresolvedRepeat: 2 },
+  mastered: { retentionDelayDays: 3, minDelayedCorrect: 1, minMixedCorrect: 1 },
   needsReview: { failedDelayedInARow: 2 },
   // An answer counts as INDEPENDENT only if: no hints, answer not revealed, not marked as a guess.
   scorableStages: ['apply', 'challenge', 'mastery_check', 'review', 'placement'],
@@ -56,7 +59,8 @@ export const MASTERY_POLICY = {
 
 // ── LESSON FLOW POLICY ───────────────────────────────────────────────────────
 export const LESSON_POLICY = {
-  version: 'lesson-v1',
+  version: 'lesson-v2',
+  explain: { checksNeeded: 2, minWords: 12 },
   recognize: { window: 4, correctNeeded: 3 },
   apply: { correctNeeded: 2 },
   challenge: { itemCount: 2, remediateBelow: 0.5 },

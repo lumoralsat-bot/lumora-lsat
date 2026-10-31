@@ -11,14 +11,15 @@ import { assessMastery, stateRank, isIndependentCorrect, isIndependentAttempt } 
 import { newLessonProgress, applyLessonEvent } from './lessonEngine.js';
 import { scheduleInitial, recordReview } from './review.js';
 import { awardXP, xpForEvent } from './xp.js';
-import { GENERATION_POLICY } from './config.js';
+import { GENERATION_POLICY, MASTERY_POLICY } from './config.js';
+import { ERROR_CATEGORY_LABELS } from './journal.js';
 import { evaluateAchievements } from './achievements.js';
 
 export const ENGINE_KEY = '__engine';
 const MAX_ATTEMPTS = 1500;
 
 export function emptyEngine() {
-  return { v: 1, lessons: {}, attempts: [], mastery: {}, reviews: {}, xp: { keys: [], total: 0 }, exposure: [], genLog: [], errors: [], flags: [], recs: [] };
+  return { v: 1, lessons: {}, attempts: [], mastery: {}, reviews: {}, xp: { keys: [], total: 0 }, exposure: [], genLog: [], errors: [], flags: [], recs: [], explanations: {} };
 }
 export function getEngine(user) {
   const e = user?.learnProgress?.[ENGINE_KEY];
@@ -43,6 +44,25 @@ export function skillAttempts(engine, skillId) {
   return engine.attempts.filter(a => a.skillId === skillId).map(a => (flagged.has(a.itemId) || flagged.has(a.fingerprint)) ? { ...a, scorable: false } : a);
 }
 
+/** Context the mastery gate needs beyond attempts: explanation self-check and unresolved misconceptions. */
+export function masteryContext(engine, skillId, extra = {}) {
+  const explanationOk = Object.values(engine.explanations || {}).some(x => x.skillId === skillId && x.acceptable);
+  // A misconception is "unresolved" when the same kind of mistake is still open at least N times.
+  const counts = {};
+  for (const e of engine.errors || []) if (e.skillId === skillId && !e.resolvedBy) { const k = e.category || 'unclassified'; counts[k] = (counts[k] || 0) + 1; }
+  const n = MASTERY_POLICY.proficient.unresolvedRepeat || 2;
+  const unresolvedMisconceptions = Object.entries(counts).filter(([k, c]) => c >= n && k !== 'unclassified' && k !== 'guess').map(([k]) => ERROR_CATEGORY_LABELS[k] || k);
+  return { lessonStarted: true, explanationOk, unresolvedMisconceptions, ...extra };
+}
+
+/** Explain & reflect: store ONLY the self-check result (the learner's written text is never saved). */
+export function recordExplanation(engine0, { lessonId, skillId, itemId, checks, acceptable, reflectionTag }, now = Date.now()) {
+  const engine = { ...engine0, explanations: { ...(engine0.explanations || {}), [lessonId]: { skillId, itemId: itemId || null, checks: (checks || []).map(Boolean).slice(0, 5), acceptable: !!acceptable, reflectionTag: reflectionTag || null, at: now } } };
+  const prev = engine0.mastery[skillId];
+  engine.mastery = { ...engine0.mastery, [skillId]: { ...assessMastery(skillAttempts(engine, skillId), masteryContext(engine, skillId, { peakState: prev?.peakState })), assessedAt: now } };
+  return engine;
+}
+
 function grant(engine, key, kind, extra = {}, now) {
   const amount = xpForEvent(kind, extra);
   const { ledger, granted } = awardXP(engine.xp, key, amount, kind, now);
@@ -62,7 +82,7 @@ export function lessonEvent(engine0, lesson, event, now = Date.now()) {
   if (event.type === 'tested_out' || progress.stage === 'completed') {
     engine.reviews = { ...engine.reviews, [lesson.skillId]: scheduleInitial(engine.reviews[lesson.skillId], lesson.skillId, now) };
   }
-  engine.mastery = { ...engine.mastery, [lesson.skillId]: assessMastery(skillAttempts(engine, lesson.skillId), { lessonStarted: true, testedOut: progress.placement === 'tested_out', peakState: engine.mastery[lesson.skillId]?.peakState }) };
+  engine.mastery = { ...engine.mastery, [lesson.skillId]: assessMastery(skillAttempts(engine, lesson.skillId), masteryContext(engine, lesson.skillId, { testedOut: progress.placement === 'tested_out', peakState: engine.mastery[lesson.skillId]?.peakState })) };
   const ach = evaluateAchievements(engine, now);
   return { engine: ach.engine, xpGranted: xpGranted + ach.xpGranted, changed: true, newAchievements: ach.newly };
 }
@@ -107,7 +127,7 @@ export function recordAttempt(engine0, attempt, now = Date.now()) {
     if (attempt.correct && isIndependentAttempt(attempt)) xpGranted += grant(engine, `rv:${attempt.id}`, 'review_success', {}, now);
   }
   const lessonP = Object.values(engine.lessons).find(l => l.lessonId === attempt.lessonId);
-  const m = assessMastery(skillAttempts(engine, sid), { lessonStarted: true, testedOut: lessonP?.placement === 'tested_out', peakState: prev?.peakState });
+  const m = assessMastery(skillAttempts(engine, sid), masteryContext(engine, sid, { testedOut: lessonP?.placement === 'tested_out', peakState: prev?.peakState }));
   engine.mastery[sid] = { ...m, assessedAt: now };
   if (stateRank(m.state) > stateRank(prev?.state || 'not_started')) {
     xpGranted += grant(engine, `state:${sid}:${m.state}`, 'state_reached', { state: m.state }, now);
@@ -131,7 +151,7 @@ export function flagItem(engine0, flag, now = Date.now()) {
   const engine = { ...engine0, flags: [...engine0.flags, { ...flag, at: now }].slice(-200) };
   if (flag.skillId) {
     const prev = engine0.mastery[flag.skillId];
-    engine.mastery = { ...engine0.mastery, [flag.skillId]: { ...assessMastery(skillAttempts(engine, flag.skillId), { lessonStarted: true, peakState: prev?.peakState }), assessedAt: now } };
+    engine.mastery = { ...engine0.mastery, [flag.skillId]: { ...assessMastery(skillAttempts(engine, flag.skillId), masteryContext(engine, flag.skillId, { peakState: prev?.peakState })), assessedAt: now } };
   }
   return engine;
 }

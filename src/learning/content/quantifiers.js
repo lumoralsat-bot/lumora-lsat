@@ -46,7 +46,7 @@ export const LESSON_QUANT = {
     { tag: 'quantifier_scope', label: 'Combining statements about different groups', fix: 'Two “most” statements only combine when they are about the same group.' },
   ],
   items: [
-    { id: 'qt.l1', stage: 'learn', difficulty: 1,
+    { id: 'qt.l1', stage: 'orient', difficulty: 1,
       stimulus: '“Some of the paintings in the auction are forgeries.”', stem: 'Which of the following is consistent with that statement?',
       choices: { A: 'None of the paintings are forgeries.', B: 'All of the paintings are forgeries.', C: 'Both A and B.', D: 'Neither A nor B.' }, correct: 'B',
       formal: null, verifiedBy: 'author',

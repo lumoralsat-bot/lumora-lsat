@@ -272,3 +272,20 @@ There is no independent verification, no duplicate check across sessions (only a
 **11. Cost:** Tutor calls are made only on request, capped at 6 per question, at about 500 output tokens each.
 
 **13. Next:** The dashboard session (`SECURITY_MIGRATION.md`), then more lessons.
+
+## 11. Curriculum & Lesson Overhaul v2.0 / v2.1 (2026-10-31)
+
+- All 27 curriculum nodes now have complete guided lessons (22 new or rebuilt: Truth vs. Support, Deductive vs.
+  Inductive, Main Conclusion, Role, Method, Necessary and Sufficient Assumptions, Strengthen, Weaken, Causal, Evaluate,
+  Resolve/Explain, Must Be True (+ Most Strongly Supported), Flaws, Parallel (+ Parallel Flaw), Principles, Passage
+  Structure (Main Idea + Purpose), Author Perspective, RC Inference & Detail (+ Analogy), Comparative Passages,
+  Statistics & Base Rates, Media claims). Generator specs exist for every node.
+- Lesson engine v2: Orient (unscored diagnostic before instruction), Explain & reflect (self-check; text never stored),
+  retention review shown in the stage list, mixed review (type hidden) required for Mastered.
+- Mastery policy `mastery-v2`: ≥8 distinct items, ≥3 structures, ≥80% recent unassisted, explanation, no unresolved
+  misconception; Mastered = delayed + mixed.
+- Classic: all 17 entries open the rebuilt lesson/track (deep links `#classic/LR/Weaken`, `#learn/<skill>/<track>`);
+  Classic levels shown as legacy only; originals reachable as reference.
+- Text size: fixed small text app-wide (`fz()` floor of 12px, scaled by A+/A-), and fixed a render loop caused by a
+  name clash (`setFontScale`) that would have crashed the app on load.
+- Traceability matrix: `docs/CURRICULUM_TRACEABILITY.md`. Tests: 226 passing.

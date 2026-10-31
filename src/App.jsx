@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, useCallback, Component } from "react";
 import { GuidedPath, ContinueLearningCard } from "./learning/LearnPath.jsx";
+import { classicRoute, parseHash, routeToHash } from "./learning/content/index.js";
 import { createAuth } from "./auth.js";
+import { fz, setFontScale as setGlobalFontScale } from "./ui/scale.js";
 import { ReviewHub } from "./learning/ReviewHub.jsx";
 import { TodayPlanCard, AdaptivePlanPanel } from "./learning/PlanPanel.jsx";
 import { ProgressPanel } from "./learning/ProgressPanel.jsx";
+import { getEngine } from "./learning/store.js";
+import { SKILLS as GUIDED_SKILLS } from "./learning/skills.js";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
@@ -1927,13 +1931,13 @@ const AVATAR_COLORS=["#4f7fff","#a78bfa","#f472b6","#22d3ee","#2dd4a0","#fb923c"
 
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 function Tag({children,color=C.accent}){
-  return <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 10px",borderRadius:20,background:color+"1a",color,border:`1px solid ${color}33`,marginRight:5,marginBottom:4}}>{children}</span>;
+  return <span style={{display:"inline-flex",alignItems:"center",fontSize:fz(11),fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"3px 10px",borderRadius:20,background:color+"1a",color,border:`1px solid ${color}33`,marginRight:5,marginBottom:4}}>{children}</span>;
 }
 function Pill({children,active,onClick,color=C.accent}){
-  return <button onClick={onClick} aria-pressed={active} style={{background:active?color+"20":"transparent",border:`1.5px solid ${active?color:C.border}`,borderRadius:10,padding:"10px 16px",cursor:"pointer",color:active?color:C.textMuted,fontSize:14,textAlign:"left",transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.4,fontWeight:active?600:400,outline:"none"}}>{children}</button>;
+  return <button onClick={onClick} aria-pressed={active} style={{background:active?color+"20":"transparent",border:`1.5px solid ${active?color:C.border}`,borderRadius:10,padding:"10px 16px",cursor:"pointer",color:active?color:C.textMuted,fontSize:fz(14),textAlign:"left",transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.4,fontWeight:active?600:400,outline:"none"}}>{children}</button>;
 }
 function Btn({children,onClick,disabled,ghost,danger:isDanger,style={},small,type="button",ariaLabel}){
-  if(ghost)return <button type={type} onClick={onClick} aria-label={ariaLabel} style={{background:"transparent",border:`1px solid ${isDanger?C.danger+"66":C.border}`,borderRadius:10,color:isDanger?C.danger:C.textSub,fontSize:Math.round((small?12:13)*FONT_SCALE),padding:small?"6px 14px":"9px 18px",cursor:"pointer",fontFamily:T.sans,outline:"none",transition:"all 0.15s",...style}}>{children}</button>;
+  if(ghost)return <button type={type} onClick={onClick} aria-label={ariaLabel} style={{background:"transparent",border:`1px solid ${isDanger?C.danger+"66":C.border}`,borderRadius:10,color:isDanger?C.danger:C.textSub,fontSize:Math.round((small?13:14)*FONT_SCALE),padding:small?"6px 14px":"9px 18px",cursor:"pointer",fontFamily:T.sans,outline:"none",transition:"all 0.15s",...style}}>{children}</button>;
   return <button type={type} onClick={onClick} disabled={disabled} aria-label={ariaLabel} style={{background:disabled?C.surfaceHigh:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:disabled?C.textMuted:"#fff",border:"none",borderRadius:12,padding:small?"9px 20px":"14px 28px",fontSize:Math.round((small?13:15)*FONT_SCALE),fontWeight:700,cursor:disabled?"not-allowed":"pointer",fontFamily:T.sans,opacity:disabled?0.5:1,boxShadow:disabled?"none":"0 4px 24px #3a6bff55",transition:"all 0.2s",outline:"none",...style}}>{children}</button>;
 }
 function Card({children,style={},onClick,role,ariaLabel}){
@@ -1954,11 +1958,11 @@ function Finput({label,type="text",value,onChange,placeholder,id,autoFocus,requi
 function XPBar({xp,level}){
   const p=(xp%XP_PER_LEVEL)/XP_PER_LEVEL;
   return <div style={{display:"flex",alignItems:"center",gap:10}} role="progressbar" aria-valuenow={Math.round(p*100)} aria-valuemin={0} aria-valuemax={100} aria-label={`Level ${level}`}>
-    <span style={{fontSize:12,fontWeight:700,color:C.gold,whiteSpace:"nowrap"}}>Lv {level}</span>
+    <span style={{fontSize:fz(12),fontWeight:700,color:C.gold,whiteSpace:"nowrap"}}>Lv {level}</span>
     <div style={{flex:1,background:C.surfaceHigh,borderRadius:4,height:6,overflow:"hidden"}}>
       <div style={{height:"100%",width:`${p*100}%`,background:`linear-gradient(90deg,${C.gold},#ffad42)`,borderRadius:4,transition:"width 0.6s ease"}}/>
     </div>
-    <span style={{fontSize:11,color:C.textMuted,whiteSpace:"nowrap"}}>{xp%XP_PER_LEVEL}/{XP_PER_LEVEL}</span>
+    <span style={{fontSize:fz(11),color:C.textMuted,whiteSpace:"nowrap"}}>{xp%XP_PER_LEVEL}/{XP_PER_LEVEL}</span>
   </div>;
 }
 function Spinner({label="Lumora is thinking…"}){
@@ -1967,7 +1971,7 @@ function Spinner({label="Lumora is thinking…"}){
       <div style={{position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${C.border}`}}/>
       <div style={{position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${C.accent}`,borderTopColor:"transparent",animation:"spin 0.9s linear infinite"}}/>
     </div>
-    <span style={{color:C.textMuted,fontSize:14}}>{label}</span>
+    <span style={{color:C.textMuted,fontSize:fz(14)}}>{label}</span>
     <style>{`@keyframes spin{to{transform:rotate(360deg)}} *:focus-visible{outline:2px solid ${C.accent}!important;outline-offset:2px!important;}`}</style>
   </div>;
 }
@@ -1983,7 +1987,7 @@ function ErrBanner({message,onDismiss}){
   if(!message)return null;
   return <div role="alert" style={{background:"#2d0a0a",border:`1px solid ${C.danger}44`,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:10}}>
     <span style={{color:C.danger,fontSize:16,flexShrink:0}}>⚠</span>
-    <span style={{color:"#fca5a5",fontSize:14,flex:1,lineHeight:1.6}}>{message}</span>
+    <span style={{color:"#fca5a5",fontSize:fz(14),flex:1,lineHeight:1.6}}>{message}</span>
     {onDismiss&&<button onClick={onDismiss} aria-label="Dismiss" style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:16,padding:0}}>×</button>}
   </div>;
 }
@@ -2377,7 +2381,7 @@ function MonkeyBubble({pose="happy",message,onDismiss,size=70,outfit,hat,glasses
       {message&&(
         <div style={{background:"white",borderRadius:16,padding:"10px 14px",maxWidth:220,
           boxShadow:"0 4px 20px #00000033",position:"relative",marginBottom:4}}>
-          <p style={{margin:0,fontSize:13,color:"#1a1a2e",lineHeight:1.5,fontFamily:T.sans,fontWeight:500}}>
+          <p style={{margin:0,fontSize:fz(13),color:"#1a1a2e",lineHeight:1.5,fontFamily:T.sans,fontWeight:500}}>
             {message}
           </p>
           {/* Bubble tail pointing down-right */}
@@ -2387,7 +2391,7 @@ function MonkeyBubble({pose="happy",message,onDismiss,size=70,outfit,hat,glasses
           {onDismiss&&(
             <button onClick={()=>{setVisible(false);onDismiss();}}
               style={{position:"absolute",top:4,right:6,background:"none",border:"none",
-                color:"#999",fontSize:14,cursor:"pointer",lineHeight:1}}>×</button>
+                color:"#999",fontSize:fz(14),cursor:"pointer",lineHeight:1}}>×</button>
           )}
         </div>
       )}
@@ -2479,8 +2483,8 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
         display:"flex",alignItems:"center",gap:10}}>
         <LexSVG pose="happy" size={60} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
         <div style={{flex:1}}>
-          <div style={{fontWeight:700,color:"white",fontSize:14}}>Lex</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.8)"}}>Your LSAT Guide</div>
+          <div style={{fontWeight:700,color:"white",fontSize:fz(14)}}>Lex</div>
+          <div style={{fontSize:fz(11),color:"rgba(255,255,255,0.8)"}}>Your LSAT Guide</div>
         </div>
         <button onClick={onClose}
           style={{background:"none",border:"none",color:"rgba(255,255,255,0.8)",
@@ -2496,7 +2500,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
               {m.role==="lex"&&<div style={{marginRight:6,flexShrink:0}}>
                 <LexSVG pose="idle" size={40} outfit={lexO.outfit} hat={lexO.hat} glasses={lexO.glasses} animate={false}/>
               </div>}
-              <div style={{maxWidth:"80%",padding:"8px 12px",borderRadius:14,fontSize:13,lineHeight:1.55,
+              <div style={{maxWidth:"80%",padding:"8px 12px",borderRadius:14,fontSize:fz(13),lineHeight:1.55,
                 background:m.role==="user"?"linear-gradient(135deg,#3a6bff,#6a9fff)":C.surfaceHigh,
                 color:m.role==="user"?"white":C.text,
                 borderBottomRightRadius:m.role==="user"?4:14,
@@ -2508,7 +2512,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
               <div style={{display:"flex",justifyContent:"flex-start",marginTop:4,marginLeft:34}}>
                 <button onClick={()=>{onNavigate(m.nav);onClose();}}
                   style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:10,
-                    padding:"4px 12px",fontSize:12,color:C.accent,cursor:"pointer",
+                    padding:"4px 12px",fontSize:fz(12),color:C.accent,cursor:"pointer",
                     fontFamily:T.sans,fontWeight:600}}>
                   {m.navLabel||"Take me there →"}
                 </button>
@@ -2518,7 +2522,7 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
         ))}
         {loading&&<div style={{display:"flex",alignItems:"center",gap:6}}>
           <LexSVG pose="think" size={40} outfit={lexO.outfit} animate={false}/>
-          <div style={{fontSize:13,color:C.textMuted}}>Thinking…</div>
+          <div style={{fontSize:fz(13),color:C.textMuted}}>Thinking…</div>
         </div>}
         <div ref={bottomRef}/>
       </div>
@@ -2529,12 +2533,12 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
           onKeyDown={e=>e.key==="Enter"&&send()}
           placeholder="Ask Lex anything…"
           style={{flex:1,background:C.surfaceHigh,border:`1px solid ${C.border}`,
-            borderRadius:10,padding:"8px 12px",color:C.text,fontSize:13,
+            borderRadius:10,padding:"8px 12px",color:C.text,fontSize:fz(13),
             fontFamily:T.sans,outline:"none"}}/>
         <button onClick={send} disabled={!input.trim()||loading}
           style={{background:"linear-gradient(135deg,#3a6bff,#a78bfa)",border:"none",
             borderRadius:10,padding:"8px 14px",color:"white",cursor:"pointer",
-            fontSize:13,fontWeight:700,opacity:!input.trim()||loading?0.5:1}}>↑</button>
+            fontSize:fz(13),fontWeight:700,opacity:!input.trim()||loading?0.5:1}}>↑</button>
       </div>
     </div>
   );
@@ -2572,7 +2576,7 @@ function LexIntro({user,onDone}){
         <h2 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,marginTop:16,marginBottom:8}}>
           Meet Your Study Buddy!
         </h2>
-        <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:28}}>
+        <p style={{color:C.textSub,fontSize:fz(15),lineHeight:1.7,marginBottom:28}}>
           I'll be with you every step of your LSAT prep. Let's get acquainted!
         </p>
         <Btn onClick={()=>setStep(1)} style={{minWidth:160}}>Say Hello →</Btn>
@@ -2588,7 +2592,7 @@ function LexIntro({user,onDone}){
         <LexSVG pose={steps[step].pose} size={160} outfit="none" hat="none" glasses="none"/>
         <div style={{background:"white",borderRadius:16,padding:"14px 18px",
           margin:"16px 0 20px",textAlign:"left"}}>
-          <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
+          <p style={{margin:0,fontSize:fz(14),color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
             {steps[step].msg}
           </p>
         </div>
@@ -2600,7 +2604,7 @@ function LexIntro({user,onDone}){
               maxLength={20}
               autoFocus
               style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.accent}`,
-                borderRadius:10,padding:"11px 14px",color:C.text,fontSize:15,
+                borderRadius:10,padding:"11px 14px",color:C.text,fontSize:fz(15),
                 fontFamily:T.sans,outline:"none",boxSizing:"border-box",marginBottom:12}}/>
             <Btn onClick={saveName} style={{width:"100%"}}>
               {nameInput.trim()?"That's the one! →":"Keep 'Lex' →"}
@@ -2624,7 +2628,7 @@ function LexIntro({user,onDone}){
         </h2>
         <div style={{background:"white",borderRadius:16,padding:"14px 18px",
           margin:"0 0 20px",textAlign:"left"}}>
-          <p style={{margin:0,fontSize:14,color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
+          <p style={{margin:0,fontSize:fz(14),color:"#1a1a2e",lineHeight:1.65,fontFamily:T.sans}}>
             From now on I'm <strong>{lexName}</strong>! No matter where you are in the app, I'll always be right there at the bottom of your screen — just look for me down there and give me a tap! 👇
             Ask me anything about the LSAT or the app, and I'll point you in the right direction.
             You can always find me right at the bottom of your screen — just tap me anytime for help! 👇
@@ -2648,8 +2652,8 @@ function StreakCelebration({streak,onDismiss}){
       <div style={{background:`linear-gradient(135deg,${C.surface},${C.surfaceHigh})`,border:`2px solid ${C.gold}66`,borderRadius:28,padding:"40px 48px",textAlign:"center",maxWidth:340,animation:"fadeUp 0.4s ease both"}}>
         <div style={{fontSize:64,marginBottom:8,animation:"pulse 0.8s ease infinite"}}>🔥</div>
         <div style={{fontFamily:T.serif,fontSize:36,fontWeight:900,color:C.gold,marginBottom:6}}>{streak} Day Streak!</div>
-        <p style={{color:C.textSub,fontSize:15,lineHeight:1.6,marginBottom:16}}>{msg}</p>
-        <div style={{fontSize:12,color:C.textMuted}}>Tap to continue</div>
+        <p style={{color:C.textSub,fontSize:fz(15),lineHeight:1.6,marginBottom:16}}>{msg}</p>
+        <div style={{fontSize:fz(12),color:C.textMuted}}>Tap to continue</div>
       </div>
     </div>
   );
@@ -2673,7 +2677,7 @@ function AnswerFlash({correct}){
         boxShadow:`0 4px 20px ${correct?"#2dd4a044":"#f8717144"}`
       }}>
         <span style={{fontSize:20}}>{correct?"✅":"❌"}</span>
-        <span style={{fontSize:14,fontWeight:700,color:correct?"#86efac":"#fca5a5"}}>{correct?"Correct!":"Incorrect"}</span>
+        <span style={{fontSize:fz(14),fontWeight:700,color:correct?"#86efac":"#fca5a5"}}>{correct?"Correct!":"Incorrect"}</span>
       </div>
     </div>
   );
@@ -2835,7 +2839,7 @@ function Quick5({user,onUpdateUser,onDone}){
     return"def";
   };
   const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",
-    borderRadius:12,padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",
+    borderRadius:12,padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:fz(14),
     marginBottom:9,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,
     boxSizing:"border-box",outline:"none",
     ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
@@ -2847,7 +2851,7 @@ function Quick5({user,onUpdateUser,onDone}){
     <div style={{position:"fixed",inset:0,background:C.bg+"f2",display:"flex",flexDirection:"column",
       alignItems:"center",justifyContent:"center",zIndex:300}}>
       <Spinner label="Generating 5 questions in parallel…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>LR only · adaptive difficulty · starting soon</p>
+      <p style={{color:C.textMuted,fontSize:fz(13),marginTop:8}}>LR only · adaptive difficulty · starting soon</p>
     </div>
   );
 
@@ -2865,7 +2869,7 @@ function Quick5({user,onUpdateUser,onDone}){
           <div style={{fontSize:44,fontWeight:900,
             color:pct>=70?C.success:pct>=50?C.gold:C.danger,
             fontFamily:T.serif,marginBottom:4}}>{pct}%</div>
-          <p style={{color:C.textSub,fontSize:14,marginBottom:8}}>{correct_count} of {results.length} correct</p>
+          <p style={{color:C.textSub,fontSize:fz(14),marginBottom:8}}>{correct_count} of {results.length} correct</p>
           {totalXP>0&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,
             borderRadius:10,padding:"8px 14px",marginBottom:16,display:"inline-block"}}>
             <span style={{color:C.gold,fontWeight:700}}>+{totalXP} XP earned</span>
@@ -2875,7 +2879,7 @@ function Quick5({user,onUpdateUser,onDone}){
               <div key={i} style={{width:32,height:32,borderRadius:"50%",
                 background:r.correct?C.success+"22":C.danger+"22",
                 border:`2px solid ${r.correct?C.success:C.danger}`,
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:fz(14)}}>
                 {r.correct?"✓":"✗"}
               </div>
             ))}
@@ -2908,7 +2912,7 @@ function Quick5({user,onUpdateUser,onDone}){
         {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontWeight:800,color:C.purple,fontSize:15}}>⚡ Quick 5</span>
+            <span style={{fontWeight:800,color:C.purple,fontSize:fz(15)}}>⚡ Quick 5</span>
             <div style={{display:"flex",gap:4}}>
               {[0,1,2,3,4].map(i=>(
                 <div key={i} style={{width:26,height:6,borderRadius:3,
@@ -2918,7 +2922,7 @@ function Quick5({user,onUpdateUser,onDone}){
                   transition:"background 0.3s"}}/>
               ))}
             </div>
-            <span style={{color:C.textMuted,fontSize:12}}>{idx+1}/5</span>
+            <span style={{color:C.textMuted,fontSize:fz(12)}}>{idx+1}/5</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {!submitted&&(
@@ -2926,7 +2930,7 @@ function Quick5({user,onUpdateUser,onDone}){
                 {!extraTimeUsed&&(
                   <button onClick={addTime} title="Add 30 seconds"
                     style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,
-                      padding:"3px 8px",color:C.textMuted,fontSize:11,cursor:"pointer",
+                      padding:"3px 8px",color:C.textMuted,fontSize:fz(11),cursor:"pointer",
                       fontFamily:T.sans,fontWeight:600}}>
                     +30s
                   </button>
@@ -2941,12 +2945,12 @@ function Quick5({user,onUpdateUser,onDone}){
                       style={{transform:"rotate(-90deg)",transformOrigin:"50% 50%",transition:"stroke-dashoffset 1s linear,stroke 0.3s"}}/>
                   </svg>
                   <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
-                    justifyContent:"center",fontSize:9,fontWeight:700,color:timerColor}}>{timer}</div>
+                    justifyContent:"center",fontSize:fz(9),fontWeight:700,color:timerColor}}>{timer}</div>
                 </div>
               </div>
             )}
             <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,
-              borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>
+              borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>
               Exit
             </button>
           </div>
@@ -2966,9 +2970,9 @@ function Quick5({user,onUpdateUser,onDone}){
             <Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag>
             <Tag color={C.accent}>{q.qType}</Tag>
           </div>
-          <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,
+          <p style={{lineHeight:1.85,fontSize:fz(15),color:"#c8d4e8",marginBottom:16,
             whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
-          <p style={{fontWeight:600,fontSize:"15px",color:C.text,
+          <p style={{fontWeight:600,fontSize:fz(15),color:C.text,
             borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{q.question}</p>
           <div role="radiogroup">
             {Object.entries(q.choices||{}).map(([l,t])=>(
@@ -2991,25 +2995,25 @@ function Quick5({user,onUpdateUser,onDone}){
           <div>
             {isTimedOut&&(
               <div style={{background:C.danger+"18",border:`1px solid ${C.danger}44`,
-                borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,
+                borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:fz(14),
                 color:C.danger,fontWeight:600}}>
                 ⏱ Time's up — correct answer: <strong>{q.correct}</strong>
               </div>
             )}
             <Card style={{borderColor:(!isTimedOut&&selected===q.correct)?C.success:C.danger,marginBottom:12}}>
               {!isTimedOut&&(
-                <div style={{fontSize:15,fontWeight:700,
+                <div style={{fontSize:fz(15),fontWeight:700,
                   color:selected===q.correct?C.success:C.danger,marginBottom:10}}>
                   {selected===q.correct?"✓ Correct!":"✗ Incorrect — correct answer: "+q.correct}
                 </div>
               )}
               <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,
-                padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                padding:14,fontSize:fz(13),color:C.textSub,lineHeight:1.85}}>
                 {(q.explanation||"").split(/WRONG\s*\([A-E]\)/)[0]
                   .replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()||q.explanation}
               </div>
               {q.key_concept&&(
-                <div style={{marginTop:10,fontSize:13,color:C.purple,fontStyle:"italic"}}>
+                <div style={{marginTop:10,fontSize:fz(13),color:C.purple,fontStyle:"italic"}}>
                   🔑 {q.key_concept}
                 </div>
               )}
@@ -3037,13 +3041,13 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
     <div style={{position:"fixed",bottom:16,right:16,zIndex:400,display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:"8px 10px",display:"flex",gap:8,alignItems:"center",boxShadow:"0 4px 24px #00000044"}}>
         {/* Font size */}
-        <button onClick={()=>setFontScale(f=>Math.max(0.85,f-0.1))} title="Smaller text" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>A-</button>
-        <button onClick={()=>setFontScale(1)} title="Reset text size" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>A</button>
+        <button onClick={()=>setFontScale(f=>Math.max(0.85,f-0.1))} title="Smaller text" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:fz(14),display:"flex",alignItems:"center",justifyContent:"center"}}>A-</button>
+        <button onClick={()=>setFontScale(1)} title="Reset text size" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:fz(13),display:"flex",alignItems:"center",justifyContent:"center"}}>A</button>
         <button onClick={()=>setFontScale(f=>Math.min(1.3,f+0.1))} title="Larger text" style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>A+</button>
         {/* Divider */}
         <div style={{width:1,height:20,background:C.border}}/>
         {/* Dark/light */}
-        <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to light mode":"Switch to dark mode"} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>{darkMode?"☀️":"🌙"}</button>
+        <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to light mode":"Switch to dark mode"} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,width:28,height:28,color:C.textMuted,cursor:"pointer",fontSize:fz(15),display:"flex",alignItems:"center",justifyContent:"center"}}>{darkMode?"☀️":"🌙"}</button>
       </div>
     </div>
   );
@@ -3086,12 +3090,12 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
           style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
           <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",
             display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,
+            fontSize:fz(15),fontWeight:900,color:"#fff",fontFamily:T.serif,
             boxShadow:"0 0 16px #3a6bff44"}}>L</div>
           <span className="lm-nav-word" style={{fontFamily:T.serif,fontSize:Math.round(17*FONT_SCALE),color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
             <span style={{color:C.accent}}>Lumora</span> LSAT
           </span>
-          {user?.isPro&&<span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:20,letterSpacing:"0.05em"}}>PRO</span>}
+          {user?.isPro&&<span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",fontSize:fz(10),fontWeight:800,padding:"2px 7px",borderRadius:20,letterSpacing:"0.05em"}}>PRO</span>}
         </button>
 
         <div className="lm-nav-right" style={{display:"flex",alignItems:"center",gap:10}}>
@@ -3101,7 +3105,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
               background:"#ff6b0018",border:"1px solid #ff6b0033",
               borderRadius:20,padding:"3px 10px"}}>
               <span>🔥</span>
-              <span style={{fontSize:12,fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span>
+              <span style={{fontSize:fz(12),fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span>
             </div>
           )}
 
@@ -3109,14 +3113,14 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
           {user&&!user.isPro&&(
             <button onClick={()=>onUpgrade&&onUpgrade("default")}
               style={{background:"linear-gradient(135deg,#4f7fff,#a78bfa)",border:"none",
-                borderRadius:10,padding:"5px 10px",color:"white",fontSize:11,
+                borderRadius:10,padding:"5px 10px",color:"white",fontSize:fz(11),
                 fontWeight:700,cursor:"pointer",fontFamily:T.sans,whiteSpace:"nowrap"}}>
               Upgrade ✦
             </button>
           )}
           {user&&user.isPro&&(
             <span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",
-              fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:20}}>PRO</span>
+              fontSize:fz(10),fontWeight:800,padding:"2px 8px",borderRadius:20}}>PRO</span>
           )}
           {user&&(
             <button onClick={()=>{setScreen("profile");close();}}
@@ -3132,21 +3136,21 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
               title={darkMode?"Light mode":"Dark mode"}
               style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
                 width:30,height:30,color:C.textMuted,cursor:"pointer",
-                fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                fontSize:fz(14),display:"flex",alignItems:"center",justifyContent:"center"}}>
               {darkMode?"☀️":"🌙"}
             </button>
             <button onClick={()=>{const f=Math.min(1.3,fontScale+0.1);setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}
               title="Increase text size"
               style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
                 width:30,height:30,color:C.textMuted,cursor:"pointer",
-                fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                fontSize:fz(15),display:"flex",alignItems:"center",justifyContent:"center"}}>
               A+
             </button>
             <button onClick={()=>{const f=Math.max(0.85,fontScale-0.1);setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}
               title="Decrease text size"
               style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
                 width:30,height:30,color:C.textMuted,cursor:"pointer",
-                fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                fontSize:fz(12),display:"flex",alignItems:"center",justifyContent:"center"}}>
               A-
             </button>
           </div>
@@ -3207,7 +3211,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
               {label:"Tools",pages:PAGES.filter(p=>p.group==="tools")},
             ].map(group=>(
               <div key={group.label} style={{padding:"12px 12px 4px"}}>
-                <div style={{fontSize:10,color:C.textMuted,textTransform:"uppercase",
+                <div style={{fontSize:fz(10),color:C.textMuted,textTransform:"uppercase",
                   letterSpacing:"0.12em",fontWeight:700,padding:"0 8px",marginBottom:4}}>
                   {group.label}
                 </div>
@@ -3218,7 +3222,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
                       textAlign:"left",padding:"10px 12px",borderRadius:12,border:"none",
                       background:screen===p.id?C.accentSoft:"transparent",
                       color:screen===p.id?C.accent:C.text,
-                      fontSize:14,fontFamily:T.sans,cursor:"pointer",
+                      fontSize:fz(14),fontFamily:T.sans,cursor:"pointer",
                       fontWeight:screen===p.id?600:400,
                       transition:"all 0.15s",marginBottom:2,
                       outline:"none"}}>
@@ -3242,21 +3246,21 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
                       fontFamily:T.sans}}>
                     <Avatar user={user} size={28}/>
                     <div style={{textAlign:"left"}}>
-                      <div style={{fontSize:13,color:C.text,fontWeight:600}}>{user.name}</div>
-                      <div style={{fontSize:11,color:C.textMuted}}>View Profile</div>
+                      <div style={{fontSize:fz(13),color:C.text,fontWeight:600}}>{user.name}</div>
+                      <div style={{fontSize:fz(11),color:C.textMuted}}>View Profile</div>
                     </div>
                   </button>
                   <button onClick={()=>{onLogout();close();}}
                     style={{width:"100%",padding:"9px 12px",borderRadius:10,
                       border:`1px solid ${C.border}`,background:"transparent",
-                      color:C.textMuted,fontSize:13,cursor:"pointer",
+                      color:C.textMuted,fontSize:fz(13),cursor:"pointer",
                       fontFamily:T.sans,textAlign:"left"}}>
                     Sign Out
                   </button>
                   <button onClick={()=>{onLexChat&&onLexChat();close();}}
                     style={{width:"100%",marginTop:8,padding:"9px 12px",borderRadius:10,
                       border:"1px solid #4f7fff44",background:"linear-gradient(135deg,#1a1a3e,#2d1a4e)",
-                      color:"#a78bfa",fontSize:13,cursor:"pointer",
+                      color:"#a78bfa",fontSize:fz(13),cursor:"pointer",
                       fontFamily:T.sans,textAlign:"left",
                       display:"flex",alignItems:"center",gap:8}}>
                     <img src={LEX_IDLE} alt="Lex"
@@ -3304,7 +3308,7 @@ function Landing({onGetStarted}){
           <div style={{display:"inline-flex",alignItems:"center",gap:12,marginBottom:40,padding:"8px 20px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:40}}>
             <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",fontFamily:T.serif,boxShadow:"0 0 20px #3a6bff55"}}>L</div>
             <span style={{fontFamily:T.serif,fontSize:18,fontWeight:700,color:C.text}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
-            <span style={{fontSize:11,fontWeight:700,color:C.accent,background:C.accentSoft,padding:"2px 8px",borderRadius:20,letterSpacing:"0.08em",textTransform:"uppercase"}}>Beta</span>
+            <span style={{fontSize:fz(11),fontWeight:700,color:C.accent,background:C.accentSoft,padding:"2px 8px",borderRadius:20,letterSpacing:"0.08em",textTransform:"uppercase"}}>Beta</span>
           </div>
           <h1 style={{fontFamily:T.serif,fontSize:"clamp(38px,7vw,80px)",fontWeight:700,color:C.text,lineHeight:1.1,marginBottom:20}}>
             <span key={tick} style={{display:"block",animation:"tagSwitch 2.8s ease both"}}>
@@ -3318,17 +3322,17 @@ function Landing({onGetStarted}){
             <button onClick={onGetStarted} style={{background:"transparent",color:C.textSub,border:`1px solid ${C.border}`,borderRadius:14,padding:"18px 32px",fontSize:16,cursor:"pointer",fontFamily:T.sans}}>Sign In</button>
           </div>
           <div style={{marginTop:40,display:"flex",alignItems:"center",justifyContent:"center",gap:24,flexWrap:"wrap"}}>
-            {[["∞","Unique Questions"],["17","Question Types"],["2026","LSAC Format"],["🎯","Score Predictor"]].map(([v,l])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:22,fontWeight:900,color:C.accent,fontFamily:T.serif}}>{v}</div><div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{l}</div></div>)}
+            {[["∞","Unique Questions"],["17","Question Types"],["2026","LSAC Format"],["🎯","Score Predictor"]].map(([v,l])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:22,fontWeight:900,color:C.accent,fontFamily:T.serif}}>{v}</div><div style={{fontSize:fz(11),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{l}</div></div>)}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,marginBottom:80}}>
-          {features.map((f,i)=><div key={f.title} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:"28px 24px",transition:"all 0.2s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent+"66";e.currentTarget.style.transform="translateY(-2px)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}><div style={{fontSize:32,marginBottom:14}}>{f.icon}</div><div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:8}}>{f.title}</div><div style={{fontSize:14,color:C.textMuted,lineHeight:1.65}}>{f.desc}</div></div>)}
+          {features.map((f,i)=><div key={f.title} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:"28px 24px",transition:"all 0.2s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent+"66";e.currentTarget.style.transform="translateY(-2px)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}><div style={{fontSize:32,marginBottom:14}}>{f.icon}</div><div style={{fontWeight:700,fontSize:16,color:C.text,marginBottom:8}}>{f.title}</div><div style={{fontSize:fz(14),color:C.textMuted,lineHeight:1.65}}>{f.desc}</div></div>)}
         </div>
         <div style={{textAlign:"center",paddingBottom:80}}>
           <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}33`,borderRadius:24,padding:"48px 32px",maxWidth:600,margin:"0 auto"}}>
             <div style={{fontSize:32,marginBottom:16}}>⚖</div>
             <h2 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,marginBottom:12,fontWeight:700}}>Ready to dominate the LSAT?</h2>
-            <p style={{color:C.textSub,fontSize:15,marginBottom:28,lineHeight:1.7}}>Create your free account and start your personalized prep today. No credit card required.</p>
+            <p style={{color:C.textSub,fontSize:fz(15),marginBottom:28,lineHeight:1.7}}>Create your free account and start your personalized prep today. No credit card required.</p>
             <button onClick={onGetStarted} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",color:"#fff",border:"none",borderRadius:14,padding:"16px 40px",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:T.sans,boxShadow:"0 8px 32px #3a6bff55"}}>Get Started Free →</button>
           </div>
         </div>
@@ -3416,8 +3420,8 @@ function Auth({onLogin,notice}){
         </div>
         <Card>
           <h1 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginBottom:6,fontWeight:700}}>{mode==="login"?"Welcome back":mode==="signup"?"Create your account":mode==="forgot"?"Reset your password":"Check your email"}</h1>
-          <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":mode==="signup"?"Your progress saves automatically every session.":mode==="forgot"?"We will email you a link to set a new password.":sentMsg}</p>
-          {notice&&mode==="login"&&<div role="status" style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:10,padding:"10px 12px",fontSize:13,color:C.text,marginBottom:14}}>{notice}</div>}
+          <p style={{color:C.textSub,fontSize:fz(14),marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":mode==="signup"?"Your progress saves automatically every session.":mode==="forgot"?"We will email you a link to set a new password.":sentMsg}</p>
+          {notice&&mode==="login"&&<div role="status" style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:10,padding:"10px 12px",fontSize:fz(13),color:C.text,marginBottom:14}}>{notice}</div>}
           <ErrBanner message={error} onDismiss={()=>setError("")}/>
           {mode==="sent"?<Btn style={{width:"100%"}} onClick={()=>{setMode("login");setError("");}}>Back to sign in</Btn>:
           <form onSubmit={submit} noValidate>
@@ -3425,12 +3429,12 @@ function Auth({onLogin,notice}){
             <Finput id="email" label="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="jane@example.com" required autoFocus={mode==="login"}/>
             {mode!=="forgot"&&<Finput id="pw" label="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={mode==="signup"?(USE_SUPA?"At least 8 characters":"At least 6 characters"):"Your password"} required/>}
             <Btn type="submit" disabled={loading} style={{width:"100%",marginTop:8}}>{loading?"Please wait…":mode==="login"?"Sign In →":mode==="signup"?"Create Account →":"Send reset link →"}</Btn>
-            {USE_SUPA&&mode==="login"&&<div style={{textAlign:"right",marginTop:10}}><button type="button" onClick={()=>{setMode("forgot");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:13,fontFamily:T.sans}}>Forgot password?</button></div>}
-            {mode==="forgot"&&<div style={{textAlign:"center",marginTop:10}}><button type="button" onClick={()=>{setMode("login");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:13,fontFamily:T.sans}}>Back to sign in</button></div>}
+            {USE_SUPA&&mode==="login"&&<div style={{textAlign:"right",marginTop:10}}><button type="button" onClick={()=>{setMode("forgot");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans}}>Forgot password?</button></div>}
+            {mode==="forgot"&&<div style={{textAlign:"center",marginTop:10}}><button type="button" onClick={()=>{setMode("login");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans}}>Back to sign in</button></div>}
           </form>}
-          {(mode==="login"||mode==="signup")&&<div style={{textAlign:"center",marginTop:18,fontSize:14,color:C.textMuted}}>
+          {(mode==="login"||mode==="signup")&&<div style={{textAlign:"center",marginTop:18,fontSize:fz(14),color:C.textMuted}}>
             {mode==="login"?"Don't have an account? ":"Already have an account? "}
-            <button onClick={()=>{setMode(mode==="login"?"signup":"login");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:14,fontFamily:T.sans}}>{mode==="login"?"Sign up free":"Sign in"}</button>
+            <button onClick={()=>{setMode(mode==="login"?"signup":"login");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:fz(14),fontFamily:T.sans}}>{mode==="login"?"Sign up free":"Sign in"}</button>
           </div>}
         </Card>
       </div>
@@ -3456,7 +3460,7 @@ function SetPassword({onDone}){
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:"100%",maxWidth:440}}><Card>
         <h1 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:6,fontWeight:700}}>Set a new password</h1>
-        <p style={{color:C.textSub,fontSize:14,marginBottom:18,lineHeight:1.6}}>Choose a password for your Lumora account.</p>
+        <p style={{color:C.textSub,fontSize:fz(14),marginBottom:18,lineHeight:1.6}}>Choose a password for your Lumora account.</p>
         <ErrBanner message={error} onDismiss={()=>setError("")}/>
         <form onSubmit={submit} noValidate>
           <Finput id="npw" label="New password" type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="At least 8 characters" required autoFocus/>
@@ -3486,14 +3490,14 @@ function Diagnostic({user,onComplete,onCancel}){
           <div style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,fontWeight:700}}>
             {isRetake?"Update your study profile":"Welcome, "+user.name.split(" ")[0]+"!"}
           </div>
-          <p style={{color:C.textSub,fontSize:14,marginTop:6,lineHeight:1.6}}>
+          <p style={{color:C.textSub,fontSize:fz(14),marginTop:6,lineHeight:1.6}}>
             {isRetake
               ?"Your answers are pre-filled. Update anything that's changed, then regenerate your study plan."
               :"Quick 2-minute profile setup. Happens just once — then Lumora LSAT personalizes everything for you."}
           </p>
         </div>
         <div style={{marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12,color:C.textMuted}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:fz(12),color:C.textMuted}}>
             <span>Building your profile</span><span>{progress}%</span>
           </div>
           <div style={{background:C.surfaceHigh,borderRadius:6,height:5}} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
@@ -3502,11 +3506,11 @@ function Diagnostic({user,onComplete,onCancel}){
         </div>
         <Card>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-            <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>
+            <div style={{fontSize:fz(12),color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>
               Question {step+1} of {DIAGNOSTIC_QUESTIONS.length}
             </div>
             {isRetake&&onCancel&&(
-              <button onClick={onCancel} style={{background:"none",border:"none",color:C.textMuted,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+              <button onClick={onCancel} style={{background:"none",border:"none",color:C.textMuted,fontSize:fz(12),cursor:"pointer",fontFamily:T.sans}}>
                 Cancel
               </button>
             )}
@@ -3514,7 +3518,7 @@ function Diagnostic({user,onComplete,onCancel}){
           <h2 style={{fontSize:17,color:C.text,marginBottom:20,lineHeight:1.45,fontWeight:600}}>{q.q}</h2>
           {q.type==="single"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{q.options.map(opt=><Pill key={opt} active={answers[q.id]===opt} onClick={()=>setAnswers(a=>({...a,[q.id]:opt}))}>{opt}</Pill>)}</div>}
           {q.type==="multi"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{q.options.map(opt=><Pill key={opt} active={(answers[q.id]||[]).includes(opt)} onClick={()=>toggleMulti(q.id,opt)}>{opt}</Pill>)}</div>}
-          {q.type==="scale"&&<div><div style={{display:"flex",gap:10,marginBottom:8}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setAnswers(a=>({...a,[q.id]:n}))} aria-pressed={answers[q.id]===n} style={{flex:1,aspectRatio:"1",borderRadius:12,border:`2px solid ${answers[q.id]===n?C.accent:C.border}`,background:answers[q.id]===n?C.accentSoft:"transparent",color:answers[q.id]===n?C.accent:C.textMuted,fontSize:18,fontWeight:700,cursor:"pointer",transition:"all 0.15s",outline:"none"}}>{n}</button>)}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted}}><span>Not comfortable</span><span>Very comfortable</span></div></div>}
+          {q.type==="scale"&&<div><div style={{display:"flex",gap:10,marginBottom:8}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setAnswers(a=>({...a,[q.id]:n}))} aria-pressed={answers[q.id]===n} style={{flex:1,aspectRatio:"1",borderRadius:12,border:`2px solid ${answers[q.id]===n?C.accent:C.border}`,background:answers[q.id]===n?C.accentSoft:"transparent",color:answers[q.id]===n?C.accent:C.textMuted,fontSize:18,fontWeight:700,cursor:"pointer",transition:"all 0.15s",outline:"none"}}>{n}</button>)}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:fz(12),color:C.textMuted}}><span>Not comfortable</span><span>Very comfortable</span></div></div>}
           <div style={{display:"flex",gap:10,marginTop:22}}>
             {step>0&&<Btn ghost onClick={back}>← Back</Btn>}
             <Btn onClick={next} disabled={!canNext()} style={{flex:1}}>
@@ -3539,7 +3543,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
   };
   return(
     <main style={{maxWidth:640,margin:"0 auto",padding:"32px 20px"}}>
-      <button onClick={()=>setScreen("home")} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
+      <button onClick={()=>setScreen("home")} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:24}}>Your Profile</h1>
 
       {/* Avatar section */}
@@ -3547,11 +3551,11 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
         <div style={{display:"flex",justifyContent:"center",marginBottom:20}}>
           <Avatar user={user} size={80}/>
         </div>
-        <div style={{fontSize:13,color:C.textMuted,marginBottom:12,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Choose an Emoji Avatar</div>
+        <div style={{fontSize:fz(13),color:C.textMuted,marginBottom:12,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Choose an Emoji Avatar</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:16}}>
           {EMOJIS.map(e=><button key={e} onClick={()=>onUpdateUser({avatarEmoji:e})} style={{width:40,height:40,borderRadius:10,border:`2px solid ${user.avatarEmoji===e?C.accent:C.border}`,background:user.avatarEmoji===e?C.accentSoft:"transparent",fontSize:e?20:13,cursor:"pointer",color:e?"inherit":C.textMuted,transition:"all 0.15s"}}>{e||"Aa"}</button>)}
         </div>
-        <div style={{fontSize:13,color:C.textMuted,marginBottom:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Avatar Color</div>
+        <div style={{fontSize:fz(13),color:C.textMuted,marginBottom:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Avatar Color</div>
         <div style={{display:"flex",gap:8,justifyContent:"center"}}>
           {AVATAR_COLORS.map((col,i)=><button key={col} onClick={()=>onUpdateUser({avatarColor:i})} style={{width:32,height:32,borderRadius:"50%",background:col,border:`3px solid ${user.avatarColor===i?"#fff":"transparent"}`,cursor:"pointer",boxShadow:user.avatarColor===i?`0 0 0 2px ${col}`:"none",transition:"all 0.15s"}}/>)}
         </div>
@@ -3559,10 +3563,10 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
 
       {/* Name edit */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14,fontWeight:600}}>Display Name</div>
+        <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14,fontWeight:600}}>Display Name</div>
         <div style={{display:"flex",gap:10}}>
           <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveName()}
-            style={{flex:1,background:C.surfaceHigh,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"11px 14px",color:C.text,fontSize:15,fontFamily:T.sans,outline:"none"}}
+            style={{flex:1,background:C.surfaceHigh,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"11px 14px",color:C.text,fontSize:fz(15),fontFamily:T.sans,outline:"none"}}
             onFocus={e=>e.target.style.borderColor=C.accent} onBlur={e=>e.target.style.borderColor=C.border}/>
           <Btn onClick={saveName} small>{saved?"✓ Saved":"Save"}</Btn>
         </div>
@@ -3570,7 +3574,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
 
       {/* Stats */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:16,fontWeight:600}}>Your Stats</div>
+        <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:16,fontWeight:600}}>Your Stats</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:12}}>
           {[
             {label:"Questions",value:history.length,color:C.accent},
@@ -3581,7 +3585,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
             {label:"Notes",value:(user.notes||[]).length,color:C.teal},
           ].map(s=><div key={s.label} style={{textAlign:"center",padding:"12px 8px",background:C.surfaceHigh,borderRadius:12}}>
             <div style={{fontSize:20,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div>
-            <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
+            <div style={{fontSize:fz(11),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div>
           </div>)}
         </div>
       </Card>
@@ -3591,13 +3595,13 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
 
       {/* Badges */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14,fontWeight:600}}>Badges Earned</div>
-        {(user.earnedBadges||[]).length===0&&<p style={{color:C.textMuted,fontSize:14}}>No badges yet — keep studying to unlock them!</p>}
+        <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14,fontWeight:600}}>Badges Earned</div>
+        {(user.earnedBadges||[]).length===0&&<p style={{color:C.textMuted,fontSize:fz(14)}}>No badges yet — keep studying to unlock them!</p>}
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
           {BADGES.map(b=>{const earned=(user.earnedBadges||[]).includes(b.id);return(
             <div key={b.id} title={b.desc} style={{width:64,textAlign:"center",opacity:earned?1:0.25,transition:"opacity 0.2s"}}>
               <div style={{fontSize:28,marginBottom:4}}>{b.icon}</div>
-              <div style={{fontSize:10,color:earned?C.text:C.textMuted,fontWeight:earned?600:400,lineHeight:1.3}}>{b.name}</div>
+              <div style={{fontSize:fz(10),color:earned?C.text:C.textMuted,fontWeight:earned?600:400,lineHeight:1.3}}>{b.name}</div>
             </div>
           );})}
         </div>
@@ -3605,14 +3609,14 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
 
       {/* Streak Freeze */}
       <Card style={{marginBottom:14,borderColor:C.teal+"44"}}>
-        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.teal,marginBottom:12,fontWeight:600}}>Streak Freeze</div>
+        <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.teal,marginBottom:12,fontWeight:600}}>Streak Freeze</div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{fontSize:32}}>🧊</div>
           <div>
-            <div style={{fontSize:14,color:C.text,fontWeight:600,marginBottom:2}}>
+            <div style={{fontSize:fz(14),color:C.text,fontWeight:600,marginBottom:2}}>
               {(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}})()}  freeze{(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}})()!==1?"s":""} remaining
             </div>
-            <div style={{fontSize:12,color:C.textMuted,lineHeight:1.5}}>If you miss a day, a freeze automatically saves your streak. You get 1 free freeze. Earn more by maintaining long streaks.</div>
+            <div style={{fontSize:fz(12),color:C.textMuted,lineHeight:1.5}}>If you miss a day, a freeze automatically saves your streak. You get 1 free freeze. Earn more by maintaining long streaks.</div>
           </div>
         </div>
       </Card>
@@ -3620,7 +3624,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
       {/* Study Profile / Diagnostic */}
       <Card style={{marginBottom:14,borderColor:C.purple+"44"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.purple,fontWeight:600}}>Study Profile</div>
+          <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.purple,fontWeight:600}}>Study Profile</div>
           <Btn ghost onClick={onRetakeDiagnostic} small>
             {user.diagnostic&&Object.keys(user.diagnostic).length>0?"Retake Diagnostic":"Take Diagnostic"}
           </Btn>
@@ -3634,13 +3638,13 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
               ["Biggest Challenge",user.diagnostic.biggest_challenge],
             ].filter(([,v])=>v).map(([label,val])=>(
               <div key={label} style={{background:C.surfaceHigh,borderRadius:10,padding:"10px 12px"}}>
-                <div style={{fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:3}}>{label}</div>
-                <div style={{fontSize:13,color:C.text,fontWeight:600}}>{val}</div>
+                <div style={{fontSize:fz(10),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:3}}>{label}</div>
+                <div style={{fontSize:fz(13),color:C.text,fontWeight:600}}>{val}</div>
               </div>
             ))}
           </div>
         ):(
-          <p style={{color:C.textMuted,fontSize:13,lineHeight:1.7}}>
+          <p style={{color:C.textMuted,fontSize:fz(13),lineHeight:1.7}}>
             You haven't completed a diagnostic yet. This 2-minute questionnaire helps Lumora build a study plan tailored to your target score, timeline, and weak areas. Without it, your study plan uses general defaults.
           </p>
         )}
@@ -3649,15 +3653,15 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
       {/* Subscription management */}
       {user.isPro&&(
         <Card style={{marginBottom:14,borderColor:C.gold+"44"}}>
-          <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12,fontWeight:600}}>
+          <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12,fontWeight:600}}>
             Pro Subscription
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
             <div>
-              <div style={{fontSize:14,color:C.text,fontWeight:600,marginBottom:2}}>
+              <div style={{fontSize:fz(14),color:C.text,fontWeight:600,marginBottom:2}}>
                 ✦ Lumora LSAT Pro — Active
               </div>
-              <div style={{fontSize:12,color:C.textMuted,lineHeight:1.6}}>
+              <div style={{fontSize:fz(12),color:C.textMuted,lineHeight:1.6}}>
                 Unlimited questions, full features, priority generation.
               </div>
             </div>
@@ -3678,7 +3682,7 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
               }
             }}
               style={{background:"none",border:`1px solid ${C.danger}44`,borderRadius:10,
-                padding:"7px 14px",color:C.danger,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+                padding:"7px 14px",color:C.danger,fontSize:fz(12),cursor:"pointer",fontFamily:T.sans}}>
               Cancel Subscription
             </button>
           </div>
@@ -3687,9 +3691,9 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
 
       {/* Account info */}
       <Card style={{marginBottom:24}}>
-        <div style={{fontSize:13,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12,fontWeight:600}}>Account</div>
-        <div style={{fontSize:14,color:C.textSub,marginBottom:4}}>Email: <span style={{color:C.text}}>{user.email}</span></div>
-        <div style={{fontSize:12,color:C.textMuted,marginTop:8}}>Progress is stored locally in your browser. Clear browser data with caution.</div>
+        <div style={{fontSize:fz(13),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12,fontWeight:600}}>Account</div>
+        <div style={{fontSize:fz(14),color:C.textSub,marginBottom:4}}>Email: <span style={{color:C.text}}>{user.email}</span></div>
+        <div style={{fontSize:fz(12),color:C.textMuted,marginTop:8}}>Progress is stored locally in your browser. Clear browser data with caution.</div>
       </Card>
 
       <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
@@ -3744,14 +3748,14 @@ function DailyChallenge({onStart}){
       <div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>⚡</div>
         <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:15,color:C.gold,marginBottom:2}}>Daily Challenge</div>
+          <div style={{fontWeight:700,fontSize:fz(15),color:C.gold,marginBottom:2}}>Daily Challenge</div>
           {done
-            ?<div style={{fontSize:13,color:correct?C.success:C.danger,fontWeight:600}}>{correct?"✓ Correct today! Come back tomorrow.":"✗ Missed it today. Try again tomorrow."}</div>
-            :<div style={{fontSize:13,color:C.textMuted}}>Today's Lumora Challenge — same for everyone · 2× XP · Resets at 2am</div>
+            ?<div style={{fontSize:fz(13),color:correct?C.success:C.danger,fontWeight:600}}>{correct?"✓ Correct today! Come back tomorrow.":"✗ Missed it today. Try again tomorrow."}</div>
+            :<div style={{fontSize:fz(13),color:C.textMuted}}>Today's Lumora Challenge — same for everyone · 2× XP · Resets at 2am</div>
           }
         </div>
-        {!done&&<div style={{background:"linear-gradient(135deg,#d97706,#f59e0b)",border:"none",borderRadius:10,padding:"8px 16px",color:"#fff",fontSize:13,fontWeight:700}}>Start →</div>}
-        {done&&<div style={{fontSize:12,fontWeight:700,color:done?C.success:C.textMuted,background:(done?C.success:C.textMuted)+"15",border:"1px solid "+(done?C.success:C.textMuted)+"33",padding:"3px 10px",borderRadius:10}}>Done ✓</div>}
+        {!done&&<div style={{background:"linear-gradient(135deg,#d97706,#f59e0b)",border:"none",borderRadius:10,padding:"8px 16px",color:"#fff",fontSize:fz(13),fontWeight:700}}>Start →</div>}
+        {done&&<div style={{fontSize:fz(12),fontWeight:700,color:done?C.success:C.textMuted,background:(done?C.success:C.textMuted)+"15",border:"1px solid "+(done?C.success:C.textMuted)+"33",padding:"3px 10px",borderRadius:10}}>Done ✓</div>}
       </div>
     </div>
   );
@@ -3816,16 +3820,16 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
   };
 
   const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===challenge?.correct)return"ok";if(l===selected)return"bad";return"def";};
-  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"13px 18px",cursor:submitted?"default":"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"13px 18px",cursor:submitted?"default":"pointer",fontSize:fz(14),marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
 
   return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"24px 20px"}}>
-      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
+      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <div style={{width:44,height:44,borderRadius:12,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>⚡</div>
         <div>
           <h1 style={{fontFamily:T.serif,fontSize:24,color:C.gold,marginBottom:2,fontWeight:700}}>Daily Challenge</h1>
-          <div style={{fontSize:13,color:C.textMuted}}>Same question for everyone today · 2× XP · Resets at 2am</div>
+          <div style={{fontSize:fz(13),color:C.textMuted}}>Same question for everyone today · 2× XP · Resets at 2am</div>
         </div>
       </div>
 
@@ -3841,8 +3845,8 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
             <Tag color={C.purple}>{challenge.qType}</Tag>
           </div>
           <Card style={{marginBottom:12}}>
-            <p style={{lineHeight:1.9,fontSize:15,color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{challenge.stimulus}</p>
-            <p style={{fontWeight:600,fontSize:15,color:C.text,borderTop:"1px solid "+C.border,paddingTop:16,marginBottom:16}}>{challenge.question}</p>
+            <p style={{lineHeight:1.9,fontSize:fz(15),color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{challenge.stimulus}</p>
+            <p style={{fontWeight:600,fontSize:fz(15),color:C.text,borderTop:"1px solid "+C.border,paddingTop:16,marginBottom:16}}>{challenge.question}</p>
             <div role="radiogroup">
               {Object.entries(challenge.choices||{}).map(([l,t])=>(
                 <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
@@ -3859,10 +3863,10 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
                 <div style={{fontSize:18,fontWeight:700,color:selected===challenge.correct?C.success:C.danger,marginBottom:10}}>
                   {selected===challenge.correct?"✓ Correct! Well done.":"✗ Incorrect — Correct answer: "+challenge.correct}
                 </div>
-                {challenge.key_concept&&<div style={{fontSize:13,color:C.purple,marginBottom:10}}>🔑 {challenge.key_concept}</div>}
-                <div style={{background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{challenge.explanation}</div>
+                {challenge.key_concept&&<div style={{fontSize:fz(13),color:C.purple,marginBottom:10}}>🔑 {challenge.key_concept}</div>}
+                <div style={{background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:14,fontSize:fz(14),color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{challenge.explanation}</div>
               </Card>
-              <div style={{background:C.goldSoft,border:"1px solid "+C.gold+"33",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:C.textSub,lineHeight:1.6}}>
+              <div style={{background:C.goldSoft,border:"1px solid "+C.gold+"33",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>
                 <strong style={{color:C.gold}}>+{selected===challenge.correct?XP_PER_CORRECT[challenge.assignedLevel||2]*2:0} XP earned.</strong> Come back tomorrow at 2am for a new challenge.
               </div>
               <Btn onClick={onBack} style={{width:"100%"}}>Back to Home</Btn>
@@ -3890,8 +3894,9 @@ function Home({user,setScreen,onUpdateUser}){
     const diff=Math.ceil((td-now)/(1000*60*60*24));
     return diff>0?diff:null;
   })():null;
-  const totalTypes=LEARN_CURRICULUM["Logical Reasoning"].length+LEARN_CURRICULUM["Reading Comprehension"].length;
-  const learnedTypes=Object.keys(learnProgress).filter(k=>learnProgress[k]>=4).length;
+  // Learn progress = guided skills at Proficient or better (Classic levels are legacy and not counted).
+  const totalTypes=GUIDED_SKILLS.length;
+  const learnedTypes=(()=>{const m=getEngine(user).mastery||{};return GUIDED_SKILLS.filter(s=>["proficient","mastered"].includes(m[s.id]?.state)).length;})();
   const earnedBadges=BADGES.filter(b=>(user.earnedBadges||[]).includes(b.id));
   const nextBadge=BADGES.find(b=>!(user.earnedBadges||[]).includes(b.id));
 
@@ -3903,14 +3908,14 @@ function Home({user,setScreen,onUpdateUser}){
     const sorted=Object.entries(typeStats).filter(([,v])=>v.t>=2).map(([k,v])=>({type:k,pct:Math.round(v.c/v.t*100)})).sort((a,b)=>a.pct-b.pct);
     if(sorted.length>0&&sorted[0].pct<60)return{text:`Your ${sorted[0].type} accuracy is ${sorted[0].pct}% — that's your highest-priority weakness right now.`,action:"practice",cta:"Drill It Now"};
     if(todayCount===0&&history.length>0)return{text:"You haven't studied today yet. Consistency is the key to a higher score.",action:"practice",cta:"Start Practicing"};
-    if(learnedTypes<totalTypes)return{text:`You've mastered ${learnedTypes} of ${totalTypes} question types. Keep going in Learn.`,action:"learn",cta:"Continue Learning"};
+    if(learnedTypes<totalTypes)return{text:`${learnedTypes} of ${totalTypes} skills are Proficient or better. Keep going in Learn.`,action:"learn",cta:"Continue Learning"};
     return{text:"You're on track. Keep the momentum going.",action:"practice",cta:"Keep Practicing"};
   };
   const suggestion=getSuggestion();
 
   const quickActions=[
     {id:"practice",icon:"🎯",label:"Practice",desc:"Lumora questions, no repeats, adapts to you",color:C.accent},
-    {id:"learn",icon:"📖",label:"Learn",desc:`${learnedTypes}/${totalTypes} types mastered`,color:C.purple,badge:learnedTypes<totalTypes?{label:"Continue",color:C.purple}:null},
+    {id:"learn",icon:"📖",label:"Learn",desc:`${learnedTypes}/${totalTypes} skills proficient`,color:C.purple,badge:learnedTypes<totalTypes?{label:"Continue",color:C.purple}:null},
     {id:"flaw",icon:"⚖️",label:"Flaw Lab",desc:"Find hidden flaws in legal arguments",color:C.teal,badge:{label:"Infinite",color:C.teal}},
     {id:"writing",icon:"✍️",label:"Writing",desc:"2026 LSAC format, Lumora feedback",color:C.success,badge:{label:"2026",color:C.success}},
     {id:"fullsection",icon:"⏱",label:"Full Section",desc:"35-min timed simulation",color:C.gold,badge:{label:"Instant Start",color:C.gold}},
@@ -3930,13 +3935,13 @@ function Home({user,setScreen,onUpdateUser}){
     <main style={{maxWidth:820,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:16,flexWrap:"wrap"}}>
         <div>
-          <div style={{fontSize:13,color:C.textSub,marginBottom:4}}>{greeting}</div>
+          <div style={{fontSize:fz(13),color:C.textSub,marginBottom:4}}>{greeting}</div>
           <h1 style={{fontFamily:T.serif,fontSize:"clamp(24px,4vw,34px)",color:C.text,lineHeight:1.15,marginBottom:6}}>{user.name.split(" ")[0]}.</h1>
-          <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>
+          <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.6}}>
             {history.length===0?"Your LSAT journey starts here.":todayCount===0?"Pick up where you left off.":`${todayCount} question${todayCount!==1?"s":""} answered today.`}
           </p>
         </div>
-        <button onClick={()=>setScreen("profile")} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:12,padding:"8px 14px",color:C.textSub,fontSize:13,cursor:"pointer",fontFamily:T.sans,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <button onClick={()=>setScreen("profile")} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:12,padding:"8px 14px",color:C.textSub,fontSize:fz(13),cursor:"pointer",fontFamily:T.sans,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           <Avatar user={user} size={22}/>Profile
         </button>
       </div>
@@ -3946,8 +3951,8 @@ function Home({user,setScreen,onUpdateUser}){
 
       {/* Smart suggestion banner */}
       <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}44`,borderRadius:16,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-        <div style={{fontSize:13,color:C.textSub,lineHeight:1.6,flex:1}}>💡 {suggestion.text}</div>
-        <button onClick={()=>setScreen(suggestion.action)} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",border:"none",borderRadius:10,padding:"8px 18px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:T.sans,flexShrink:0}}>{suggestion.cta} →</button>
+        <div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6,flex:1}}>💡 {suggestion.text}</div>
+        <button onClick={()=>setScreen(suggestion.action)} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",border:"none",borderRadius:10,padding:"8px 18px",color:"#fff",fontSize:fz(12),fontWeight:700,cursor:"pointer",fontFamily:T.sans,flexShrink:0}}>{suggestion.cta} →</button>
       </div>
 
       {/* Daily Challenge */}
@@ -3955,22 +3960,22 @@ function Home({user,setScreen,onUpdateUser}){
 
       {/* Stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
-        {[{label:"Questions",value:history.length,color:C.accent},{label:"Accuracy",value:overall!==null?overall+"%":"—",color:overall>=70?C.success:overall>=50?C.gold:C.danger},{label:"Streak",value:`${user.stats?.streak||0}🔥`,color:"#ff8c42"},{label:"XP",value:xp.toLocaleString(),color:C.gold}].map(s=><Card key={s.label} style={{padding:"12px 14px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div><div style={{fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div></Card>)}
+        {[{label:"Questions",value:history.length,color:C.accent},{label:"Accuracy",value:overall!==null?overall+"%":"—",color:overall>=70?C.success:overall>=50?C.gold:C.danger},{label:"Streak",value:`${user.stats?.streak||0}🔥`,color:"#ff8c42"},{label:"XP",value:xp.toLocaleString(),color:C.gold}].map(s=><Card key={s.label} style={{padding:"12px 14px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div><div style={{fontSize:fz(10),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div></Card>)}
       </div>
       <Card style={{marginBottom:12,padding:"12px 18px"}}><XPBar xp={xp} level={level}/></Card>
 
       {/* Badges row */}
       {earnedBadges.length>0&&<Card style={{marginBottom:12,padding:"12px 18px"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <span style={{fontSize:12,color:C.textMuted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Badges</span>
+          <span style={{fontSize:fz(12),color:C.textMuted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Badges</span>
           {earnedBadges.map(b=><div key={b.id} title={b.name+": "+b.desc} style={{fontSize:20,cursor:"default"}}>{b.icon}</div>)}
-          {nextBadge&&<div style={{fontSize:12,color:C.textMuted,marginLeft:4}}>Next: {nextBadge.icon} {nextBadge.name}</div>}
+          {nextBadge&&<div style={{fontSize:fz(12),color:C.textMuted,marginLeft:4}}>Next: {nextBadge.icon} {nextBadge.name}</div>}
         </div>
       </Card>}
 
       {/* Learn progress */}
       {learnedTypes>0&&<Card style={{marginBottom:12,padding:"12px 18px",borderColor:C.purple+"44"}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textMuted,marginBottom:5}}><span style={{fontWeight:600,color:C.purple}}>📖 Learn Progress</span><span>{learnedTypes}/{totalTypes} mastered</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(12),color:C.textMuted,marginBottom:5}}><span style={{fontWeight:600,color:C.purple}}>📖 Learn Progress</span><span>{learnedTypes}/{totalTypes} mastered</span></div>
         <div style={{background:C.surfaceHigh,borderRadius:4,height:5}}><div style={{height:"100%",width:`${learnedTypes/totalTypes*100}%`,background:`linear-gradient(90deg,${C.purple},#c084fc)`,borderRadius:4,transition:"width 0.6s"}}/></div>
       </Card>}
 
@@ -3980,21 +3985,21 @@ function Home({user,setScreen,onUpdateUser}){
           onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px #7c3aed44";}}
           onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}>
           <div style={{fontSize:28,marginBottom:8}}>⚡</div>
-          <div style={{fontWeight:800,fontSize:15,color:"#fff",marginBottom:3}}>Quick 5</div>
-          <div style={{fontSize:12,color:"#e0d4ff",lineHeight:1.55}}>5 questions · ~7 min · instant start</div>
-          <div style={{marginTop:10,background:"#ffffff22",borderRadius:7,padding:"4px 10px",display:"inline-block",fontSize:11,fontWeight:700,color:"#fff",width:"fit-content"}}>Play Now →</div>
+          <div style={{fontWeight:800,fontSize:fz(15),color:"#fff",marginBottom:3}}>Quick 5</div>
+          <div style={{fontSize:fz(12),color:"#e0d4ff",lineHeight:1.55}}>5 questions · ~7 min · instant start</div>
+          <div style={{marginTop:10,background:"#ffffff22",borderRadius:7,padding:"4px 10px",display:"inline-block",fontSize:fz(11),fontWeight:700,color:"#fff",width:"fit-content"}}>Play Now →</div>
         </div>
         <Card style={{display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontSize:11,color:goalDone?C.success:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontWeight:700}}>{goalDone?"✓ Today's Goal Done!":"Today's Goal"}</div>
-            <div style={{fontSize:26,fontWeight:900,color:goalDone?C.success:C.text,fontFamily:T.serif}}>{todayCount}<span style={{fontSize:14,fontWeight:400,color:C.textMuted}}>/{dailyGoal}</span></div>
-            <div style={{fontSize:12,color:C.textMuted,marginBottom:8}}>questions answered</div>
+            <div style={{fontSize:fz(11),color:goalDone?C.success:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontWeight:700}}>{goalDone?"✓ Today's Goal Done!":"Today's Goal"}</div>
+            <div style={{fontSize:26,fontWeight:900,color:goalDone?C.success:C.text,fontFamily:T.serif}}>{todayCount}<span style={{fontSize:fz(14),fontWeight:400,color:C.textMuted}}>/{dailyGoal}</span></div>
+            <div style={{fontSize:fz(12),color:C.textMuted,marginBottom:8}}>questions answered</div>
           </div>
           <div>
             <div style={{background:C.surfaceHigh,borderRadius:6,height:7,overflow:"hidden"}}>
               <div style={{height:"100%",width:`${goalPct}%`,background:goalDone?`linear-gradient(90deg,${C.success},#4ade80)`:`linear-gradient(90deg,${C.accent},#a78bfa)`,borderRadius:6,transition:"width 0.6s"}}/>
             </div>
-            {!goalDone&&<div style={{fontSize:11,color:C.textMuted,marginTop:4}}>{dailyGoal-todayCount} more to hit your goal</div>}
+            {!goalDone&&<div style={{fontSize:fz(11),color:C.textMuted,marginTop:4}}>{dailyGoal-todayCount} more to hit your goal</div>}
           </div>
         </Card>
       </div>
@@ -4006,8 +4011,8 @@ function Home({user,setScreen,onUpdateUser}){
             onMouseEnter={e=>{e.currentTarget.style.borderColor=c.color+"66";e.currentTarget.style.transform="translateY(-2px)";}}
             onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}>
             <div style={{fontSize:26,marginBottom:8}}>{c.icon}</div>
-            <div style={{fontWeight:700,fontSize:14,color:C.text,marginBottom:3}}>{c.label}</div>
-            <div style={{fontSize:12,color:C.textMuted,lineHeight:1.55,marginBottom:c.badge?7:0}}>{c.desc}</div>
+            <div style={{fontWeight:700,fontSize:fz(14),color:C.text,marginBottom:3}}>{c.label}</div>
+            <div style={{fontSize:fz(12),color:C.textMuted,lineHeight:1.55,marginBottom:c.badge?7:0}}>{c.desc}</div>
             {c.badge&&<Tag color={c.badge.color}>{c.badge.label}</Tag>}
           </Card>
         ))}
@@ -4018,7 +4023,7 @@ function Home({user,setScreen,onUpdateUser}){
         {[["terms","Terms"],["privacy","Privacy"],["disclaimer","LSAC Disclaimer"]].map(([s,l])=>(
           <button key={s} onClick={()=>setScreen(s)}
             style={{background:"none",border:"none",color:C.textMuted,
-              fontSize:12,cursor:"pointer",fontFamily:T.sans,
+              fontSize:fz(12),cursor:"pointer",fontFamily:T.sans,
               textDecoration:"underline"}}>
             {l}
           </button>
@@ -4038,14 +4043,35 @@ function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
   const learnProgress=user.learnProgress||{};
   const isPro=user?.isPro||false;
 
-  if(selected)return <LearnLesson key={selected.typeObj.type} user={user} onUpdateUser={onUpdateUser} typeObj={selected.typeObj} section={selected.section} onBack={()=>setSelected(null)}/>;
+  // Deep links: #learn/<skillId>[/<track>] and #classic/<LR|RC>/<Label> (Classic entries open the rebuilt lesson).
+  useEffect(()=>{
+    const apply=()=>{const r=parseHash(window.location.hash);if(r)setPathOpen({skillId:r.skillId,mode:"lesson",track:r.track,fromClassic:r.fromClassic||null});};
+    apply();window.addEventListener("hashchange",apply);return()=>window.removeEventListener("hashchange",apply);
+  },[]);
+  useEffect(()=>{
+    try{
+      const cur=window.location.hash||"";
+      const want=pathOpen&&pathOpen.mode==="lesson"&&pathOpen.skillId?routeToHash(pathOpen.fromClassic?{kind:"classic",...pathOpen.fromClassic}:{skillId:pathOpen.skillId,track:pathOpen.track}):"";
+      if(want&&cur!==want)window.history.replaceState(null,"",want);
+      if(!want&&/^#(learn|classic)\//.test(cur))window.history.replaceState(null,"",window.location.pathname+window.location.search);
+    }catch{}
+  },[pathOpen]);
 
-  const openLegacy=(section,typeName)=>{
+  if(selected)return <LearnLesson key={selected.typeObj.type} user={user} onUpdateUser={onUpdateUser} typeObj={selected.typeObj} section={selected.section} onBack={()=>{const back=selected.returnTo;setSelected(null);if(back)setPathOpen(back);}}/>;
+
+  // Every Classic entry opens the rebuilt lesson that teaches the same skill (with a link back to the original as reference).
+  const openClassic=(section,typeName)=>{
+    const r=classicRoute(section,typeName);
+    if(r){setPathOpen({skillId:r.skillId,mode:"lesson",track:r.track,fromClassic:{section:r.section,label:r.label}});return;}
+    openLegacy(section,typeName,{reference:true});
+  };
+  const openLegacy=(section,typeName,opts={})=>{
     const list=LEARN_CURRICULUM[section]||[];
     const idx=list.findIndex(t=>t.type===typeName);
     if(idx<0)return;
+    if(!opts.reference){openClassic(section,typeName);return;}
     if(!isPro&&idx>0){onUpgrade&&onUpgrade("pro_only");return;}
-    setSelected({section,typeObj:list[idx]});
+    setSelected({section,typeObj:list[idx],returnTo:pathOpen});
   };
   const guided=<GuidedPath user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T}
     callModel={callClaude} practiceSystem={PRACTICE_SYSTEM} parseJSON={parseJSON}
@@ -4059,19 +4085,19 @@ function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Learn</h1>
-          <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>A guided path from logic foundations to full LSAT reasoning.</p>
+          <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.6}}>A guided path from logic foundations to full LSAT reasoning.</p>
         </div>
         {!isPro&&(
-          <div style={{background:"linear-gradient(135deg,#4f7fff22,#a78bfa22)",border:"1px solid #4f7fff44",borderRadius:12,padding:"8px 14px",fontSize:12,color:C.accent,maxWidth:220}}>
-            <strong>Free preview:</strong> First topic only. Upgrade for all {sectionTypes.length} types.
+          <div style={{background:"linear-gradient(135deg,#4f7fff22,#a78bfa22)",border:"1px solid #4f7fff44",borderRadius:12,padding:"8px 14px",fontSize:fz(12),color:C.accent,maxWidth:220}}>
+            <strong>Free:</strong> every guided lesson. Pro adds the original Classic lessons as reference.
           </div>
         )}
       </div>
 
       <div style={{marginTop:20}}>{guided}</div>
 
-      <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 4px"}}>Classic lessons by question type</h2>
-      <p style={{color:C.textSub,fontSize:13,lineHeight:1.6,margin:0}}>The original question-type lessons, with leveled practice.</p>
+      <h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,margin:"8px 0 4px"}}>Classic lessons by question type</h2>
+      <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.6,margin:0}}>Each Classic lesson now opens its rebuilt version in the guided path. Your Classic levels are kept below as legacy progress; they don't count toward mastery.</p>
       <div style={{display:"flex",gap:8,marginBottom:20,marginTop:16}}>
         {SECTIONS.map(s=>(
           <button key={s} onClick={()=>setActiveSection(s)}
@@ -4079,7 +4105,7 @@ function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
               border:"1.5px solid "+(activeSection===s?C.accent:C.border),
               background:activeSection===s?C.accentSoft:"transparent",
               color:activeSection===s?C.accent:C.textMuted,
-              fontSize:13,fontWeight:activeSection===s?700:400,
+              fontSize:fz(13),fontWeight:activeSection===s?700:400,
               cursor:"pointer",fontFamily:T.sans,outline:"none"}}>
             {s}
           </button>
@@ -4092,10 +4118,11 @@ function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
           const mastered=prog>=4;
           const started=prog>0;
           const pct=Math.round(prog/4*100);
-          const locked=!isPro&&idx>0; // free users only get first topic
+          const locked=false; // Classic entries route to the rebuilt lessons; the Pro lock applies only to the original reference view
+          const route=classicRoute(activeSection,t.type);
           return(
             <Card key={t.type}
-              onClick={()=>locked?(onUpgrade&&onUpgrade("pro_only")):setSelected({section:activeSection,typeObj:t})}
+              onClick={()=>openClassic(activeSection,t.type)}
               role="button"
               style={{cursor:"pointer",position:"relative",
                 borderColor:locked?"transparent":mastered?C.success+"44":started?C.accent+"33":C.border,
@@ -4107,25 +4134,26 @@ function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
                   justifyContent:"center",zIndex:2}}>
                   <div style={{textAlign:"center"}}>
                     <div style={{fontSize:22,marginBottom:4}}>🔒</div>
-                    <div style={{fontSize:12,color:"white",fontWeight:600}}>Pro Only</div>
+                    <div style={{fontSize:fz(12),color:"white",fontWeight:600}}>Pro Only</div>
                   </div>
                 </div>
               )}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                <div style={{fontWeight:700,fontSize:15,color:C.text}}>{t.type}</div>
-                {mastered&&<span style={{fontSize:16}}>✅</span>}
-                {!mastered&&started&&!locked&&<span style={{fontSize:11,color:C.accent,fontWeight:700,background:C.accentSoft,padding:"2px 8px",borderRadius:10}}>In Progress</span>}
+                <div style={{fontWeight:700,fontSize:fz(15),color:C.text}}>{t.type}</div>
+                {mastered&&<span style={{fontSize:fz(11),color:C.textMuted,fontWeight:700,background:C.surfaceHigh,padding:"2px 8px",borderRadius:10}}>Legacy: complete</span>}
+                {!mastered&&started&&!locked&&<span style={{fontSize:fz(11),color:C.accent,fontWeight:700,background:C.accentSoft,padding:"2px 8px",borderRadius:10}}>In Progress</span>}
               </div>
-              <div style={{fontSize:13,color:C.textMuted,lineHeight:1.55,marginBottom:12}}>{t.tagline}</div>
+              <div style={{fontSize:fz(13),color:C.textMuted,lineHeight:1.55,marginBottom:12}}>{t.tagline}</div>
               {started&&!mastered&&!locked&&<div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textMuted,marginBottom:4}}>
-                  <span>Level {prog} of 4</span><span>{pct}%</span>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(11),color:C.textMuted,marginBottom:4}}>
+                  <span>Legacy: level {prog} of 4</span><span>{pct}%</span>
                 </div>
                 <div style={{background:C.surfaceHigh,borderRadius:4,height:4}}>
                   <div style={{height:"100%",width:`${pct}%`,background:C.accent,borderRadius:4}}/>
                 </div>
               </div>}
-              {!started&&!locked&&<div style={{fontSize:12,color:C.textMuted}}>Not started</div>}
+              {!started&&!locked&&<div style={{fontSize:fz(12),color:C.textMuted}}>Not started</div>}
+              {route&&<div style={{fontSize:fz(12),color:C.accent,marginTop:8}}>Opens the rebuilt lesson{started?" · Classic progress shown as legacy":""} →</div>}
             </Card>
           );
         })}
@@ -4200,11 +4228,11 @@ Respond ONLY with valid JSON (no markdown):
   };
 
   const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===question?.correct)return"ok";if(l===selected)return"bad";return"def";};
-  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
+  const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,padding:"12px 18px",cursor:submitted?"default":"pointer",fontSize:fz(14),marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}:s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}:s==="sel"?{background:C.accentSoft,borderColor:C.accent,color:C.text}:{background:"transparent",borderColor:C.border,color:C.textSub})});
 
   return(
     <main style={{maxWidth:760,margin:"0 auto",padding:"24px 20px"}}>
-      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Learn</button>
+      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Learn</button>
 
       {/* Header */}
       <div style={{marginBottom:20}}>
@@ -4214,8 +4242,8 @@ Respond ONLY with valid JSON (no markdown):
           {view==="practice"&&<Tag color={LEVEL_COLORS[levelIdx+1]}>Level {levelIdx+1} — {LEVEL_LABELS[levelIdx+1]}</Tag>}
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
-          <button onClick={()=>setView("lesson")} style={{fontSize:13,padding:"5px 12px",borderRadius:8,border:`1px solid ${view==="lesson"?C.accent:C.border}`,background:view==="lesson"?C.accentSoft:"transparent",color:view==="lesson"?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans}}>📖 Lesson</button>
-          <button onClick={()=>{setView("practice");if(!question&&!loadingQ)genQuestion();}} style={{fontSize:13,padding:"5px 12px",borderRadius:8,border:`1px solid ${view==="practice"?C.accent:C.border}`,background:view==="practice"?C.accentSoft:"transparent",color:view==="practice"?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans}}>🎯 Practice</button>
+          <button onClick={()=>setView("lesson")} style={{fontSize:fz(13),padding:"5px 12px",borderRadius:8,border:`1px solid ${view==="lesson"?C.accent:C.border}`,background:view==="lesson"?C.accentSoft:"transparent",color:view==="lesson"?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans}}>📖 Lesson</button>
+          <button onClick={()=>{setView("practice");if(!question&&!loadingQ)genQuestion();}} style={{fontSize:fz(13),padding:"5px 12px",borderRadius:8,border:`1px solid ${view==="practice"?C.accent:C.border}`,background:view==="practice"?C.accentSoft:"transparent",color:view==="practice"?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans}}>🎯 Practice</button>
         </div>
         {/* Level progress */}
         <div style={{display:"flex",gap:6}}>
@@ -4228,16 +4256,16 @@ Respond ONLY with valid JSON (no markdown):
         <div>
           {/* Why this matters banner */}
           <Card style={{marginBottom:14,background:`linear-gradient(135deg,${C.accentSoft},${C.surface})`,borderColor:C.accent+"44"}}>
-            <div style={{fontSize:13,color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Why This Matters</div>
+            <div style={{fontSize:fz(13),color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Why This Matters</div>
             <h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,marginBottom:8,fontWeight:700}}>{typeObj.type}</h2>
-            <p style={{fontSize:15,color:C.textSub,fontStyle:"italic",marginBottom:10,lineHeight:1.6}}>{typeObj.tagline}</p>
-            <p style={{fontSize:14,color:C.textSub,lineHeight:1.75}}>{typeObj.why}</p>
+            <p style={{fontSize:fz(15),color:C.textSub,fontStyle:"italic",marginBottom:10,lineHeight:1.6}}>{typeObj.tagline}</p>
+            <p style={{fontSize:fz(14),color:C.textSub,lineHeight:1.75}}>{typeObj.why}</p>
           </Card>
 
           {/* Section navigation */}
           <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
             {learnSections.map((s,i)=>(
-              <button key={i} onClick={()=>setSectionIdx(i)} style={{fontSize:12,padding:"5px 12px",borderRadius:8,border:`1px solid ${sectionIdx===i?C.accent:C.border}`,background:sectionIdx===i?C.accentSoft:"transparent",color:sectionIdx===i?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans,fontWeight:sectionIdx===i?600:400,transition:"all 0.15s"}}>
+              <button key={i} onClick={()=>setSectionIdx(i)} style={{fontSize:fz(12),padding:"5px 12px",borderRadius:8,border:`1px solid ${sectionIdx===i?C.accent:C.border}`,background:sectionIdx===i?C.accentSoft:"transparent",color:sectionIdx===i?C.accent:C.textMuted,cursor:"pointer",fontFamily:T.sans,fontWeight:sectionIdx===i?600:400,transition:"all 0.15s"}}>
                 {i+1}. {s.title.split(":")[0].slice(0,22)}{s.title.length>22?"…":""}
               </button>
             ))}
@@ -4247,7 +4275,7 @@ Respond ONLY with valid JSON (no markdown):
           {currentSection&&(
             <Card style={{marginBottom:14}}>
               <h3 style={{fontFamily:T.serif,fontSize:Math.round(18*FONT_SCALE),color:C.text,marginBottom:16,fontWeight:700,borderBottom:`1px solid ${C.border}`,paddingBottom:12}}>{currentSection.title}</h3>
-              <div style={{fontSize:15,color:C.text,lineHeight:1.95,whiteSpace:"pre-wrap"}}>{currentSection.content}</div>
+              <div style={{fontSize:fz(15),color:C.text,lineHeight:1.95,whiteSpace:"pre-wrap"}}>{currentSection.content}</div>
             </Card>
           )}
 
@@ -4265,7 +4293,7 @@ Respond ONLY with valid JSON (no markdown):
       {/* PRACTICE VIEW */}
       {view==="practice"&&(
         <div>
-          <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:C.textSub}}>
+          <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:fz(13),color:C.textSub}}>
             <strong style={{color:C.gold}}>Level {levelIdx+1} — {LEVEL_LABELS[levelIdx+1]}:</strong> {currentLevel?.desc}
           </div>
 
@@ -4275,9 +4303,9 @@ Respond ONLY with valid JSON (no markdown):
           {question&&!loadingQ&&(
             <div>
               <Card style={{marginBottom:12}}>
-                <div style={{fontSize:12,color:C.textMuted,marginBottom:12}}>Apply your {typeObj.type} framework to this question:</div>
-                <p style={{lineHeight:1.85,fontSize:15,color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
-                <p style={{fontWeight:600,fontSize:15,color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{question.question}</p>
+                <div style={{fontSize:fz(12),color:C.textMuted,marginBottom:12}}>Apply your {typeObj.type} framework to this question:</div>
+                <p style={{lineHeight:1.85,fontSize:fz(15),color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
+                <p style={{fontWeight:600,fontSize:fz(15),color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{question.question}</p>
                 <div role="radiogroup">{Object.entries(question.choices).map(([l,t])=><button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
                 {!submitted&&<Btn onClick={submitAnswer} disabled={!selected} style={{width:"100%",marginTop:8}}>Submit Answer</Btn>}
               </Card>
@@ -4287,14 +4315,14 @@ Respond ONLY with valid JSON (no markdown):
                   {xpGained>0&&<div role="status" style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}><span>⭐</span><span style={{color:C.gold,fontWeight:700}}>+{xpGained} XP!</span></div>}
                   {question?.assignedLevel&&(
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                  <span style={{fontSize:12,color:C.textMuted}}>Difficulty:</span>
+                  <span style={{fontSize:fz(12),color:C.textMuted}}>Difficulty:</span>
                   {[1,2,3,4].map(l=>(
                     <div key={l} style={{width:18,height:6,borderRadius:3,
                       background:l<=question.assignedLevel?(
                         question.assignedLevel===1?C.success:question.assignedLevel===2?C.gold:question.assignedLevel===3?"#f97316":C.danger
                       ):C.surfaceHigh}}/>
                   ))}
-                  <span style={{fontSize:12,fontWeight:700,color:question.assignedLevel===1?C.success:question.assignedLevel===2?C.gold:question.assignedLevel===3?"#f97316":C.danger}}>
+                  <span style={{fontSize:fz(12),fontWeight:700,color:question.assignedLevel===1?C.success:question.assignedLevel===2?C.gold:question.assignedLevel===3?"#f97316":C.danger}}>
                     Level {question.assignedLevel}
                   </span>
                 </div>
@@ -4303,14 +4331,14 @@ Respond ONLY with valid JSON (no markdown):
                     <div style={{fontSize:16,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:10}}>
                       {selected===question.correct?"✓ Correct!":"✗ Not quite — here's why:"}
                     </div>
-                    {question.teaching_point&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:14,color:C.accent}}>
+                    {question.teaching_point&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:fz(14),color:C.accent}}>
                       💡 {question.teaching_point}
                     </div>}
-                    <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{question.explanation}</div>
+                    <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:fz(14),color:C.textSub,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{question.explanation}</div>
                   </Card>
                   {selected!==question.correct&&<Card style={{marginBottom:12,background:C.surfaceHigh,borderColor:C.purple+"44"}}>
-                    <div style={{fontSize:13,color:C.purple,fontWeight:700,marginBottom:6}}>🤔 Don't worry — this is how mastery happens.</div>
-                    <p style={{fontSize:14,color:C.textSub,lineHeight:1.7}}>Go back to the <button onClick={()=>setView("lesson")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:14,fontFamily:T.sans,padding:0}}>lesson sections</button> and re-read the framework. Then try another question. Each attempt builds intuition.</p>
+                    <div style={{fontSize:fz(13),color:C.purple,fontWeight:700,marginBottom:6}}>🤔 Don't worry — this is how mastery happens.</div>
+                    <p style={{fontSize:fz(14),color:C.textSub,lineHeight:1.7}}>Go back to the <button onClick={()=>setView("lesson")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:fz(14),fontFamily:T.sans,padding:0}}>lesson sections</button> and re-read the framework. Then try another question. Each attempt builds intuition.</p>
                   </Card>}
                   <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                     <Btn ghost onClick={genQuestion} style={{flex:1}}>Try Another Question</Btn>
@@ -4332,8 +4360,8 @@ Respond ONLY with valid JSON (no markdown):
         <Card style={{textAlign:"center",padding:"48px 32px",borderColor:C.success+"44"}}>
           <div style={{fontSize:56,marginBottom:16}}>🎓</div>
           <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:10}}>Lesson Complete!</h2>
-          <p style={{color:C.textSub,fontSize:15,lineHeight:1.7,marginBottom:8}}>You've worked through all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
-          <p style={{color:C.textSub,fontSize:13,lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
+          <p style={{color:C.textSub,fontSize:fz(15),lineHeight:1.7,marginBottom:8}}>You've worked through all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
+          <p style={{color:C.textSub,fontSize:fz(13),lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
             <Btn onClick={onBack}>← Back to Learn</Btn>
             <Btn ghost onClick={()=>{setView("practice");setLevelIdx(0);setQuestion(null);setSubmitted(false);setSelected(null);genQuestion();}}>Practice More</Btn>
@@ -4461,19 +4489,19 @@ function WeaknessRadar({user,onDrillWeakness}){
   return(
     <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:20,padding:20,marginBottom:16}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,display:"flex",alignItems:"center",gap:8}}>
+        <div style={{fontSize:fz(13),fontWeight:700,color:C.text,display:"flex",alignItems:"center",gap:8}}>
           <span>🎯</span> Weakness Radar
         </div>
-        <button onClick={()=>onDrillWeakness(weakest[0])} style={{background:"linear-gradient(135deg,#f43f5e,#fb7185)",border:"none",borderRadius:10,padding:"6px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:T.sans}}>
+        <button onClick={()=>onDrillWeakness(weakest[0])} style={{background:"linear-gradient(135deg,#f43f5e,#fb7185)",border:"none",borderRadius:10,padding:"6px 14px",color:"#fff",fontSize:fz(12),fontWeight:700,cursor:"pointer",fontFamily:T.sans}}>
           Drill Weakest Now →
         </button>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         {weakest.map((w,i)=>(
           <div key={w.type} style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{fontSize:12,width:16,height:16,borderRadius:"50%",background:i===0?"#f43f5e":i===1?"#fb923c":"#f5c842",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,flexShrink:0}}>{i+1}</div>
+            <div style={{fontSize:fz(12),width:16,height:16,borderRadius:"50%",background:i===0?"#f43f5e":i===1?"#fb923c":"#f5c842",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,flexShrink:0}}>{i+1}</div>
             <div style={{flex:1}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:13}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:fz(13)}}>
                 <span style={{color:C.text,fontWeight:600}}>{w.type}</span>
                 <span style={{color:w.pct<50?C.danger:w.pct<70?C.gold:C.success,fontWeight:700}}>{w.pct}%</span>
               </div>
@@ -4481,14 +4509,14 @@ function WeaknessRadar({user,onDrillWeakness}){
                 <div style={{height:"100%",width:`${w.pct}%`,background:w.pct<50?C.danger:w.pct<70?C.gold:C.success,borderRadius:3,transition:"width 0.5s"}}/>
               </div>
             </div>
-            <span style={{fontSize:11,color:C.textMuted,flexShrink:0}}>{w.total}q</span>
+            <span style={{fontSize:fz(11),color:C.textMuted,flexShrink:0}}>{w.total}q</span>
           </div>
         ))}
       </div>
       {strongest.length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.border}`}}>
-        <div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Strengths</div>
+        <div style={{fontSize:fz(11),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Strengths</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {strongest.map(s=><div key={s.type} style={{fontSize:12,padding:"3px 10px",borderRadius:10,background:C.success+"15",color:C.success,border:`1px solid ${C.success}33`,fontWeight:600}}>{s.type} {s.pct}% ✓</div>)}
+          {strongest.map(s=><div key={s.type} style={{fontSize:fz(12),padding:"3px 10px",borderRadius:10,background:C.success+"15",color:C.success,border:`1px solid ${C.success}33`,fontWeight:600}}>{s.type} {s.pct}% ✓</div>)}
         </div>
       </div>}
     </div>
@@ -4524,10 +4552,10 @@ function SessionDebrief({sessionHistory,user,onDismiss,onRecord}){
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:32,maxWidth:420,width:"100%",textAlign:"center"}}>
         {loading?<Spinner label="Analyzing your session…"/>:<div>
           <div style={{fontSize:48,marginBottom:12}}>{debrief?.emoji||"📊"}</div>
-          <div style={{fontSize:12,color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontWeight:700}}>Session Complete</div>
+          <div style={{fontSize:fz(12),color:C.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontWeight:700}}>Session Complete</div>
           <h3 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,marginBottom:16,lineHeight:1.4}}>{debrief?.headline}</h3>
-          {debrief?.insight&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:14,color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.accent,fontWeight:700}}>💡 </span>{debrief.insight}</div>}
-          {debrief?.tip&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"12px 16px",marginBottom:20,fontSize:14,color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.gold,fontWeight:700}}>→ Next time: </span>{debrief.tip}</div>}
+          {debrief?.insight&&<div style={{background:C.accentSoft,border:`1px solid ${C.accent}33`,borderRadius:12,padding:"12px 16px",marginBottom:12,fontSize:fz(14),color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.accent,fontWeight:700}}>💡 </span>{debrief.insight}</div>}
+          {debrief?.tip&&<div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"12px 16px",marginBottom:20,fontSize:fz(14),color:C.textSub,lineHeight:1.7,textAlign:"left"}}><span style={{color:C.gold,fontWeight:700}}>→ Next time: </span>{debrief.tip}</div>}
           <Btn onClick={onDismiss} style={{width:"100%"}}>Continue →</Btn>
         </div>}
       </div>
@@ -4747,18 +4775,18 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Practice</h1>
-      <p style={{color:C.textSub,fontSize:14,marginBottom:16}}>Lumora generates a fresh question every time — infinite practice, no repeats.</p>
+      <p style={{color:C.textSub,fontSize:fz(14),marginBottom:16}}>Lumora generates a fresh question every time — infinite practice, no repeats.</p>
       <WeaknessRadar user={user} onDrillWeakness={(w)=>{if(requirePro&&!requirePro("practice"))return;cfgRef.current={section:w.section,level:null,qType:w.type,adaptive:false};setSection(w.section);setQType(w.type);setLevel(null);setAdaptive(false);setConfigured(true);startPractice();}}/>
-      <p style={{color:C.textMuted,fontSize:12,marginBottom:12}}>Tap a selected option again to clear it. Anything left on <strong style={{color:C.text}}>Any</strong> is randomized for every question.</p>
-      <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>
+      <p style={{color:C.textMuted,fontSize:fz(12),marginBottom:12}}>Tap a selected option again to clear it. Anything left on <strong style={{color:C.text}}>Any</strong> is randomized for every question.</p>
+      <Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Section</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>
         <Pill active={section===null} onClick={()=>{setSection(null);setQType(null);}}>Any (LR or RC)</Pill>
         {SECTIONS.map(s=><Pill key={s} active={section===s} onClick={()=>{setSection(section===s?null:s);setQType(null);}}>{s}</Pill>)}
       </div></Card>
-      <Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
+      <Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Difficulty</div><div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
         <Pill active={level===null} onClick={()=>setLevel(null)}>{adaptive?"Any (adaptive)":"Any (random)"}</Pill>
         {[1,2,3,4].map(l=><Pill key={l} active={level===l} onClick={()=>setLevel(level===l?null:l)} color={LEVEL_COLORS[l]}>Level {l} — {LEVEL_LABELS[l]}</Pill>)}
       </div></Card>
-      {section&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Question Type</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>
+      {section&&<Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Question Type</div><div style={{display:"flex",flexWrap:"wrap",gap:9}}>
         <Pill active={qType===null} onClick={()=>setQType(null)}>Any type</Pill>
         {QUESTION_TYPES[section].map(t=><Pill key={t} active={qType===t} onClick={()=>setQType(qType===t?null:t)}>{t}</Pill>)}
       </div></Card>}
@@ -4766,13 +4794,13 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
         <Card style={{padding:16}}>
           <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setAdaptive(v=>!v)} role="checkbox" aria-checked={adaptive} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setAdaptive(v=>!v);}}>
             <div style={{width:36,height:20,borderRadius:10,background:adaptive?C.accent:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:14,height:14,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:adaptive?19:3,transition:"left 0.2s"}}/></div>
-            <div><div style={{fontWeight:600,fontSize:13,color:C.text}}>Adaptive</div><div style={{fontSize:11,color:C.textMuted}}>Targets weak areas</div></div>
+            <div><div style={{fontWeight:600,fontSize:fz(13),color:C.text}}>Adaptive</div><div style={{fontSize:fz(11),color:C.textMuted}}>Targets weak areas</div></div>
           </div>
         </Card>
         <Card style={{padding:16}}>
           <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setTimedMode(v=>!v)} role="checkbox" aria-checked={timedMode} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setTimedMode(v=>!v);}}>
             <div style={{width:36,height:20,borderRadius:10,background:timedMode?C.danger:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:14,height:14,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:timedMode?19:3,transition:"left 0.2s"}}/></div>
-            <div><div style={{fontWeight:600,fontSize:13,color:C.text}}>⏱ Timed</div><div style={{fontSize:11,color:C.textMuted}}>75 sec per question</div></div>
+            <div><div style={{fontWeight:600,fontSize:fz(13),color:C.text}}>⏱ Timed</div><div style={{fontSize:fz(11),color:C.textMuted}}>75 sec per question</div></div>
           </div>
         </Card>
       </div>
@@ -4804,11 +4832,11 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
           {question&&<><Tag color={C.accent}>{question.section}</Tag><Tag color={LEVEL_COLORS[question.assignedLevel]}>Level {question.assignedLevel}</Tag><Tag color={C.purple}>{question.qType}</Tag></>}
           {adaptive&&<Tag color={C.purple}>Adaptive</Tag>}
           {timedMode&&<Tag color={C.danger}>⏱ Timed</Tag>}
-          {prefetching&&<span style={{fontSize:11,color:C.textMuted,marginLeft:6}}>⚡ loading next…</span>}
+          {prefetching&&<span style={{fontSize:fz(11),color:C.textMuted,marginLeft:6}}>⚡ loading next…</span>}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           {timedMode&&!submitted&&question&&<div style={{fontFamily:T.serif,fontSize:20,fontWeight:700,color:questionTimer<=15?C.danger:questionTimer<=30?C.gold:C.text,minWidth:40,textAlign:"center"}}>{questionTimer}</div>}
-          <span style={{color:C.textSub,fontSize:13}}>{sessionCount} done · {sessionCount>0?Math.round(sessionCorrect/sessionCount*100):"—"}%</span>
+          <span style={{color:C.textSub,fontSize:fz(13)}}>{sessionCount} done · {sessionCount>0?Math.round(sessionCorrect/sessionCount*100):"—"}%</span>
           {sessionCount>=3&&<Btn ghost onClick={endSession} small>End Session</Btn>}
           <Btn ghost onClick={()=>setConfigured(false)} small>Settings</Btn>
         </div>
@@ -4825,9 +4853,9 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
             {question.section==="Reading Comprehension"&&(
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,
                 paddingBottom:10,borderBottom:"1px solid "+C.border}}>
-                <span style={{fontSize:11,fontWeight:700,color:C.accent,
+                <span style={{fontSize:fz(11),fontWeight:700,color:C.accent,
                   textTransform:"uppercase",letterSpacing:"0.08em"}}>Reading Comprehension</span>
-                <span style={{fontSize:11,color:C.textMuted}}>— {question.qType}</span>
+                <span style={{fontSize:fz(11),color:C.textMuted}}>— {question.qType}</span>
               </div>
             )}
             <p style={{lineHeight:question.section==="Reading Comprehension"?2:1.85,
@@ -4847,46 +4875,46 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
                 <div style={{fontSize:16,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:8}}>
                   {selected===question.correct?"✓ Correct!":"✗ Incorrect — here's what happened"}
                 </div>
-                {question.key_concept&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"9px 13px",marginBottom:10,fontSize:13,color:C.purple,display:"flex",gap:8,alignItems:"flex-start"}}><span style={{flexShrink:0}}>🔑</span><span>{question.key_concept}</span></div>}
+                {question.key_concept&&<div style={{background:C.surfaceHigh,borderRadius:10,padding:"9px 13px",marginBottom:10,fontSize:fz(13),color:C.purple,display:"flex",gap:8,alignItems:"flex-start"}}><span style={{flexShrink:0}}>🔑</span><span>{question.key_concept}</span></div>}
                 {selected!==question.correct&&<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
                   <div style={{background:"#052e16",border:`1px solid ${C.success}44`,borderRadius:10,padding:"11px 14px"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.success,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {question.correct} is correct</div>
-                    <div style={{fontSize:14,color:"#86efac",lineHeight:1.75}}>{question.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/i,"").trim()||question.explanation}</div>
+                    <div style={{fontSize:fz(12),fontWeight:700,color:C.success,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {question.correct} is correct</div>
+                    <div style={{fontSize:fz(14),color:"#86efac",lineHeight:1.75}}>{question.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/i,"").trim()||question.explanation}</div>
                   </div>
                   <div style={{background:"#2d0a0a",border:`1px solid ${C.danger}44`,borderRadius:10,padding:"11px 14px"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {selected} misses the mark</div>
-                    <div style={{fontSize:14,color:"#fca5a5",lineHeight:1.75}}>{question.explanation?.includes("WRONG ("+selected+")")?question.explanation.split("WRONG ("+selected+")")[1]?.split("WRONG")[0]?.replace(/^[^:]*:/,"").trim()||"Review the explanation above.":"Review the full explanation above."}</div>
+                    <div style={{fontSize:fz(12),fontWeight:700,color:C.danger,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>Why {selected} misses the mark</div>
+                    <div style={{fontSize:fz(14),color:"#fca5a5",lineHeight:1.75}}>{question.explanation?.includes("WRONG ("+selected+")")?question.explanation.split("WRONG ("+selected+")")[1]?.split("WRONG")[0]?.replace(/^[^:]*:/,"").trim()||"Review the explanation above.":"Review the full explanation above."}</div>
                   </div>
                 </div>}
-                {selected===question.correct&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:14,color:C.textSub,lineHeight:1.85}}>{question.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/i,"").trim()||question.explanation}</div>}
+                {selected===question.correct&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:fz(14),color:C.textSub,lineHeight:1.85}}>{question.explanation?.split("WRONG")[0]?.replace(/^CORRECT[^:]*:/i,"").trim()||question.explanation}</div>}
               </Card>
 
               {!sparring&&selected!==question.correct&&<Card style={{marginBottom:12,borderColor:C.purple+"44"}}>
-                <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:24}}>🥊</span><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,marginBottom:3}}>Think you're right? Argue your case.</div><div style={{fontSize:13,color:C.textMuted}}>Debate Lumora in Socratic dialogue.</div></div><Btn onClick={startSpar} small style={{background:"linear-gradient(135deg,#7c3aed,#a78bfa)",flexShrink:0}}>Spar →</Btn></div>
+                <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:24}}>🥊</span><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,marginBottom:3}}>Think you're right? Argue your case.</div><div style={{fontSize:fz(13),color:C.textMuted}}>Debate Lumora in Socratic dialogue.</div></div><Btn onClick={startSpar} small style={{background:"linear-gradient(135deg,#7c3aed,#a78bfa)",flexShrink:0}}>Spar →</Btn></div>
               </Card>}
               {sparring&&<Card style={{marginBottom:12,borderColor:C.purple+"44"}}>
-                <h3 style={{fontWeight:700,color:C.purple,marginBottom:12,fontSize:15}}>🥊 Argument Sparring</h3>
+                <h3 style={{fontWeight:700,color:C.purple,marginBottom:12,fontSize:fz(15)}}>🥊 Argument Sparring</h3>
                 <div aria-live="polite" style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12,maxHeight:280,overflowY:"auto"}}>
-                  {sparMsgs.map((m,i)=><div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:12,fontSize:14,lineHeight:1.7,background:m.role==="user"?C.accentSoft:C.surfaceHigh,color:m.role==="user"?C.text:C.textSub}}>{m.text}</div></div>)}
-                  {sparLoading&&<div style={{color:C.textMuted,fontSize:13}}>Thinking…</div>}
+                  {sparMsgs.map((m,i)=><div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:12,fontSize:fz(14),lineHeight:1.7,background:m.role==="user"?C.accentSoft:C.surfaceHigh,color:m.role==="user"?C.text:C.textSub}}>{m.text}</div></div>)}
+                  {sparLoading&&<div style={{color:C.textMuted,fontSize:fz(13)}}>Thinking…</div>}
                   <div ref={bottomRef}/>
                 </div>
                 <div style={{display:"flex",gap:8}}>
-                  <input value={sparInput} onChange={e=>setSparInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendSpar()} placeholder="Make your argument…" aria-label="Your argument" style={{flex:1,background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 13px",color:C.text,fontSize:14,fontFamily:T.sans,outline:"none"}}/>
+                  <input value={sparInput} onChange={e=>setSparInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendSpar()} placeholder="Make your argument…" aria-label="Your argument" style={{flex:1,background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 13px",color:C.text,fontSize:fz(14),fontFamily:T.sans,outline:"none"}}/>
                   <Btn onClick={sendSpar} disabled={sparLoading||!sparInput.trim()} small>Send</Btn>
                 </div>
               </Card>}
 
               <Card style={{marginBottom:14}}>
-                <button onClick={()=>setNoteOpen(v=>!v)} aria-expanded={noteOpen} style={{background:"none",border:"none",color:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans,padding:0}}>{noteOpen?"▾":"▸"} Add a study note</button>
-                {noteOpen&&<div style={{marginTop:10}}><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Key insight, pattern, or strategy to remember…" rows={3} aria-label="Study note" style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",color:C.text,fontSize:14,fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",outline:"none"}}/><Btn ghost onClick={saveNote} small style={{marginTop:8}}>Save Note</Btn></div>}
+                <button onClick={()=>setNoteOpen(v=>!v)} aria-expanded={noteOpen} style={{background:"none",border:"none",color:C.textMuted,fontSize:fz(13),cursor:"pointer",fontFamily:T.sans,padding:0}}>{noteOpen?"▾":"▸"} Add a study note</button>
+                {noteOpen&&<div style={{marginTop:10}}><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Key insight, pattern, or strategy to remember…" rows={3} aria-label="Study note" style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px",color:C.text,fontSize:fz(14),fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",outline:"none"}}/><Btn ghost onClick={saveNote} small style={{marginTop:8}}>Save Note</Btn></div>}
               </Card>
               {question?.key_concept&&(
                 <div style={{marginTop:8,padding:"10px 14px",
                   background:C.accentSoft,borderRadius:10,
                   display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{color:C.accent,fontSize:13,fontWeight:700,flexShrink:0}}>Concept:</span>
-                  <span style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{question.key_concept}</span>
+                  <span style={{color:C.accent,fontSize:fz(13),fontWeight:700,flexShrink:0}}>Concept:</span>
+                  <span style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>{question.key_concept}</span>
                 </div>
               )}
               <Btn onClick={nextQ} style={{width:"100%",padding:16,fontSize:16}}>Next Question →</Btn>
@@ -5022,22 +5050,22 @@ Respond ONLY with valid JSON:
             size={64} animate={true}/>
           <div>
             <div style={{fontFamily:T.serif,fontSize:Math.round(18*FONT_SCALE),color:C.text,fontWeight:700}}>Spar with Lex</div>
-            <div style={{fontSize:12,color:C.danger,fontWeight:600}}>⚖️ {seed.style} — Lex is defending this argument</div>
+            <div style={{fontSize:fz(12),color:C.danger,fontWeight:600}}>⚖️ {seed.style} — Lex is defending this argument</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <span style={{fontSize:12,color:C.textMuted,alignSelf:"center"}}>Round {sparRound}</span>
+          <span style={{fontSize:fz(12),color:C.textMuted,alignSelf:"center"}}>Round {sparRound}</span>
           <Btn onClick={endSpar} ghost small>End & Get Verdict</Btn>
         </div>
       </div>
 
       {/* Argument summary */}
       <Card style={{marginBottom:14,borderColor:C.danger+"44",background:C.danger+"08"}}>
-        <div style={{fontSize:11,color:C.danger,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Lex is defending:</div>
-        <div style={{fontWeight:600,color:C.text,fontSize:14,marginBottom:4}}>{argument.title}</div>
-        <div style={{fontSize:13,color:C.textSub,lineHeight:1.7}}>{argument.argument.slice(0,300)}…</div>
+        <div style={{fontSize:fz(11),color:C.danger,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Lex is defending:</div>
+        <div style={{fontWeight:600,color:C.text,fontSize:fz(14),marginBottom:4}}>{argument.title}</div>
+        <div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.7}}>{argument.argument.slice(0,300)}…</div>
         <button onClick={()=>setSparMsgs(m=>[...m,{role:"reveal",text:argument.argument}])}
-          style={{marginTop:8,background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer",fontFamily:T.sans}}>
+          style={{marginTop:8,background:"none",border:"none",color:C.accent,fontSize:fz(12),cursor:"pointer",fontFamily:T.sans}}>
           Read full argument
         </button>
       </Card>
@@ -5045,7 +5073,7 @@ Respond ONLY with valid JSON:
       {/* Chat */}
       <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
         {sparMsgs.length===0&&(
-          <div style={{textAlign:"center",padding:"20px",color:C.textMuted,fontSize:14}}>
+          <div style={{textAlign:"center",padding:"20px",color:C.textMuted,fontSize:fz(14)}}>
             <LexSVG pose="excited" size={80} animate={true}/>
             <p style={{marginTop:8}}>I'm ready to defend my position. Make your opening argument — if you can find a flaw in my reasoning, prove it! 🐵</p>
           </div>
@@ -5053,15 +5081,15 @@ Respond ONLY with valid JSON:
         {sparMsgs.map((m,i)=>(
           <div key={i}>
             {m.role==="reveal"&&(
-              <Card style={{fontSize:13,color:C.textSub,lineHeight:1.8,fontFamily:T.serif,borderColor:C.border}}>
-                <div style={{fontSize:11,color:C.textMuted,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Full Argument</div>
+              <Card style={{fontSize:fz(13),color:C.textSub,lineHeight:1.8,fontFamily:T.serif,borderColor:C.border}}>
+                <div style={{fontSize:fz(11),color:C.textMuted,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Full Argument</div>
                 {m.text}
               </Card>
             )}
             {m.role==="student"&&(
               <div style={{display:"flex",justifyContent:"flex-end"}}>
                 <div style={{maxWidth:"80%",background:"linear-gradient(135deg,#4f7fff,#7c9fff)",
-                  borderRadius:"18px 18px 4px 18px",padding:"12px 16px",fontSize:14,color:"white",lineHeight:1.6}}>
+                  borderRadius:"18px 18px 4px 18px",padding:"12px 16px",fontSize:fz(14),color:"white",lineHeight:1.6}}>
                   {m.text}
                 </div>
               </div>
@@ -5071,8 +5099,8 @@ Respond ONLY with valid JSON:
                 <LexSVG pose={m.conceding?"sad":"think"} size={44} animate={false}/>
                 <div style={{maxWidth:"80%",background:m.conceding?C.success+"18":C.danger+"12",
                   border:`1px solid ${m.conceding?C.success:C.danger}33`,
-                  borderRadius:"18px 18px 18px 4px",padding:"12px 16px",fontSize:14,color:C.text,lineHeight:1.6}}>
-                  {m.conceding&&<div style={{fontSize:11,color:C.success,fontWeight:700,marginBottom:4}}>⚑ Lex is wavering…</div>}
+                  borderRadius:"18px 18px 18px 4px",padding:"12px 16px",fontSize:fz(14),color:C.text,lineHeight:1.6}}>
+                  {m.conceding&&<div style={{fontSize:fz(11),color:C.success,fontWeight:700,marginBottom:4}}>⚑ Lex is wavering…</div>}
                   {m.text}
                 </div>
               </div>
@@ -5082,7 +5110,7 @@ Respond ONLY with valid JSON:
         {sparLoading&&(
           <div style={{display:"flex",alignItems:"flex-end",gap:8}}>
             <LexSVG pose="think" size={44} animate={true}/>
-            <div style={{background:C.surfaceHigh,borderRadius:"18px 18px 18px 4px",padding:"12px 16px",color:C.textMuted,fontSize:13}}>
+            <div style={{background:C.surfaceHigh,borderRadius:"18px 18px 18px 4px",padding:"12px 16px",color:C.textMuted,fontSize:fz(13)}}>
               Lex is formulating his response…
             </div>
           </div>
@@ -5098,12 +5126,12 @@ Respond ONLY with valid JSON:
             placeholder="Make your argument… (Enter to send, Shift+Enter for new line)"
             rows={2}
             style={{flex:1,background:C.surfaceHigh,border:`1px solid ${C.border}`,
-              borderRadius:12,padding:"10px 14px",color:C.text,fontSize:14,
+              borderRadius:12,padding:"10px 14px",color:C.text,fontSize:fz(14),
               fontFamily:T.sans,resize:"none",outline:"none"}}/>
           <button onClick={sendSpar} disabled={!sparInput.trim()||sparLoading}
             style={{background:"linear-gradient(135deg,#ef4444,#f87171)",border:"none",
               borderRadius:12,padding:"0 20px",color:"white",cursor:"pointer",
-              fontSize:14,fontWeight:700,opacity:!sparInput.trim()||sparLoading?0.5:1}}>
+              fontSize:fz(14),fontWeight:700,opacity:!sparInput.trim()||sparLoading?0.5:1}}>
             Argue →
           </button>
         </div>
@@ -5120,16 +5148,16 @@ Respond ONLY with valid JSON:
       <div style={{fontSize:48,fontWeight:900,color:feedback.overall_score>=70?C.success:feedback.overall_score>=50?C.gold:C.danger,
         fontFamily:T.serif,marginBottom:8}}>{feedback.overall_score}/100</div>
       <Card style={{textAlign:"left",marginBottom:12}}>
-        <p style={{color:C.textSub,fontSize:14,lineHeight:1.75,margin:0}}>{feedback.summary}</p>
+        <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.75,margin:0}}>{feedback.summary}</p>
       </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
         <Card style={{borderColor:C.success+"44"}}>
-          <div style={{fontSize:11,color:C.success,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Strongest Point</div>
-          <p style={{fontSize:13,color:C.text,margin:0,lineHeight:1.6}}>{feedback.strongest_point}</p>
+          <div style={{fontSize:fz(11),color:C.success,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Strongest Point</div>
+          <p style={{fontSize:fz(13),color:C.text,margin:0,lineHeight:1.6}}>{feedback.strongest_point}</p>
         </Card>
         <Card style={{borderColor:C.gold+"44"}}>
-          <div style={{fontSize:11,color:C.gold,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Missed Opportunity</div>
-          <p style={{fontSize:13,color:C.text,margin:0,lineHeight:1.6}}>{feedback.missed_opportunity}</p>
+          <div style={{fontSize:fz(11),color:C.gold,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Missed Opportunity</div>
+          <p style={{fontSize:fz(13),color:C.text,margin:0,lineHeight:1.6}}>{feedback.missed_opportunity}</p>
         </Card>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
@@ -5142,25 +5170,25 @@ Respond ONLY with valid JSON:
   if(phase==="config")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Flaw Lab ⚖️</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:16,lineHeight:1.7}}>Each session, Lumora generates a fresh, unique flawed legal argument — you'll never see the same argument twice. Identify the flaw, explain the reasoning error, and argue against it.</p>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:16,lineHeight:1.7}}>Each session, Lumora generates a fresh, unique flawed legal argument — you'll never see the same argument twice. Identify the flaw, explain the reasoning error, and argue against it.</p>
       <Card style={{marginBottom:14,background:C.accentSoft,borderColor:C.accent+"44"}}>
-        <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:13}}>How It Works</strong>
-        {["Choose a flaw type — Lumora generates a unique argument in that style","Read the argument carefully — flaws may be subtle","Identify the specific logical flaw(s) by name","Explain precisely why the reasoning fails","Construct your counter-argument with sound logic","Lumora scores flaw identification, argumentation, precision, and writing"].map((s,i)=><div key={i} style={{display:"flex",gap:10,fontSize:13,marginBottom:5}}><span style={{color:C.accent,fontWeight:700,flexShrink:0}}>{i+1}.</span><span style={{color:C.textSub}}>{s}</span></div>)}
+        <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:fz(13)}}>How It Works</strong>
+        {["Choose a flaw type — Lumora generates a unique argument in that style","Read the argument carefully — flaws may be subtle","Identify the specific logical flaw(s) by name","Explain precisely why the reasoning fails","Construct your counter-argument with sound logic","Lumora scores flaw identification, argumentation, precision, and writing"].map((s,i)=><div key={i} style={{display:"flex",gap:10,fontSize:fz(13),marginBottom:5}}><span style={{color:C.accent,fontWeight:700,flexShrink:0}}>{i+1}.</span><span style={{color:C.textSub}}>{s}</span></div>)}
       </Card>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Choose a Flaw Type</div>
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Choose a Flaw Type</div>
         {FLAW_SEEDS.map((s,i)=>(
           <div key={s.style} onClick={()=>setSeedIdx(i)} role="radio" aria-checked={seedIdx===i} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter")setSeedIdx(i);}}
             style={{padding:"14px 16px",borderRadius:12,border:`1.5px solid ${seedIdx===i?C.accent:C.border}`,background:seedIdx===i?C.accentSoft:"transparent",cursor:"pointer",marginBottom:10,transition:"all 0.15s"}}>
-            <div style={{fontWeight:600,fontSize:14,color:seedIdx===i?C.text:C.textSub,marginBottom:3}}>{s.style}</div>
-            <div style={{fontSize:13,color:C.textMuted,lineHeight:1.5}}>{s.description}</div>
+            <div style={{fontWeight:600,fontSize:fz(14),color:seedIdx===i?C.text:C.textSub,marginBottom:3}}>{s.style}</div>
+            <div style={{fontSize:fz(13),color:C.textMuted,lineHeight:1.5}}>{s.description}</div>
           </div>
         ))}
       </Card>
       <Card style={{marginBottom:18}}>
         <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>setTimed(v=>!v)} role="checkbox" aria-checked={timed} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setTimed(v=>!v);}}>
           <div style={{width:40,height:22,borderRadius:11,background:timed?C.accent:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:16,height:16,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:timed?21:3,transition:"left 0.2s"}}/></div>
-          <div><div style={{fontWeight:600,fontSize:14,color:C.text}}>Timed Mode (20 minutes)</div><div style={{fontSize:12,color:C.textMuted}}>Auto-submits when time runs out.</div></div>
+          <div><div style={{fontWeight:600,fontSize:fz(14),color:C.text}}>Timed Mode (20 minutes)</div><div style={{fontSize:fz(12),color:C.textMuted}}>Auto-submits when time runs out.</div></div>
         </div>
       </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
@@ -5170,14 +5198,14 @@ Respond ONLY with valid JSON:
       <Btn onClick={async()=>{setSparMode(true);setPhase("loading");await generateArgument();setPhase("spar");}} style={{width:"100%",padding:15,background:"linear-gradient(135deg,#b91c1c,#ef4444)"}}>
         🥊 Spar with Lex — Argue Against Him Directly
       </Btn>
-      <p style={{color:C.textMuted,fontSize:12,textAlign:"center",marginTop:8,lineHeight:1.6}}>Lex will defend the flawed argument. Your job: tear it apart. He'll push back.</p>
+      <p style={{color:C.textMuted,fontSize:fz(12),textAlign:"center",marginTop:8,lineHeight:1.6}}>Lex will defend the flawed argument. Your job: tear it apart. He'll push back.</p>
     </main>
   );
 
   if(phase==="loading")return(
     <main style={{maxWidth:580,margin:"0 auto",padding:"32px 20px",textAlign:"center"}}>
       <Spinner label="Lumora is crafting a unique flawed argument…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>This takes about 10 seconds. Each argument is completely unique to you.</p>
+      <p style={{color:C.textMuted,fontSize:fz(13),marginTop:8}}>This takes about 10 seconds. Each argument is completely unique to you.</p>
     </main>
   );
 
@@ -5187,13 +5215,13 @@ Respond ONLY with valid JSON:
       {argument&&<>
         <div style={{marginBottom:16}}><Tag color={C.purple}>Flaw Lab</Tag><Tag color={C.danger}>{seed.style}</Tag>
           <h2 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginTop:10,marginBottom:4}}>{argument.title}</h2>
-          <p style={{color:C.textMuted,fontSize:13}}>{argument.context}</p>
+          <p style={{color:C.textMuted,fontSize:fz(13)}}>{argument.context}</p>
         </div>
         <Card style={{marginBottom:16}}>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>The Argument</div>
-          <div style={{fontSize:15,color:"#c8d4e8",lineHeight:1.9,whiteSpace:"pre-wrap",fontFamily:T.serif}}>{argument.argument}</div>
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>The Argument</div>
+          <div style={{fontSize:fz(15),color:"#c8d4e8",lineHeight:1.9,whiteSpace:"pre-wrap",fontFamily:T.serif}}>{argument.argument}</div>
         </Card>
-        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:C.textSub,lineHeight:1.7}}>
+        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:fz(13),color:C.textSub,lineHeight:1.7}}>
           <strong style={{color:C.gold}}>Your task:</strong> Identify the logical flaw(s), explain precisely why the reasoning fails, and argue against it. Be specific — precision is scored.
         </div>
         <Btn onClick={startWriting} style={{width:"100%",padding:15}}>I've Read It — Start Writing →</Btn>
@@ -5209,18 +5237,18 @@ Respond ONLY with valid JSON:
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <Tag color={C.purple}>Flaw Lab — Writing</Tag>
             {timed&&<div style={{fontFamily:T.serif,fontSize:20,color:danger?C.danger:C.text,fontWeight:700}} aria-live="polite">{fmt(timeLeft)}</div>}
-            <span style={{color:C.textMuted,fontSize:13}}>{wc} words</span>
+            <span style={{color:C.textMuted,fontSize:fz(13)}}>{wc} words</span>
           </div>
           <Btn onClick={doSubmit} small style={{background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>Submit ✓</Btn>
         </div>
         <Card style={{marginBottom:12,padding:"14px 18px"}}>
-          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>{argument?.title}</div>
-          <div style={{fontSize:13,color:C.textMuted,fontStyle:"italic"}}>{seed.style} flaw</div>
+          <div style={{fontSize:fz(13),fontWeight:600,color:C.text,marginBottom:6}}>{argument?.title}</div>
+          <div style={{fontSize:fz(13),color:C.textMuted,fontStyle:"italic"}}>{seed.style} flaw</div>
         </Card>
         <textarea value={response} onChange={e=>setResponse(e.target.value)} aria-label="Your flaw identification and counter-argument"
           placeholder={"Identify the logical flaw(s) in this argument.\n\nExplain precisely why the reasoning is invalid.\n\nConstruct your counter-argument.\n\nAim for 300–500 words. Precision scores higher than length."}
-          style={{width:"100%",minHeight:420,background:C.surface,border:`1.5px solid ${danger?C.danger:C.border}`,borderRadius:14,padding:"20px 22px",color:C.text,fontSize:15,fontFamily:T.sans,resize:"vertical",lineHeight:1.85,outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:12,color:C.textMuted}}>
+          style={{width:"100%",minHeight:420,background:C.surface,border:`1.5px solid ${danger?C.danger:C.border}`,borderRadius:14,padding:"20px 22px",color:C.text,fontSize:fz(15),fontFamily:T.sans,resize:"vertical",lineHeight:1.85,outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:fz(12),color:C.textMuted}}>
           <span>{wc} words · Aim for 300–500</span>
           {timed&&<span style={{color:danger?C.danger:C.textMuted}}>{danger?"⚠ ":""}{fmt(timeLeft)} remaining</span>}
         </div>
@@ -5237,23 +5265,23 @@ Respond ONLY with valid JSON:
         <Card style={{marginBottom:14,padding:"24px"}}>
           <div style={{display:"flex",alignItems:"center",gap:24,flexWrap:"wrap"}}>
             <Arc pct={feedback.overall_score} size={110} color={sc(feedback.overall_score)} label={`Score: ${feedback.overall_score}%`}/>
-            <div style={{flex:1}}><div style={{fontSize:30,fontWeight:900,color:C.text,fontFamily:T.serif,marginBottom:4}}>{feedback.grade}</div><div style={{fontSize:14,color:C.textSub,lineHeight:1.7}}>{feedback.summary}</div></div>
+            <div style={{flex:1}}><div style={{fontSize:30,fontWeight:900,color:C.text,fontFamily:T.serif,marginBottom:4}}>{feedback.grade}</div><div style={{fontSize:fz(14),color:C.textSub,lineHeight:1.7}}>{feedback.summary}</div></div>
           </div>
         </Card>
         {feedback.flaws_in_argument?.length>0&&<Card style={{marginBottom:14,borderColor:C.danger+"44"}}>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.danger,marginBottom:12}}>Actual Flaws in the Argument</div>
-          {feedback.flaws_in_argument.map((f,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:14,color:C.textSub}}><span style={{color:C.danger,fontWeight:700,flexShrink:0}}>{i+1}.</span>{f}</div>)}
-          <div style={{marginTop:10,padding:"8px 12px",background:(feedback.student_identified_correctly?C.success:C.danger)+"15",borderRadius:8,fontSize:13,color:feedback.student_identified_correctly?C.success:C.danger,fontWeight:600}}>
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.danger,marginBottom:12}}>Actual Flaws in the Argument</div>
+          {feedback.flaws_in_argument.map((f,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:fz(14),color:C.textSub}}><span style={{color:C.danger,fontWeight:700,flexShrink:0}}>{i+1}.</span>{f}</div>)}
+          <div style={{marginTop:10,padding:"8px 12px",background:(feedback.student_identified_correctly?C.success:C.danger)+"15",borderRadius:8,fontSize:fz(13),color:feedback.student_identified_correctly?C.success:C.danger,fontWeight:600}}>
             {feedback.student_identified_correctly?"✓ You correctly identified the core flaw.":"✗ Your identification missed or mischaracterized the key flaw."}
           </div>
         </Card>}
         <Card style={{marginBottom:14}}>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:16}}>Score Breakdown</div>
-          {feedback.scores&&Object.entries(feedback.scores).map(([key,val])=>{const pct=Math.round(val.score/val.max*100);const labels={flaw_identification:"Flaw Identification",argumentation:"Argumentation",precision:"Precision & Accuracy",writing:"Writing Quality"};return(<div key={key} style={{marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13}}><span style={{color:C.text,fontWeight:600}}>{labels[key]||key}</span><span style={{color:sc(pct),fontWeight:700}}>{val.score}/{val.max}</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7,marginBottom:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.6s"}}/></div><div style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{val.comment}</div></div>);})}
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:16}}>Score Breakdown</div>
+          {feedback.scores&&Object.entries(feedback.scores).map(([key,val])=>{const pct=Math.round(val.score/val.max*100);const labels={flaw_identification:"Flaw Identification",argumentation:"Argumentation",precision:"Precision & Accuracy",writing:"Writing Quality"};return(<div key={key} style={{marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:fz(13)}}><span style={{color:C.text,fontWeight:600}}>{labels[key]||key}</span><span style={{color:sc(pct),fontWeight:700}}>{val.score}/{val.max}</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7,marginBottom:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.6s"}}/></div><div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>{val.comment}</div></div>);})}
         </Card>
-        {feedback.strengths?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.success,marginBottom:12}}>What You Did Well</div>{feedback.strengths.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:14,color:C.textSub}}><span style={{color:C.success}}>✓</span>{s}</div>)}</Card>}
-        {feedback.improvements?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12}}>How to Improve</div>{feedback.improvements.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:14,color:C.textSub}}><span style={{color:C.gold}}>→</span>{s}</div>)}</Card>}
-        {feedback.model_response&&<Card style={{marginBottom:14,borderColor:C.accent+"44"}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:10}}>Model Response — How a Top Answer Opens</div><p style={{color:C.text,fontSize:14,lineHeight:1.85,fontStyle:"italic"}}>{feedback.model_response}</p></Card>}
+        {feedback.strengths?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.success,marginBottom:12}}>What You Did Well</div>{feedback.strengths.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:fz(14),color:C.textSub}}><span style={{color:C.success}}>✓</span>{s}</div>)}</Card>}
+        {feedback.improvements?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12}}>How to Improve</div>{feedback.improvements.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:fz(14),color:C.textSub}}><span style={{color:C.gold}}>→</span>{s}</div>)}</Card>}
+        {feedback.model_response&&<Card style={{marginBottom:14,borderColor:C.accent+"44"}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:10}}>Model Response — How a Top Answer Opens</div><p style={{color:C.text,fontSize:fz(14),lineHeight:1.85,fontStyle:"italic"}}>{feedback.model_response}</p></Card>}
         <Btn onClick={()=>{setPhase("config");setFeedback(null);setArgument(null);setError(null);}} style={{width:"100%"}}>Try Another →</Btn>
       </div>}
     </main>
@@ -5344,28 +5372,28 @@ Respond ONLY with valid JSON:
   if(phase==="config")return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Argumentative Writing</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:16}}>Choose a topic theme — Lumora generates a completely fresh, unique prompt every session. Infinite practice, never the same twice.</p>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:16}}>Choose a topic theme — Lumora generates a completely fresh, unique prompt every session. Infinite practice, never the same twice.</p>
       <Card style={{marginBottom:14,background:C.accentSoft,borderColor:C.accent+"44"}}>
-        <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:13}}>2026 LSAC Format</strong>
-        <p style={{fontSize:13,color:C.textSub,lineHeight:1.8,margin:"0 0 12px"}}>A debatable issue + key question + 4 perspectives. Take your own position and engage with the perspectives. No single correct answer.</p>
+        <strong style={{color:C.text,display:"block",marginBottom:8,fontSize:fz(13)}}>2026 LSAC Format</strong>
+        <p style={{fontSize:fz(13),color:C.textSub,lineHeight:1.8,margin:"0 0 12px"}}>A debatable issue + key question + 4 perspectives. Take your own position and engage with the perspectives. No single correct answer.</p>
         <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
-          {[["15 min","Prewriting",C.gold],["35 min","Essay",C.accent],["50 min","Total",C.text]].map(([t,l,c])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:c}}>{t}</div><div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div></div>)}
+          {[["15 min","Prewriting",C.gold],["35 min","Essay",C.accent],["50 min","Total",C.text]].map(([t,l,c])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:c}}>{t}</div><div style={{fontSize:fz(11),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div></div>)}
         </div>
       </Card>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Choose a Topic Theme</div>
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Choose a Topic Theme</div>
         {WRITING_SEEDS.map((s,i)=>(
           <div key={s.topic} onClick={()=>setSeedIdx(i)} role="radio" aria-checked={seedIdx===i} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter")setSeedIdx(i);}}
             style={{padding:"14px 16px",borderRadius:12,border:`1.5px solid ${seedIdx===i?C.accent:C.border}`,background:seedIdx===i?C.accentSoft:"transparent",cursor:"pointer",marginBottom:10,transition:"all 0.15s"}}>
-            <div style={{fontWeight:600,fontSize:14,color:seedIdx===i?C.text:C.textSub,marginBottom:3}}>{s.topic}</div>
-            <div style={{fontSize:13,color:C.textMuted,lineHeight:1.5}}>{s.keyQuestion}</div>
+            <div style={{fontWeight:600,fontSize:fz(14),color:seedIdx===i?C.text:C.textSub,marginBottom:3}}>{s.topic}</div>
+            <div style={{fontSize:fz(13),color:C.textMuted,lineHeight:1.5}}>{s.keyQuestion}</div>
           </div>
         ))}
       </Card>
       <Card style={{marginBottom:18}}>
         <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>setTimed(v=>!v)} role="checkbox" aria-checked={timed} tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")setTimed(v=>!v);}}>
           <div style={{width:40,height:22,borderRadius:11,background:timed?C.accent:C.surfaceHigh,position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:16,height:16,background:"#fff",borderRadius:"50%",position:"absolute",top:3,left:timed?21:3,transition:"left 0.2s"}}/></div>
-          <div><div style={{fontWeight:600,fontSize:14,color:C.text}}>Timed Mode (50 min total)</div><div style={{fontSize:12,color:C.textMuted}}>15 min prewriting auto-advances to 35 min essay.</div></div>
+          <div><div style={{fontWeight:600,fontSize:fz(14),color:C.text}}>Timed Mode (50 min total)</div><div style={{fontSize:fz(12),color:C.textMuted}}>15 min prewriting auto-advances to 35 min essay.</div></div>
         </div>
       </Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -5378,7 +5406,7 @@ Respond ONLY with valid JSON:
   if(phase==="generating")return(
     <main style={{maxWidth:580,margin:"0 auto",padding:"32px 20px",textAlign:"center"}}>
       <Spinner label="Lumora is crafting your writing prompt…"/>
-      <p style={{color:C.textMuted,fontSize:13,marginTop:8}}>About 10 seconds. Every prompt is completely original.</p>
+      <p style={{color:C.textMuted,fontSize:fz(13),marginTop:8}}>About 10 seconds. Every prompt is completely original.</p>
     </main>
   );
 
@@ -5386,11 +5414,11 @@ Respond ONLY with valid JSON:
     return(
       <main style={{maxWidth:700,margin:"0 auto",padding:"32px 20px"}}>
         <Card style={{marginBottom:16,background:C.accentSoft,borderColor:C.accent+"44"}}>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:6,fontWeight:700}}>Your Prompt</div>
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:6,fontWeight:700}}>Your Prompt</div>
           <h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,marginBottom:8}}>{prompt.topic}</h2>
-          <p style={{fontSize:13,color:C.textSub,lineHeight:1.7,marginBottom:12}}>{prompt.context}</p>
-          <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>Key Question:</div>
-          <p style={{fontSize:15,color:C.text,fontStyle:"italic",lineHeight:1.6,paddingLeft:12,borderLeft:`3px solid ${C.accent}`}}>{prompt.keyQuestion}</p>
+          <p style={{fontSize:fz(13),color:C.textSub,lineHeight:1.7,marginBottom:12}}>{prompt.context}</p>
+          <div style={{fontSize:fz(13),fontWeight:700,color:C.text,marginBottom:6}}>Key Question:</div>
+          <p style={{fontSize:fz(15),color:C.text,fontStyle:"italic",lineHeight:1.6,paddingLeft:12,borderLeft:`3px solid ${C.accent}`}}>{prompt.keyQuestion}</p>
         </Card>
         <Btn onClick={startPre} style={{width:"100%",padding:15}}>Begin Prewriting Phase →</Btn>
       </main>
@@ -5404,23 +5432,23 @@ Respond ONLY with valid JSON:
       <main style={{maxWidth:760,margin:"0 auto",padding:"20px 20px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{background:C.goldSoft,border:`1px solid ${C.gold}44`,borderRadius:8,padding:"4px 12px",fontSize:12,color:C.gold,fontWeight:700,textTransform:"uppercase"}}>Phase 1 — Prewriting</div>
+            <div style={{background:C.goldSoft,border:`1px solid ${C.gold}44`,borderRadius:8,padding:"4px 12px",fontSize:fz(12),color:C.gold,fontWeight:700,textTransform:"uppercase"}}>Phase 1 — Prewriting</div>
             {timed&&<div style={{fontFamily:T.serif,fontSize:20,color:danger?C.danger:C.gold,fontWeight:700}} aria-live="polite">{fmt(timeLeft)}</div>}
           </div>
           {canAdv&&<Btn onClick={goEssay} small>Begin Essay Phase →</Btn>}
         </div>
         <Card style={{marginBottom:14}}>
-          <div style={{fontSize:12,color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Key Question</div>
-          <div style={{fontSize:15,color:C.text,fontStyle:"italic",lineHeight:1.6,marginBottom:14,paddingLeft:12,borderLeft:`3px solid ${C.accent}`}}>{prompt?.keyQuestion}</div>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:10}}>Perspectives</div>
-          {prompt?.perspectives?.map((p,i)=><div key={i} style={{background:C.surfaceHigh,borderRadius:10,padding:"12px 14px",border:`1px solid ${C.border}`,marginBottom:9}}><div style={{fontWeight:700,fontSize:12,color:[C.accent,C.purple,C.gold,C.success][i],marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>P{i+1} — {p.label}</div><div style={{fontSize:13,color:C.textSub,lineHeight:1.7}}>{p.text}</div></div>)}
+          <div style={{fontSize:fz(12),color:C.accent,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Key Question</div>
+          <div style={{fontSize:fz(15),color:C.text,fontStyle:"italic",lineHeight:1.6,marginBottom:14,paddingLeft:12,borderLeft:`3px solid ${C.accent}`}}>{prompt?.keyQuestion}</div>
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:10}}>Perspectives</div>
+          {prompt?.perspectives?.map((p,i)=><div key={i} style={{background:C.surfaceHigh,borderRadius:10,padding:"12px 14px",border:`1px solid ${C.border}`,marginBottom:9}}><div style={{fontWeight:700,fontSize:fz(12),color:[C.accent,C.purple,C.gold,C.success][i],marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>P{i+1} — {p.label}</div><div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.7}}>{p.text}</div></div>)}
         </Card>
         <Card style={{marginBottom:14}}>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Guided Prewriting</div>
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>Guided Prewriting</div>
           {[{k:"position",label:"What position will you argue?",ph:"I will argue that…"},{k:"strongest",label:"Which perspective best supports you?",ph:"Perspective ___ supports me because…"},{k:"weakest",label:"Which perspective most challenges you?",ph:"Perspective ___ challenges me because… However…"},{k:"counter",label:"Strongest objection to your argument?",ph:"Someone might argue… but this overlooks…"}].map(q=>(
-            <div key={q.k} style={{marginBottom:14}}><label htmlFor={`pre-${q.k}`} style={{fontSize:13,color:C.text,fontWeight:600,display:"block",marginBottom:6}}>{q.label}</label><textarea id={`pre-${q.k}`} value={pre[q.k]} onChange={e=>setPre(a=>({...a,[q.k]:e.target.value}))} placeholder={q.ph} rows={2} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",color:C.text,fontSize:13,fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",lineHeight:1.6,outline:"none"}}/></div>
+            <div key={q.k} style={{marginBottom:14}}><label htmlFor={`pre-${q.k}`} style={{fontSize:fz(13),color:C.text,fontWeight:600,display:"block",marginBottom:6}}>{q.label}</label><textarea id={`pre-${q.k}`} value={pre[q.k]} onChange={e=>setPre(a=>({...a,[q.k]:e.target.value}))} placeholder={q.ph} rows={2} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",color:C.text,fontSize:fz(13),fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",lineHeight:1.6,outline:"none"}}/></div>
           ))}
-          <textarea value={preNotes} onChange={e=>setPreNotes(e.target.value)} rows={3} placeholder="Additional notes / outline…" style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",color:C.text,fontSize:13,fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",lineHeight:1.6,outline:"none"}}/>
+          <textarea value={preNotes} onChange={e=>setPreNotes(e.target.value)} rows={3} placeholder="Additional notes / outline…" style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",color:C.text,fontSize:fz(13),fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",lineHeight:1.6,outline:"none"}}/>
         </Card>
       </main>
     );
@@ -5432,17 +5460,17 @@ Respond ONLY with valid JSON:
       <main style={{maxWidth:760,margin:"0 auto",padding:"20px 20px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:8,padding:"4px 12px",fontSize:12,color:C.accent,fontWeight:700,textTransform:"uppercase"}}>Phase 2 — Essay</div>
+            <div style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:8,padding:"4px 12px",fontSize:fz(12),color:C.accent,fontWeight:700,textTransform:"uppercase"}}>Phase 2 — Essay</div>
             {timed&&<div style={{fontFamily:T.serif,fontSize:20,color:danger?C.danger:C.text,fontWeight:700}} aria-live="polite">{fmt(timeLeft)}</div>}
-            <span style={{color:C.textMuted,fontSize:13}}>{wc} words</span>
+            <span style={{color:C.textMuted,fontSize:fz(13)}}>{wc} words</span>
           </div>
           <Btn onClick={doSubmit} small style={{background:"linear-gradient(135deg,#16a34a,#4ade80)"}}>Submit for Feedback ✓</Btn>
         </div>
-        {pre.position&&<Card style={{marginBottom:12,padding:"12px 16px",background:C.goldSoft,borderColor:C.gold+"33"}}><div style={{fontSize:11,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,fontWeight:700}}>Your prewriting position</div><div style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{pre.position}</div></Card>}
+        {pre.position&&<Card style={{marginBottom:12,padding:"12px 16px",background:C.goldSoft,borderColor:C.gold+"33"}}><div style={{fontSize:fz(11),color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,fontWeight:700}}>Your prewriting position</div><div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>{pre.position}</div></Card>}
         <textarea value={essay} onChange={e=>setEssay(e.target.value)} aria-label="Your essay"
           placeholder={"Begin your essay here.\n\nState your position clearly, answer the key question directly, engage with the perspectives, and build a well-reasoned argument.\n\nAim for 400–600 words."}
-          style={{width:"100%",minHeight:440,background:C.surface,border:`1.5px solid ${danger?C.danger:C.border}`,borderRadius:14,padding:"20px 22px",color:C.text,fontSize:15,fontFamily:T.sans,resize:"vertical",lineHeight:1.9,outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:12,color:C.textMuted}}><span>{wc} words · Aim for 400–600</span>{timed&&<span style={{color:danger?C.danger:C.textMuted}}>{danger?"⚠ ":""}{fmt(timeLeft)} remaining</span>}</div>
+          style={{width:"100%",minHeight:440,background:C.surface,border:`1.5px solid ${danger?C.danger:C.border}`,borderRadius:14,padding:"20px 22px",color:C.text,fontSize:fz(15),fontFamily:T.sans,resize:"vertical",lineHeight:1.9,outline:"none",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:fz(12),color:C.textMuted}}><span>{wc} words · Aim for 400–600</span>{timed&&<span style={{color:danger?C.danger:C.textMuted}}>{danger?"⚠ ":""}{fmt(timeLeft)} remaining</span>}</div>
       </main>
     );
   }
@@ -5456,16 +5484,16 @@ Respond ONLY with valid JSON:
         <Card style={{marginBottom:14,padding:"24px"}}>
           <div style={{display:"flex",alignItems:"center",gap:24,flexWrap:"wrap"}}>
             <Arc pct={feedback.overall_score} size={110} color={sc(feedback.overall_score)} label={`Score: ${feedback.overall_score}%`}/>
-            <div style={{flex:1}}><div style={{fontSize:30,fontWeight:900,color:C.text,fontFamily:T.serif,marginBottom:4}}>{feedback.grade}</div>{feedback.thesis_position&&<div style={{fontSize:13,color:C.textSub,fontStyle:"italic",lineHeight:1.6,marginBottom:8}}>"{feedback.thesis_position}"</div>}<div style={{fontSize:14,color:C.textSub,lineHeight:1.7}}>{feedback.summary}</div></div>
+            <div style={{flex:1}}><div style={{fontSize:30,fontWeight:900,color:C.text,fontFamily:T.serif,marginBottom:4}}>{feedback.grade}</div>{feedback.thesis_position&&<div style={{fontSize:fz(13),color:C.textSub,fontStyle:"italic",lineHeight:1.6,marginBottom:8}}>"{feedback.thesis_position}"</div>}<div style={{fontSize:fz(14),color:C.textSub,lineHeight:1.7}}>{feedback.summary}</div></div>
           </div>
         </Card>
         <Card style={{marginBottom:14}}>
-          <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:16}}>Rubric Breakdown</div>
-          {feedback.scores&&Object.entries(feedback.scores).map(([key,val])=>{const pct=Math.round(val.score/val.max*100);const labels={thesis:"Thesis & Position",perspectives:"Perspective Engagement",argumentation:"Argumentation",counterargument:"Counterargument",mechanics:"Organization & Mechanics"};return(<div key={key} style={{marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:13}}><span style={{color:C.text,fontWeight:600}}>{labels[key]||key}</span><span style={{color:sc(pct),fontWeight:700}}>{val.score}/{val.max}</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7,marginBottom:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.6s"}}/></div><div style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{val.comment}</div></div>);})}
+          <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:16}}>Rubric Breakdown</div>
+          {feedback.scores&&Object.entries(feedback.scores).map(([key,val])=>{const pct=Math.round(val.score/val.max*100);const labels={thesis:"Thesis & Position",perspectives:"Perspective Engagement",argumentation:"Argumentation",counterargument:"Counterargument",mechanics:"Organization & Mechanics"};return(<div key={key} style={{marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:fz(13)}}><span style={{color:C.text,fontWeight:600}}>{labels[key]||key}</span><span style={{color:sc(pct),fontWeight:700}}>{val.score}/{val.max}</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7,marginBottom:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.6s"}}/></div><div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>{val.comment}</div></div>);})}
         </Card>
-        {feedback.strengths?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.success,marginBottom:12}}>What You Did Well</div>{feedback.strengths.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:14,color:C.textSub}}><span style={{color:C.success}}>✓</span>{s}</div>)}</Card>}
-        {feedback.improvements?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12}}>How to Improve</div>{feedback.improvements.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:14,color:C.textSub}}><span style={{color:C.gold}}>→</span>{s}</div>)}</Card>}
-        {feedback.rewritten_intro&&<Card style={{marginBottom:14,borderColor:C.accent+"44"}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:10}}>Stronger Opening</div><p style={{color:C.text,fontSize:14,lineHeight:1.85,fontStyle:"italic"}}>{feedback.rewritten_intro}</p></Card>}
+        {feedback.strengths?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.success,marginBottom:12}}>What You Did Well</div>{feedback.strengths.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:fz(14),color:C.textSub}}><span style={{color:C.success}}>✓</span>{s}</div>)}</Card>}
+        {feedback.improvements?.length>0&&<Card style={{marginBottom:14}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:12}}>How to Improve</div>{feedback.improvements.map((s,i)=><div key={i} style={{display:"flex",gap:10,marginBottom:9,fontSize:fz(14),color:C.textSub}}><span style={{color:C.gold}}>→</span>{s}</div>)}</Card>}
+        {feedback.rewritten_intro&&<Card style={{marginBottom:14,borderColor:C.accent+"44"}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:10}}>Stronger Opening</div><p style={{color:C.text,fontSize:fz(14),lineHeight:1.85,fontStyle:"italic"}}>{feedback.rewritten_intro}</p></Card>}
         <Btn onClick={()=>{setPhaseSync("config");setFeedback(null);setPrompt(null);}} style={{width:"100%"}}>Try Another Prompt →</Btn>
       </div>}
     </main>
@@ -5554,10 +5582,10 @@ function FullSection({user,onUpdateUser,requirePro}){
   if(phase==="config")return(
     <main style={{maxWidth:620,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Full Section</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:24}}>35 minutes · 25 Lumora-generated questions · Level 1→4 ramp. The first question appears immediately — the rest generate in the background as you work.</p>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:24}}>35 minutes · 25 Lumora-generated questions · Level 1→4 ramp. The first question appears immediately — the rest generate in the background as you work.</p>
       <ErrBanner message={genError} onDismiss={()=>setGenError(null)}/>
-      <Card style={{marginBottom:16}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Choose Section</div><div style={{display:"flex",flexDirection:"column",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={sel===s} onClick={()=>setSel(s)}>{s}</Pill>)}</div></Card>
-      <Card style={{marginBottom:18,background:C.accentSoft,borderColor:C.accent+"44"}}><div style={{display:"flex",gap:20,flexWrap:"wrap",fontSize:14,color:C.textSub}}><span>⏱ <strong style={{color:C.text}}>35 min</strong></span><span>📝 <strong style={{color:C.text}}>25 questions</strong></span><span>📈 <strong style={{color:C.text}}>Levels 1→4</strong></span><span>⚡ <strong style={{color:C.text}}>Instant start</strong></span></div></Card>
+      <Card style={{marginBottom:16}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Choose Section</div><div style={{display:"flex",flexDirection:"column",gap:9}}>{SECTIONS.map(s=><Pill key={s} active={sel===s} onClick={()=>setSel(s)}>{s}</Pill>)}</div></Card>
+      <Card style={{marginBottom:18,background:C.accentSoft,borderColor:C.accent+"44"}}><div style={{display:"flex",gap:20,flexWrap:"wrap",fontSize:fz(14),color:C.textSub}}><span>⏱ <strong style={{color:C.text}}>35 min</strong></span><span>📝 <strong style={{color:C.text}}>25 questions</strong></span><span>📈 <strong style={{color:C.text}}>Levels 1→4</strong></span><span>⚡ <strong style={{color:C.text}}>Instant start</strong></span></div></Card>
       <Btn onClick={()=>{if(requirePro&&!requirePro("fullsection"))return;startSection();}} style={{width:"100%",padding:15}}>Start Section →</Btn>
     </main>
   );
@@ -5565,7 +5593,7 @@ function FullSection({user,onUpdateUser,requirePro}){
   if(phase==="loading")return(
     <main style={{maxWidth:580,margin:"0 auto",padding:"32px 20px",textAlign:"center"}}>
       <Spinner label="Generating your first question…"/>
-      <p style={{color:C.textMuted,fontSize:14,marginTop:8}}>You'll start immediately. Questions generate in the background as you work.</p>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginTop:8}}>You'll start immediately. Questions generate in the background as you work.</p>
     </main>
   );
 
@@ -5574,8 +5602,8 @@ function FullSection({user,onUpdateUser,requirePro}){
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
         <div style={{fontFamily:T.serif,fontSize:22,color:danger?C.danger:C.text,fontWeight:700,minWidth:60}} aria-live="polite">{fmt(timeLeft)}</div>
         <div style={{flex:1,background:C.surfaceHigh,borderRadius:4,height:6,overflow:"hidden"}}><div style={{height:"100%",width:`${qIdx/SECTION_Q_COUNT*100}%`,background:C.accent,borderRadius:4,transition:"width 0.3s"}}/></div>
-        <span style={{color:C.textMuted,fontSize:13}}>{qIdx+1}/{questions.length||"…"}</span>
-        {genCount<SECTION_Q_COUNT&&<span style={{fontSize:11,color:C.textMuted,background:C.surfaceHigh,padding:"2px 8px",borderRadius:8}}>⚡ {genCount}/{SECTION_Q_COUNT}</span>}
+        <span style={{color:C.textMuted,fontSize:fz(13)}}>{qIdx+1}/{questions.length||"…"}</span>
+        {genCount<SECTION_Q_COUNT&&<span style={{fontSize:fz(11),color:C.textMuted,background:C.surfaceHigh,padding:"2px 8px",borderRadius:8}}>⚡ {genCount}/{SECTION_Q_COUNT}</span>}
         <Btn ghost onClick={finish} small>Submit</Btn>
       </div>
       <div style={{display:"flex",gap:3,marginBottom:14,flexWrap:"wrap"}}>
@@ -5583,14 +5611,14 @@ function FullSection({user,onUpdateUser,requirePro}){
           const exists=i<questions.length;
           const answered=answers[i]!==undefined;
           return<button key={i} onClick={()=>exists&&goToQ(i)} aria-label={`Q${i+1}`} disabled={!exists}
-            style={{width:24,height:24,borderRadius:5,border:"1px solid",cursor:exists?"pointer":"not-allowed",fontSize:10,fontWeight:600,outline:"none",opacity:exists?1:0.3,borderColor:i===qIdx?C.accent:answered?C.success+"66":exists?C.border:"#333",background:i===qIdx?C.accentSoft:answered?C.success+"11":"transparent",color:i===qIdx?C.accent:answered?C.success:C.textMuted}}>{i+1}</button>;
+            style={{width:24,height:24,borderRadius:5,border:"1px solid",cursor:exists?"pointer":"not-allowed",fontSize:fz(10),fontWeight:600,outline:"none",opacity:exists?1:0.3,borderColor:i===qIdx?C.accent:answered?C.success+"66":exists?C.border:"#333",background:i===qIdx?C.accentSoft:answered?C.success+"11":"transparent",color:i===qIdx?C.accent:answered?C.success:C.textMuted}}>{i+1}</button>;
         })}
       </div>
       <Card style={{marginBottom:12}}>
         <div style={{marginBottom:10}}><Tag color={LEVEL_COLORS[q.assignedLevel]}>Level {q.assignedLevel}</Tag><Tag color={C.accent}>{q.qType}</Tag></div>
-        <p style={{lineHeight:1.85,fontSize:15,color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
-        <p style={{fontWeight:600,fontSize:15,color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{q.question}</p>
-        <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} onClick={()=>setAnswers(a=>({...a,[qIdx]:l}))} role="radio" aria-checked={answers[qIdx]===l} style={{display:"block",width:"100%",textAlign:"left",border:`1.5px solid ${answers[qIdx]===l?C.accent:C.border}`,borderRadius:12,padding:"12px 18px",cursor:"pointer",fontSize:14,marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.55,boxSizing:"border-box",background:answers[qIdx]===l?C.accentSoft:"transparent",color:answers[qIdx]===l?C.text:C.textSub,outline:"none"}}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
+        <p style={{lineHeight:1.85,fontSize:fz(15),color:"#c8d4e8",marginBottom:18,whiteSpace:"pre-wrap"}}>{q.stimulus}</p>
+        <p style={{fontWeight:600,fontSize:fz(15),color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:16,marginBottom:16}}>{q.question}</p>
+        <div role="radiogroup">{Object.entries(q.choices).map(([l,t])=><button key={l} onClick={()=>setAnswers(a=>({...a,[qIdx]:l}))} role="radio" aria-checked={answers[qIdx]===l} style={{display:"block",width:"100%",textAlign:"left",border:`1.5px solid ${answers[qIdx]===l?C.accent:C.border}`,borderRadius:12,padding:"12px 18px",cursor:"pointer",fontSize:fz(14),marginBottom:10,transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.55,boxSizing:"border-box",background:answers[qIdx]===l?C.accentSoft:"transparent",color:answers[qIdx]===l?C.text:C.textSub,outline:"none"}}><span style={{fontWeight:700,marginRight:10}}>{l}.</span>{t}</button>)}</div>
       </Card>
       <div style={{display:"flex",gap:10}}>
         {qIdx>0&&<Btn ghost onClick={()=>goToQ(qIdx-1)}>← Prev</Btn>}
@@ -5602,10 +5630,10 @@ function FullSection({user,onUpdateUser,requirePro}){
   if(phase==="review"&&results)return(
     <main style={{maxWidth:640,margin:"0 auto",padding:"32px 20px"}}>
       <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:22}}>Section Complete</h2>
-      <Card style={{marginBottom:14,textAlign:"center",padding:28}}><Arc pct={results.pct} size={120} color={results.pct>=70?C.success:results.pct>=50?C.gold:C.danger} label={`Score: ${results.pct}%`}/><div style={{marginTop:14,fontSize:17,fontWeight:700,color:C.text}}>{results.correct}/{results.total} correct</div><div style={{fontSize:13,color:C.textMuted,marginTop:3}}>Time: {fmt(results.timeUsed)}</div></Card>
+      <Card style={{marginBottom:14,textAlign:"center",padding:28}}><Arc pct={results.pct} size={120} color={results.pct>=70?C.success:results.pct>=50?C.gold:C.danger} label={`Score: ${results.pct}%`}/><div style={{marginTop:14,fontSize:17,fontWeight:700,color:C.text}}>{results.correct}/{results.total} correct</div><div style={{fontSize:fz(13),color:C.textMuted,marginTop:3}}>Time: {fmt(results.timeUsed)}</div></Card>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>By Difficulty Level</div>
-        {[1,2,3,4].map(l=>{const d=results.byLevel[l];if(!d.t)return null;const pct=Math.round(d.c/d.t*100);return<div key={l} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:13}}><span style={{color:LEVEL_COLORS[l],fontWeight:600}}>Level {l} — {LEVEL_LABELS[l]}</span><span style={{color:pct>=70?C.success:pct>=50?C.gold:C.danger,fontWeight:600}}>{pct}% ({d.c}/{d.t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:6}}><div style={{height:"100%",width:`${pct}%`,background:LEVEL_COLORS[l],borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:14}}>By Difficulty Level</div>
+        {[1,2,3,4].map(l=>{const d=results.byLevel[l];if(!d.t)return null;const pct=Math.round(d.c/d.t*100);return<div key={l} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:fz(13)}}><span style={{color:LEVEL_COLORS[l],fontWeight:600}}>Level {l} — {LEVEL_LABELS[l]}</span><span style={{color:pct>=70?C.success:pct>=50?C.gold:C.danger,fontWeight:600}}>{pct}% ({d.c}/{d.t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:6}}><div style={{height:"100%",width:`${pct}%`,background:LEVEL_COLORS[l],borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
       </Card>
       <Btn onClick={()=>setPhase("config")} style={{width:"100%"}}>Try Another Section →</Btn>
     </main>
@@ -5670,7 +5698,7 @@ function StudyPlan({user,onUpdateUser,setScreen}){
       <AdaptivePlanPanel user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T} onNavigate={setScreen}/>
       <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 4px"}}>AI-written overview (classic)</h2>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:22}}>
-        <div><h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:14}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
+        <div><h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:fz(14)}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
         <Btn onClick={gen} small>{plan?"Regenerate":"Generate Plan"}</Btn>
       </div>
       {(!user.diagnostic||Object.keys(user.diagnostic).length===0)&&(
@@ -5678,8 +5706,8 @@ function StudyPlan({user,onUpdateUser,setScreen}){
           <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
             <span style={{fontSize:22}}>💡</span>
             <div style={{flex:1}}>
-              <div style={{fontWeight:700,color:C.gold,marginBottom:4,fontSize:14}}>Take the diagnostic for a truly personalized plan</div>
-              <p style={{color:C.textSub,fontSize:13,lineHeight:1.6,marginBottom:10}}>
+              <div style={{fontWeight:700,color:C.gold,marginBottom:4,fontSize:fz(14)}}>Take the diagnostic for a truly personalized plan</div>
+              <p style={{color:C.textSub,fontSize:fz(13),lineHeight:1.6,marginBottom:10}}>
                 This plan is using general defaults because you haven't completed your study profile yet. Answering 10 quick questions about your target score, timeline, and weak areas lets Lumora build a plan specific to you.
               </p>
               {setScreen&&<Btn onClick={()=>setScreen("profile")} small>Go to Profile →</Btn>}
@@ -5689,12 +5717,12 @@ function StudyPlan({user,onUpdateUser,setScreen}){
       )}
       {loading&&<Spinner label="Lumora is building your study plan…"/>}
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
-      {!plan&&!loading&&<Card style={{textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>📋</div><h2 style={{color:C.text,fontSize:18,marginBottom:8}}>No study plan yet</h2><p style={{color:C.textMuted,fontSize:14,marginBottom:20,lineHeight:1.7}}>Lumora LSAT builds a structured plan from your diagnostic and practice history.</p><Btn onClick={gen}>Generate My Plan</Btn></Card>}
+      {!plan&&!loading&&<Card style={{textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>📋</div><h2 style={{color:C.text,fontSize:18,marginBottom:8}}>No study plan yet</h2><p style={{color:C.textMuted,fontSize:fz(14),marginBottom:20,lineHeight:1.7}}>Lumora LSAT builds a structured plan from your diagnostic and practice history.</p><Btn onClick={gen}>Generate My Plan</Btn></Card>}
       {plan&&!loading&&<div>
-        <Card style={{marginBottom:12,background:C.accentSoft,borderColor:C.accent+"44"}}><p style={{color:C.text,fontSize:15,lineHeight:1.8}}>{plan.summary}</p><div style={{display:"flex",gap:20,marginTop:14,flexWrap:"wrap"}}>{[["Target",plan.target_score],["Timeline",plan.timeline],["Weekly Hours",plan.weekly_hours]].map(([l,v])=><div key={l}><div style={{fontSize:11,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div><div style={{fontWeight:700,color:C.accent}}>{v}</div></div>)}</div></Card>
-        {plan.priority_areas?.length>0&&<Card style={{marginBottom:12}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Priority Focus Areas</div>{plan.priority_areas.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><div style={{width:20,height:20,borderRadius:"50%",background:[C.danger,C.gold,C.accent][i%3]+"22",color:[C.danger,C.gold,C.accent][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div><span style={{color:C.text,fontSize:14}}>{a}</span></div>)}</Card>}
-        {plan.phases?.map((ph,i)=><Card key={i} style={{marginBottom:10}}><div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}><div><div style={{fontWeight:700,fontSize:15,color:C.text}}>{ph.name}</div><div style={{fontSize:13,color:C.textMuted}}>{ph.duration}</div></div><Tag color={[C.accent,C.purple,C.gold,C.success][i%4]}>Phase {i+1}</Tag></div><p style={{color:C.textSub,fontSize:14,marginBottom:10,lineHeight:1.6}}>{ph.focus}</p>{ph.tasks?.map((t,j)=><div key={j} style={{display:"flex",gap:8,marginBottom:6,fontSize:14,color:C.textSub}}><span style={{color:C.accent}}>→</span>{t}</div>)}</Card>)}
-        {plan.milestone&&<Card style={{borderColor:C.gold+"44",background:C.goldSoft}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:6}}>Halfway Milestone</div><p style={{color:C.text,fontSize:14,lineHeight:1.7}}>{plan.milestone}</p></Card>}
+        <Card style={{marginBottom:12,background:C.accentSoft,borderColor:C.accent+"44"}}><p style={{color:C.text,fontSize:fz(15),lineHeight:1.8}}>{plan.summary}</p><div style={{display:"flex",gap:20,marginTop:14,flexWrap:"wrap"}}>{[["Target",plan.target_score],["Timeline",plan.timeline],["Weekly Hours",plan.weekly_hours]].map(([l,v])=><div key={l}><div style={{fontSize:fz(11),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div><div style={{fontWeight:700,color:C.accent}}>{v}</div></div>)}</div></Card>
+        {plan.priority_areas?.length>0&&<Card style={{marginBottom:12}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Priority Focus Areas</div>{plan.priority_areas.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><div style={{width:20,height:20,borderRadius:"50%",background:[C.danger,C.gold,C.accent][i%3]+"22",color:[C.danger,C.gold,C.accent][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontSize:fz(11),fontWeight:700,flexShrink:0}}>{i+1}</div><span style={{color:C.text,fontSize:fz(14)}}>{a}</span></div>)}</Card>}
+        {plan.phases?.map((ph,i)=><Card key={i} style={{marginBottom:10}}><div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}><div><div style={{fontWeight:700,fontSize:fz(15),color:C.text}}>{ph.name}</div><div style={{fontSize:fz(13),color:C.textMuted}}>{ph.duration}</div></div><Tag color={[C.accent,C.purple,C.gold,C.success][i%4]}>Phase {i+1}</Tag></div><p style={{color:C.textSub,fontSize:fz(14),marginBottom:10,lineHeight:1.6}}>{ph.focus}</p>{ph.tasks?.map((t,j)=><div key={j} style={{display:"flex",gap:8,marginBottom:6,fontSize:fz(14),color:C.textSub}}><span style={{color:C.accent}}>→</span>{t}</div>)}</Card>)}
+        {plan.milestone&&<Card style={{borderColor:C.gold+"44",background:C.goldSoft}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:6}}>Halfway Milestone</div><p style={{color:C.text,fontSize:fz(14),lineHeight:1.7}}>{plan.milestone}</p></Card>}
       </div>}
     </main>
   );
@@ -5718,16 +5746,16 @@ function Upload(){
   return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Ask Lumora LSAT</h1>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:22}}>Paste any LSAT question — correct answer identified with certainty, every choice explained.</p>
-      <Card style={{marginBottom:14}}><label htmlFor="q-input" style={{display:"block",fontSize:13,color:C.textSub,marginBottom:8,fontWeight:600}}>Paste your question here</label><textarea id="q-input" value={text} onChange={e=>setText(e.target.value)} placeholder="Paste the full question — stimulus, question stem, and all five answer choices (A–E)…" rows={8} style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"13px 15px",color:C.text,fontSize:14,fontFamily:T.sans,resize:"vertical",lineHeight:1.75,boxSizing:"border-box",outline:"none"}}/><Btn onClick={analyze} disabled={!text.trim()||loading} style={{width:"100%",marginTop:12}}>{loading?"Analyzing…":"Analyze Question"}</Btn></Card>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:22}}>Paste any LSAT question — correct answer identified with certainty, every choice explained.</p>
+      <Card style={{marginBottom:14}}><label htmlFor="q-input" style={{display:"block",fontSize:fz(13),color:C.textSub,marginBottom:8,fontWeight:600}}>Paste your question here</label><textarea id="q-input" value={text} onChange={e=>setText(e.target.value)} placeholder="Paste the full question — stimulus, question stem, and all five answer choices (A–E)…" rows={8} style={{width:"100%",background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,padding:"13px 15px",color:C.text,fontSize:fz(14),fontFamily:T.sans,resize:"vertical",lineHeight:1.75,boxSizing:"border-box",outline:"none"}}/><Btn onClick={analyze} disabled={!text.trim()||loading} style={{width:"100%",marginTop:12}}>{loading?"Analyzing…":"Analyze Question"}</Btn></Card>
       {loading&&<Spinner label="Working through the logic…"/>}
       <ErrBanner message={error} onDismiss={()=>setError(null)}/>
       {result&&<div>
         <div style={{marginBottom:12}}><Tag color={LEVEL_COLORS[result.level]}>{LEVEL_LABELS[result.level]}</Tag><Tag color={C.accent}>{result.section}</Tag><Tag color={C.purple}>{result.question_type}</Tag><Tag color={result.confidence==="High"?C.success:C.gold}>Confidence: {result.confidence}</Tag></div>
-        <Card style={{marginBottom:12,borderColor:C.success+"44"}}><div style={{fontSize:22,fontWeight:800,color:C.success,marginBottom:8}}>Correct Answer: {result.correct_answer}</div><p style={{color:C.text,fontSize:14,lineHeight:1.8}}>{result.why_correct}</p></Card>
-        <Card style={{marginBottom:12}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Step-by-Step Reasoning</div><p style={{color:C.textSub,fontSize:14,lineHeight:1.85,whiteSpace:"pre-wrap"}}>{result.step_by_step}</p></Card>
-        {result.why_wrong&&<Card style={{marginBottom:12}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Why the Other Choices Fail</div>{Object.entries(result.why_wrong).map(([l,r])=><div key={l} style={{marginBottom:9}}><span style={{fontWeight:700,color:C.danger,marginRight:8}}>{l}.</span><span style={{color:C.textSub,fontSize:14}}>{r}</span></div>)}</Card>}
-        {result.key_tip&&<Card style={{borderColor:C.gold+"44",background:C.goldSoft}}><div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:6}}>Pro Tip</div><p style={{color:C.text,fontSize:14,lineHeight:1.7}}>{result.key_tip}</p></Card>}
+        <Card style={{marginBottom:12,borderColor:C.success+"44"}}><div style={{fontSize:22,fontWeight:800,color:C.success,marginBottom:8}}>Correct Answer: {result.correct_answer}</div><p style={{color:C.text,fontSize:fz(14),lineHeight:1.8}}>{result.why_correct}</p></Card>
+        <Card style={{marginBottom:12}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Step-by-Step Reasoning</div><p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.85,whiteSpace:"pre-wrap"}}>{result.step_by_step}</p></Card>
+        {result.why_wrong&&<Card style={{marginBottom:12}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Why the Other Choices Fail</div>{Object.entries(result.why_wrong).map(([l,r])=><div key={l} style={{marginBottom:9}}><span style={{fontWeight:700,color:C.danger,marginRight:8}}>{l}.</span><span style={{color:C.textSub,fontSize:fz(14)}}>{r}</span></div>)}</Card>}
+        {result.key_tip&&<Card style={{borderColor:C.gold+"44",background:C.goldSoft}}><div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.gold,marginBottom:6}}>Pro Tip</div><p style={{color:C.text,fontSize:fz(14),lineHeight:1.7}}>{result.key_tip}</p></Card>}
       </div>}
     </main>
   );
@@ -5756,37 +5784,37 @@ function JournalEntry({entry,onEdit,onDelete,onColorChange}){
         onClick={()=>setExpanded(e=>!e)}>
         <span style={{fontSize:18,flexShrink:0}}>{typeInfo.icon}</span>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:2}}>
+          <div style={{fontSize:fz(14),fontWeight:600,color:C.text,marginBottom:2}}>
             {entry.title||"Untitled note"}
           </div>
-          <div style={{fontSize:12,color:C.textMuted,display:"flex",gap:8,flexWrap:"wrap"}}>
+          <div style={{fontSize:fz(12),color:C.textMuted,display:"flex",gap:8,flexWrap:"wrap"}}>
             <span style={{background:entry.color+"22",color:entry.color||C.accent,
-              padding:"1px 7px",borderRadius:10,fontSize:11}}>{typeInfo.label}</span>
+              padding:"1px 7px",borderRadius:10,fontSize:fz(11)}}>{typeInfo.label}</span>
             <span>{new Date(entry.timestamp).toLocaleDateString("en-US",
               {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
           </div>
           {!expanded&&entry.text&&(
-            <p style={{fontSize:13,color:C.textSub,marginTop:4,
+            <p style={{fontSize:fz(13),color:C.textSub,marginTop:4,
               overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
               {entry.text}
             </p>
           )}
         </div>
-        <span style={{color:C.textMuted,fontSize:12,flexShrink:0}}>
+        <span style={{color:C.textMuted,fontSize:fz(12),flexShrink:0}}>
           {expanded?"▲":"▼"}
         </span>
       </div>
       {/* Expanded content */}
       {expanded&&(
         <div style={{padding:"0 16px 14px",borderTop:`1px solid ${C.border}`}}>
-          <div style={{paddingTop:12,fontSize:14,color:C.text,
+          <div style={{paddingTop:12,fontSize:fz(14),color:C.text,
             lineHeight:1.8,whiteSpace:"pre-wrap",fontFamily:T.sans}}>
             {entry.text||<span style={{color:C.textMuted,fontStyle:"italic"}}>No content</span>}
           </div>
           {entry.tags&&entry.tags.length>0&&(
             <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
               {entry.tags.map((t,i)=>(
-                <span key={i} style={{fontSize:11,color:C.textMuted,
+                <span key={i} style={{fontSize:fz(11),color:C.textMuted,
                   background:C.surfaceHigh,padding:"2px 8px",borderRadius:10}}>
                   #{t}
                 </span>
@@ -5807,12 +5835,12 @@ function JournalEntry({entry,onEdit,onDelete,onColorChange}){
             <div style={{marginLeft:"auto",display:"flex",gap:6}}>
               <button onClick={()=>onEdit(entry)}
                 style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,
-                  padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>
+                  padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>
                 Edit
               </button>
               <button onClick={()=>onDelete(entry.id)}
                 style={{background:"none",border:`1px solid ${C.danger}44`,borderRadius:8,
-                  padding:"4px 10px",color:C.danger,fontSize:12,cursor:"pointer"}}>
+                  padding:"4px 10px",color:C.danger,fontSize:fz(12),cursor:"pointer"}}>
                 Delete
               </button>
             </div>
@@ -5855,8 +5883,8 @@ function JournalEditor({initial,onSave,onClose}){
               border:`1.5px solid ${type===t.id?color:C.border}`,
               background:type===t.id?color+"15":"transparent",
               cursor:"pointer",fontFamily:T.sans}}>
-            <span style={{fontSize:14}}>{t.icon}</span>
-            <span style={{fontSize:12,fontWeight:600,color:type===t.id?color:C.text,
+            <span style={{fontSize:fz(14)}}>{t.icon}</span>
+            <span style={{fontSize:fz(12),fontWeight:600,color:type===t.id?color:C.text,
               marginLeft:6}}>{t.label}</span>
           </button>
         ))}
@@ -5865,7 +5893,7 @@ function JournalEditor({initial,onSave,onClose}){
       <input value={title} onChange={e=>setTitle(e.target.value)}
         placeholder="Title (optional)"
         style={{background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,
-          padding:"10px 12px",color:C.text,fontSize:14,fontFamily:T.sans,outline:"none"}}/>
+          padding:"10px 12px",color:C.text,fontSize:fz(14),fontFamily:T.sans,outline:"none"}}/>
       {/* Text area — the actual journal */}
       <div style={{position:"relative"}}>
         <textarea value={text} onChange={e=>setText(e.target.value)}
@@ -5876,7 +5904,7 @@ function JournalEditor({initial,onSave,onClose}){
             "Concept, rule, or definition to remember…"}
           rows={8}
           style={{width:"100%",background:C.bg,border:`1px solid ${color}44`,
-            borderRadius:12,padding:"14px 16px",color:C.text,fontSize:14,
+            borderRadius:12,padding:"14px 16px",color:C.text,fontSize:fz(14),
             fontFamily:"Georgia, serif",lineHeight:2,resize:"vertical",
             boxSizing:"border-box",outline:"none",
             backgroundImage:"repeating-linear-gradient(transparent,transparent 31px,"+color+"18 31px,"+color+"18 32px)",
@@ -5886,11 +5914,11 @@ function JournalEditor({initial,onSave,onClose}){
       <input value={tags} onChange={e=>setTags(e.target.value)}
         placeholder="Tags (comma separated): assumption, weaken, timing…"
         style={{background:C.surfaceHigh,border:`1px solid ${C.border}`,borderRadius:10,
-          padding:"8px 12px",color:C.text,fontSize:13,fontFamily:T.sans,outline:"none"}}/>
+          padding:"8px 12px",color:C.text,fontSize:fz(13),fontFamily:T.sans,outline:"none"}}/>
       {/* Color + Save */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <span style={{fontSize:12,color:C.textMuted}}>Color:</span>
+          <span style={{fontSize:fz(12),color:C.textMuted}}>Color:</span>
           {JOURNAL_COLORS.map(c=>(
             <button key={c} onClick={()=>setColor(c)}
               style={{width:18,height:18,borderRadius:"50%",background:c,border:"none",
@@ -5900,12 +5928,12 @@ function JournalEditor({initial,onSave,onClose}){
         <div style={{display:"flex",gap:8}}>
           <button onClick={onClose}
             style={{background:"none",border:`1px solid ${C.border}`,borderRadius:10,
-              padding:"8px 14px",color:C.textMuted,fontSize:13,cursor:"pointer"}}>
+              padding:"8px 14px",color:C.textMuted,fontSize:fz(13),cursor:"pointer"}}>
             Cancel
           </button>
           <button onClick={save} disabled={!text.trim()&&!title.trim()}
             style={{background:color,border:"none",borderRadius:10,padding:"8px 16px",
-              color:"white",fontSize:13,fontWeight:700,cursor:"pointer",
+              color:"white",fontSize:fz(13),fontWeight:700,cursor:"pointer",
               opacity:!text.trim()&&!title.trim()?0.5:1}}>
             Save Entry
           </button>
@@ -5974,7 +6002,7 @@ function Notes({user,onUpdateUser}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
           <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:2}}>Study Journal</h1>
-          <p style={{color:C.textMuted,fontSize:13}}>{notes.length} total {notes.length===1?"entry":"entries"}</p>
+          <p style={{color:C.textMuted,fontSize:fz(13)}}>{notes.length} total {notes.length===1?"entry":"entries"}</p>
         </div>
         <Btn onClick={()=>{setEditId(null);setTitle("");setText("");setWriting(true);}}>+ New</Btn>
       </div>
@@ -5988,8 +6016,8 @@ function Notes({user,onUpdateUser}){
               background:tab===t.id?t.color+"18":"transparent",
               cursor:"pointer",fontFamily:T.sans,transition:"all 0.15s"}}>
             <div style={{fontSize:18,marginBottom:3}}>{t.icon}</div>
-            <div style={{fontSize:12,fontWeight:700,color:tab===t.id?t.color:C.textMuted}}>{t.label}</div>
-            <div style={{fontSize:10,color:C.textMuted,marginTop:1}}>
+            <div style={{fontSize:fz(12),fontWeight:700,color:tab===t.id?t.color:C.textMuted}}>{t.label}</div>
+            <div style={{fontSize:fz(10),color:C.textMuted,marginTop:1}}>
               {t.id==="scratch"?scratchNotes.length:t.id==="notebook"?notebookNotes.length:wrongAnswers.length} entries
             </div>
           </button>
@@ -5998,7 +6026,7 @@ function Notes({user,onUpdateUser}){
 
       {/* Tab description */}
       <div style={{background:activeTab.color+"12",border:"1px solid "+activeTab.color+"33",
-        borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:C.textSub}}>
+        borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:fz(13),color:C.textSub}}>
         {activeTab.desc}
       </div>
 
@@ -6007,14 +6035,14 @@ function Notes({user,onUpdateUser}){
         <div style={{background:C.surface,border:"2px solid "+activeTab.color+"44",
           borderRadius:16,padding:20,marginBottom:20,
           boxShadow:"0 4px 20px #00000033"}}>
-          <div style={{fontSize:14,fontWeight:700,color:activeTab.color,marginBottom:12}}>
+          <div style={{fontSize:fz(14),fontWeight:700,color:activeTab.color,marginBottom:12}}>
             {activeTab.icon} {editId?"Edit":"New"} {activeTab.label}
           </div>
           {tab!=="scratch"&&(
             <input value={title} onChange={e=>setTitle(e.target.value)}
               placeholder={tab==="notebook"?"Topic or concept name…":"Question type / what went wrong…"}
               style={{width:"100%",background:C.surfaceHigh,border:"1px solid "+C.border,
-                borderRadius:10,padding:"9px 12px",color:C.text,fontSize:14,
+                borderRadius:10,padding:"9px 12px",color:C.text,fontSize:fz(14),
                 fontFamily:T.sans,outline:"none",marginBottom:10,boxSizing:"border-box"}}/>
           )}
           <textarea value={text} onChange={e=>setText(e.target.value)}
@@ -6025,7 +6053,7 @@ function Notes({user,onUpdateUser}){
             rows={tab==="scratch"?5:7}
             style={{width:"100%",background:C.bg,
               border:"1px solid "+activeTab.color+"44",
-              borderRadius:12,padding:"14px 16px",color:C.text,fontSize:14,
+              borderRadius:12,padding:"14px 16px",color:C.text,fontSize:fz(14),
               fontFamily:"Georgia, serif",lineHeight:2,resize:"vertical",
               boxSizing:"border-box",outline:"none"}}/>
           <div style={{display:"flex",gap:8,marginTop:12}}>
@@ -6040,7 +6068,7 @@ function Notes({user,onUpdateUser}){
         <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder={"Search "+activeTab.label.toLowerCase()+"…"}
           style={{width:"100%",background:C.surface,border:"1px solid "+C.border,
-            borderRadius:10,padding:"9px 14px",color:C.text,fontSize:14,
+            borderRadius:10,padding:"9px 14px",color:C.text,fontSize:fz(14),
             fontFamily:T.sans,boxSizing:"border-box",outline:"none",marginBottom:12}}/>
       )}
 
@@ -6051,7 +6079,7 @@ function Notes({user,onUpdateUser}){
           <h3 style={{color:C.text,fontFamily:T.serif,marginBottom:6}}>
             {activeNotes.length===0?"Nothing here yet":"No matches"}
           </h3>
-          <p style={{color:C.textMuted,fontSize:14,lineHeight:1.7,marginBottom:20}}>
+          <p style={{color:C.textMuted,fontSize:fz(14),lineHeight:1.7,marginBottom:20}}>
             {tab==="scratch"?"Use scratch paper during practice to work through arguments before choosing an answer.":
              tab==="notebook"?"Save important strategies and patterns here. Review this before test day.":
              "Wrong answers are added automatically when you review mistakes, or add one manually."}
@@ -6069,20 +6097,20 @@ function Notes({user,onUpdateUser}){
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
             <div style={{flex:1,minWidth:0}}>
               {n.title&&n.title!=="Scratch note"&&n.title!=="Note"&&n.title!=="Wrong answer"&&(
-                <div style={{fontWeight:700,color:C.text,fontSize:14,marginBottom:6}}>{n.title}</div>
+                <div style={{fontWeight:700,color:C.text,fontSize:fz(14),marginBottom:6}}>{n.title}</div>
               )}
-              <p style={{color:C.textSub,fontSize:13,lineHeight:1.75,margin:0,whiteSpace:"pre-wrap"}}>{n.text}</p>
-              <div style={{fontSize:11,color:C.textMuted,marginTop:8}}>
+              <p style={{color:C.textSub,fontSize:fz(13),lineHeight:1.75,margin:0,whiteSpace:"pre-wrap"}}>{n.text}</p>
+              <div style={{fontSize:fz(11),color:C.textMuted,marginTop:8}}>
                 {new Date(n.timestamp).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
               </div>
             </div>
             <div style={{display:"flex",gap:6,flexShrink:0}}>
               <button onClick={()=>edit(n)}
                 style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
-                  padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Edit</button>
+                  padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>Edit</button>
               <button onClick={()=>del(n.id)}
                 style={{background:"none",border:"1px solid "+C.danger+"44",borderRadius:8,
-                  padding:"4px 8px",color:C.danger,fontSize:12,cursor:"pointer"}}>✕</button>
+                  padding:"4px 8px",color:C.danger,fontSize:fz(12),cursor:"pointer"}}>✕</button>
             </div>
           </div>
         </div>
@@ -6155,7 +6183,7 @@ function MistakeJournal({user,onUpdateUser}){
     return"def";
   };
   const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:10,
-    padding:"10px 14px",fontSize:13,marginBottom:8,fontFamily:T.sans,lineHeight:1.5,boxSizing:"border-box",
+    padding:"10px 14px",fontSize:fz(13),marginBottom:8,fontFamily:T.sans,lineHeight:1.5,boxSizing:"border-box",
     ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
       :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
       :{background:"transparent",borderColor:C.border,color:C.textSub})});
@@ -6169,13 +6197,13 @@ function MistakeJournal({user,onUpdateUser}){
             <button key={f} onClick={()=>setFilter(f)}
               style={{padding:"6px 14px",borderRadius:10,border:`1.5px solid ${filter===f?C.accent:C.border}`,
                 background:filter===f?C.accentSoft:"transparent",color:filter===f?C.accent:C.textMuted,
-                fontSize:13,cursor:"pointer",fontFamily:T.sans,fontWeight:filter===f?700:400}}>
+                fontSize:fz(13),cursor:"pointer",fontFamily:T.sans,fontWeight:filter===f?700:400}}>
               {f==="all"?`All (${mistakes.length})`:`Unreviewed (${unrevCount})`}
             </button>
           ))}
         </div>
       </div>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:20,lineHeight:1.6}}>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:20,lineHeight:1.6}}>
         Every question you got wrong is saved here. Review each one, then test your understanding with "Teach It Back."
       </p>
 
@@ -6183,7 +6211,7 @@ function MistakeJournal({user,onUpdateUser}){
         <Card style={{textAlign:"center",padding:48}}>
           <div style={{fontSize:48,marginBottom:12}}>{filter==="unreviewed"?"✅":"📖"}</div>
           <h3 style={{color:C.text,marginBottom:8}}>{filter==="unreviewed"?"All caught up!":"No mistakes yet"}</h3>
-          <p style={{color:C.textMuted,fontSize:14}}>{filter==="unreviewed"?"Every mistake has been reviewed. Keep practicing.":"Mistakes from Practice and Quick 5 will appear here."}</p>
+          <p style={{color:C.textMuted,fontSize:fz(14)}}>{filter==="unreviewed"?"Every mistake has been reviewed. Keep practicing.":"Mistakes from Practice and Quick 5 will appear here."}</p>
         </Card>
       )}
 
@@ -6197,7 +6225,7 @@ function MistakeJournal({user,onUpdateUser}){
                 <Tag color={C.accent}>{m.qType}</Tag>
                 {m.reviewed&&<Tag color={C.success}>✓ Reviewed</Tag>}
               </div>
-              <p style={{color:C.text,fontSize:14,lineHeight:1.7,margin:0,
+              <p style={{color:C.text,fontSize:fz(14),lineHeight:1.7,margin:0,
                 display:active===m.id?"block":"-webkit-box",WebkitLineClamp:2,
                 WebkitBoxOrient:"vertical",overflow:"hidden"}}>
                 {m.stimulus}
@@ -6206,39 +6234,39 @@ function MistakeJournal({user,onUpdateUser}){
             <div style={{display:"flex",gap:6,flexShrink:0}}>
               <button onClick={()=>setActive(active===m.id?null:m.id)}
                 style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,
-                  padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>
+                  padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>
                 {active===m.id?"Collapse":"Review"}
               </button>
               <button onClick={()=>deleteMistake(m.id)}
                 style={{background:"none",border:`1px solid ${C.danger}44`,borderRadius:8,
-                  padding:"4px 8px",color:C.danger,fontSize:12,cursor:"pointer"}}>✕</button>
+                  padding:"4px 8px",color:C.danger,fontSize:fz(12),cursor:"pointer"}}>✕</button>
             </div>
           </div>
 
           {active===m.id&&(
             <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14,marginTop:4}}>
-              <p style={{color:C.text,fontSize:14,lineHeight:1.8,marginBottom:14,whiteSpace:"pre-wrap"}}>{m.stimulus}</p>
-              <p style={{fontWeight:600,fontSize:14,color:C.text,marginBottom:12}}>{m.question}</p>
+              <p style={{color:C.text,fontSize:fz(14),lineHeight:1.8,marginBottom:14,whiteSpace:"pre-wrap"}}>{m.stimulus}</p>
+              <p style={{fontWeight:600,fontSize:fz(14),color:C.text,marginBottom:12}}>{m.question}</p>
               <div style={{marginBottom:14}}>
                 {Object.entries(m.choices||{}).map(([l,t])=>(
                   <div key={l} style={cStyle(cs(l,m))}><span style={{fontWeight:700,marginRight:8}}>{l}.</span>{t}</div>
                 ))}
               </div>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:14,fontSize:fz(13),color:C.textSub,lineHeight:1.85}}>
                 <strong style={{color:C.text,display:"block",marginBottom:4}}>Why {m.correct} is correct:</strong>
                 {(m.explanation||"").split(/WRONG\s*\([A-E]\)/)[0].replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()}
               </div>
-              {m.key_concept&&<div style={{fontSize:13,color:C.purple,fontStyle:"italic",marginBottom:14}}>🔑 {m.key_concept}</div>}
+              {m.key_concept&&<div style={{fontSize:fz(13),color:C.purple,fontStyle:"italic",marginBottom:14}}>🔑 {m.key_concept}</div>}
 
               {teachMode===m.id?(
                 <div style={{background:C.surfaceHigh,borderRadius:12,padding:16,marginBottom:10}}>
-                  <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>
+                  <div style={{fontSize:fz(13),fontWeight:700,color:C.text,marginBottom:8}}>
                     ✍️ Teach It Back — explain why {m.correct} is correct in your own words:
                   </div>
                   <textarea value={teachInput} onChange={e=>setTeachInput(e.target.value)}
                     placeholder={"The correct answer is "+m.correct+" because…"}
                     rows={3} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,
-                      borderRadius:8,padding:"10px 12px",color:C.text,fontSize:13,
+                      borderRadius:8,padding:"10px 12px",color:C.text,fontSize:fz(13),
                       fontFamily:T.sans,resize:"vertical",boxSizing:"border-box",outline:"none"}}/>
                   {teachFeedback&&(
                     <div style={{marginTop:10,padding:12,borderRadius:10,
@@ -6248,9 +6276,9 @@ function MistakeJournal({user,onUpdateUser}){
                         {teachFeedback.score>=70?"✓ Good understanding!":"✗ Keep working on this"}
                         {" "}({teachFeedback.score}/100)
                       </div>
-                      <div style={{fontSize:13,color:C.textSub,lineHeight:1.7}}>{teachFeedback.feedback}</div>
-                      {teachFeedback.missing&&<div style={{fontSize:13,color:C.gold,marginTop:6}}>Missing: {teachFeedback.missing}</div>}
-                      {teachFeedback.tip&&<div style={{fontSize:13,color:C.accent,marginTop:6}}>→ {teachFeedback.tip}</div>}
+                      <div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.7}}>{teachFeedback.feedback}</div>
+                      {teachFeedback.missing&&<div style={{fontSize:fz(13),color:C.gold,marginTop:6}}>Missing: {teachFeedback.missing}</div>}
+                      {teachFeedback.tip&&<div style={{fontSize:fz(13),color:C.accent,marginTop:6}}>→ {teachFeedback.tip}</div>}
                     </div>
                   )}
                   <div style={{display:"flex",gap:8,marginTop:10}}>
@@ -6337,7 +6365,7 @@ function SRSReview({user,onUpdateUser,onDone}){
 
   const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===current?.correct)return"ok";if(l===selected)return"bad";return"def";};
   const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,
-    padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",marginBottom:9,
+    padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:fz(14),marginBottom:9,
     transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",
     ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
       :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
@@ -6349,7 +6377,7 @@ function SRSReview({user,onUpdateUser,onDone}){
       <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:40,maxWidth:400,width:"100%",textAlign:"center"}}>
         <div style={{fontSize:48,marginBottom:12}}>✅</div>
         <h2 style={{fontFamily:T.serif,fontSize:Math.round(24*FONT_SCALE),color:C.text,marginBottom:8}}>All Caught Up!</h2>
-        <p style={{color:C.textSub,fontSize:14,lineHeight:1.7,marginBottom:24}}>No question types are due for review today. Keep practicing to build your SRS queue.</p>
+        <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.7,marginBottom:24}}>No question types are due for review today. Keep practicing to build your SRS queue.</p>
         <Btn onClick={onDone}>Back to Home</Btn>
       </div>
     </div>
@@ -6360,12 +6388,12 @@ function SRSReview({user,onUpdateUser,onDone}){
       <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px 40px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <div>
-            <span style={{fontWeight:800,color:C.gold,fontSize:15}}>🔁 SRS Review</span>
-            <span style={{color:C.textMuted,fontSize:13,marginLeft:10}}>{doneCount}/{dueTypes.length} done</span>
+            <span style={{fontWeight:800,color:C.gold,fontSize:fz(15)}}>🔁 SRS Review</span>
+            <span style={{color:C.textMuted,fontSize:fz(13),marginLeft:10}}>{doneCount}/{dueTypes.length} done</span>
           </div>
-          <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Exit</button>
+          <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>Exit</button>
         </div>
-        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 14px",marginBottom:16,fontSize:13,color:C.textSub}}>
+        <div style={{background:C.goldSoft,border:`1px solid ${C.gold}33`,borderRadius:12,padding:"10px 14px",marginBottom:16,fontSize:fz(13),color:C.textSub}}>
           <strong style={{color:C.gold}}>Due for review: </strong>{dueTypes[doneCount]} — answer correctly to extend the interval.
         </div>
         {loading&&<Spinner label="Generating review question…"/>}
@@ -6373,8 +6401,8 @@ function SRSReview({user,onUpdateUser,onDone}){
         {current&&!loading&&(
           <div>
             <Card style={{marginBottom:12}}>
-              <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{current.stimulus}</p>
-              <p style={{fontWeight:600,fontSize:"15px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{current.question}</p>
+              <p style={{lineHeight:1.85,fontSize:fz(15),color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{current.stimulus}</p>
+              <p style={{fontWeight:600,fontSize:fz(15),color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{current.question}</p>
               <div role="radiogroup">
                 {Object.entries(current.choices||{}).map(([l,t])=>(
                   <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
@@ -6387,10 +6415,10 @@ function SRSReview({user,onUpdateUser,onDone}){
             {submitted&&(
               <div>
                 <Card style={{borderColor:selected===current.correct?C.success:C.danger,marginBottom:12}}>
-                  <div style={{fontSize:15,fontWeight:700,color:selected===current.correct?C.success:C.danger,marginBottom:10}}>
+                  <div style={{fontSize:fz(15),fontWeight:700,color:selected===current.correct?C.success:C.danger,marginBottom:10}}>
                     {selected===current.correct?"✓ Correct — interval extended!":"✗ Incorrect — back to tomorrow"}
                   </div>
-                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:fz(13),color:C.textSub,lineHeight:1.85}}>
                     {(current.explanation||"").split(/WRONG\s*\([A-E]\)/)[0].replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()}
                   </div>
                 </Card>
@@ -6445,10 +6473,10 @@ function ScoreTrajectory({user}){
   return(
     <Card style={{marginBottom:14}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,fontWeight:700}}>
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,fontWeight:700}}>
           📈 Score Trajectory
         </div>
-        <div style={{fontSize:13,color:trend>=0?C.success:C.danger,fontWeight:700}}>
+        <div style={{fontSize:fz(13),color:trend>=0?C.success:C.danger,fontWeight:700}}>
           {trend>=0?"+":""}{trend} pts since start
         </div>
       </div>
@@ -6477,7 +6505,7 @@ function ScoreTrajectory({user}){
           </text>
         )}
       </svg>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textMuted,marginTop:4}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(11),color:C.textMuted,marginTop:4}}>
         <span>{points[0].n} questions</span>
         <span>{points[points.length-1].n} questions</span>
       </div>
@@ -6587,7 +6615,7 @@ function Onboarding({user,onUpdateUser,onDone}){
 
   const cs=(l)=>{if(!submitted)return selected===l?"sel":"def";if(l===question?.correct)return"ok";if(l===selected)return"bad";return"def";};
   const cStyle=(s)=>({display:"block",width:"100%",textAlign:"left",border:"1.5px solid",borderRadius:12,
-    padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:"14px",marginBottom:9,
+    padding:"12px 16px",cursor:submitted?"default":"pointer",fontSize:fz(14),marginBottom:9,
     transition:"all 0.15s",fontFamily:T.sans,lineHeight:1.6,boxSizing:"border-box",outline:"none",
     ...(s==="ok"?{background:"#052e16",borderColor:C.success,color:"#86efac"}
       :s==="bad"?{background:"#2d0a0a",borderColor:C.danger,color:"#fca5a5"}
@@ -6601,7 +6629,7 @@ function Onboarding({user,onUpdateUser,onDone}){
     return(
       <div style={{position:"fixed",inset:0,background:C.bg+"fa",zIndex:400,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
         {/* Skip button top-right */}
-        <button onClick={skip} style={{position:"absolute",top:20,right:20,background:"none",border:`1px solid ${C.border}`,borderRadius:10,padding:"6px 14px",color:C.textMuted,fontSize:13,cursor:"pointer",fontFamily:T.sans}}>
+        <button onClick={skip} style={{position:"absolute",top:20,right:20,background:"none",border:`1px solid ${C.border}`,borderRadius:10,padding:"6px 14px",color:C.textMuted,fontSize:fz(13),cursor:"pointer",fontFamily:T.sans}}>
           Skip tour
         </button>
 
@@ -6610,7 +6638,7 @@ function Onboarding({user,onUpdateUser,onDone}){
           <div style={{textAlign:"center",marginBottom:24,maxWidth:480}}>
             <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:900,color:"#fff",fontFamily:T.serif,margin:"0 auto 14px",boxShadow:"0 0 28px #3a6bff44"}}>L</div>
             <h2 style={{fontFamily:T.serif,fontSize:Math.round(24*FONT_SCALE),color:C.text,marginBottom:6}}>Welcome to Lumora LSAT</h2>
-            <p style={{color:C.textMuted,fontSize:14,lineHeight:1.6}}>Here's a quick tour of what's available. You can skip any time.</p>
+            <p style={{color:C.textMuted,fontSize:fz(14),lineHeight:1.6}}>Here's a quick tour of what's available. You can skip any time.</p>
           </div>
         )}
 
@@ -6620,7 +6648,7 @@ function Onboarding({user,onUpdateUser,onDone}){
             {card.icon}
           </div>
           <h3 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginBottom:10,fontWeight:700}}>{card.title}</h3>
-          <p style={{color:C.textSub,fontSize:14,lineHeight:1.8,marginBottom:24}}>{card.desc}</p>
+          <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.8,marginBottom:24}}>{card.desc}</p>
 
           {/* Dot indicators */}
           <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:20}}>
@@ -6648,7 +6676,7 @@ function Onboarding({user,onUpdateUser,onDone}){
         </div>
 
         {/* Counter */}
-        <div style={{marginTop:16,color:C.textMuted,fontSize:13}}>{tourStep+1} of {TOUR_CARDS.length}</div>
+        <div style={{marginTop:16,color:C.textMuted,fontSize:fz(13)}}>{tourStep+1} of {TOUR_CARDS.length}</div>
       </div>
     );
   }
@@ -6660,7 +6688,7 @@ function Onboarding({user,onUpdateUser,onDone}){
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:24,padding:40,maxWidth:440,width:"100%",textAlign:"center"}}>
           <div style={{fontSize:52,marginBottom:16}}>🎯</div>
           <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:12}}>You're ready.</h2>
-          <p style={{color:C.textSub,fontSize:15,lineHeight:1.8,marginBottom:24}}>
+          <p style={{color:C.textSub,fontSize:fz(15),lineHeight:1.8,marginBottom:24}}>
             You've seen the three most important question types. Lumora adapts to your weaknesses as you practice — the more you do, the smarter it gets.
           </p>
           <Btn onClick={()=>{onUpdateUser({onboardingDone:true});onDone();}} style={{width:"100%"}}>
@@ -6683,21 +6711,21 @@ function Onboarding({user,onUpdateUser,onDone}){
                 background:i<practiceStep?C.success:i===practiceStep?C.accent:C.surfaceHigh,
                 transition:"background 0.3s"}}/>
             ))}</div>
-            <span style={{color:C.textMuted,fontSize:13}}>Question {practiceStep+1} of 3</span>
+            <span style={{color:C.textMuted,fontSize:fz(13)}}>Question {practiceStep+1} of 3</span>
           </div>
-          <button onClick={skip} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:12,cursor:"pointer"}}>Skip</button>
+          <button onClick={skip} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>Skip</button>
         </div>
         <Card style={{marginBottom:14,background:`linear-gradient(135deg,${C.accentSoft},${C.surface})`,borderColor:C.accent+"44"}}>
-          <div style={{fontSize:12,color:C.accent,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Lumora says</div>
-          <p style={{color:C.text,fontSize:14,lineHeight:1.75,margin:0}}>{stepInfo.msg}</p>
+          <div style={{fontSize:fz(12),color:C.accent,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Lumora says</div>
+          <p style={{color:C.text,fontSize:fz(14),lineHeight:1.75,margin:0}}>{stepInfo.msg}</p>
         </Card>
         {loading&&<Spinner label="Generating your question…"/>}
         {question&&!loading&&(
           <div>
             <Card style={{marginBottom:12}}>
               <div style={{marginBottom:10}}><Tag color={C.purple}>Walkthrough</Tag><Tag color={C.accent}>{question.qType}</Tag></div>
-              <p style={{lineHeight:1.85,fontSize:"15px",color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
-              <p style={{fontWeight:600,fontSize:"15px",color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{question.question}</p>
+              <p style={{lineHeight:1.85,fontSize:fz(15),color:"#c8d4e8",marginBottom:16,whiteSpace:"pre-wrap"}}>{question.stimulus}</p>
+              <p style={{fontWeight:600,fontSize:fz(15),color:C.text,borderTop:`1px solid ${C.border}`,paddingTop:14,marginBottom:14}}>{question.question}</p>
               <div role="radiogroup">
                 {Object.entries(question.choices||{}).map(([l,t])=>(
                   <button key={l} style={cStyle(cs(l))} onClick={()=>!submitted&&setSelected(l)} role="radio" aria-checked={selected===l}>
@@ -6710,13 +6738,13 @@ function Onboarding({user,onUpdateUser,onDone}){
             {submitted&&(
               <div>
                 <Card style={{borderColor:selected===question.correct?C.success:C.danger,marginBottom:12}}>
-                  <div style={{fontSize:15,fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:10}}>
+                  <div style={{fontSize:fz(15),fontWeight:700,color:selected===question.correct?C.success:C.danger,marginBottom:10}}>
                     {selected===question.correct?"✓ Correct!":"✗ Not quite — here's why:"}
                   </div>
-                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:13,color:C.textSub,lineHeight:1.85}}>
+                  <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,padding:14,fontSize:fz(13),color:C.textSub,lineHeight:1.85}}>
                     {(question.explanation||"").split(/WRONG\s*\([A-E]\)/)[0].replace(/CORRECT\s*\([A-E]\):\s*/,"").trim()}
                   </div>
-                  {question.key_concept&&<div style={{marginTop:10,fontSize:13,color:C.purple,fontStyle:"italic"}}>🔑 {question.key_concept}</div>}
+                  {question.key_concept&&<div style={{marginTop:10,fontSize:fz(13),color:C.purple,fontStyle:"italic"}}>🔑 {question.key_concept}</div>}
                 </Card>
                 <Btn onClick={()=>{if(practiceStep<2){setPracticeStep(s=>s+1);setQuestion(null);}else{setPracticeStep(3);}}} style={{width:"100%"}}>
                   {practiceStep<2?"Next Question →":"See Results →"}
@@ -6766,62 +6794,62 @@ function Dashboard({user,onUpdateUser}){
       <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 12px"}}>Practice statistics (classic)</h2>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
         <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Progress</h1>
-        {srsDue.length>0&&<div style={{background:C.gold+"20",border:`1px solid ${C.gold}44`,borderRadius:12,padding:"6px 14px",fontSize:13,color:C.gold,fontWeight:600}}>
+        {srsDue.length>0&&<div style={{background:C.gold+"20",border:`1px solid ${C.gold}44`,borderRadius:12,padding:"6px 14px",fontSize:fz(13),color:C.gold,fontWeight:600}}>
           🔁 {srsDue.length} type{srsDue.length!==1?"s":""} due for review
         </div>}
       </div>
-      <p style={{color:C.textMuted,fontSize:14,marginBottom:14}}>{history.length} total questions answered.</p>
+      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:14}}>{history.length} total questions answered.</p>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:10,marginBottom:14}}>
-        <Card style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={overall} size={86} color={overall>=70?C.success:overall>=50?C.gold:C.danger} label={`Overall: ${overall}%`}/><div style={{fontSize:12,color:C.textMuted,marginTop:8}}>Overall</div></Card>
-        {sData.map(({s,score,total})=><Card key={s} style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={score} size={72} color={score>=70?C.success:score>=50?C.gold:C.danger} label={`${s}: ${score}%`}/><div style={{fontSize:12,color:C.textMuted,marginTop:8}}>{s.split(" ")[0]}</div><div style={{fontSize:11,color:C.textMuted}}>{total} q's</div></Card>)}
+        <Card style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={overall} size={86} color={overall>=70?C.success:overall>=50?C.gold:C.danger} label={`Overall: ${overall}%`}/><div style={{fontSize:fz(12),color:C.textMuted,marginTop:8}}>Overall</div></Card>
+        {sData.map(({s,score,total})=><Card key={s} style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={score} size={72} color={score>=70?C.success:score>=50?C.gold:C.danger} label={`${s}: ${score}%`}/><div style={{fontSize:fz(12),color:C.textMuted,marginTop:8}}>{s.split(" ")[0]}</div><div style={{fontSize:fz(11),color:C.textMuted}}>{total} q's</div></Card>)}
       </div>
 
       <ScoreTrajectory user={user}/>
 
       {/* Score Predictor */}
       <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:14,fontWeight:700}}>🎯 Lumora Score Predictor</div>
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:14,fontWeight:700}}>🎯 Lumora Score Predictor</div>
         {pred?(
           <div>
             <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:14,flexWrap:"wrap"}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:48,fontWeight:900,color:C.accent,fontFamily:T.serif,lineHeight:1}}>{pred.mid}</div><div style={{fontSize:12,color:C.textMuted,marginTop:4}}>Projected Score</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:48,fontWeight:900,color:C.accent,fontFamily:T.serif,lineHeight:1}}>{pred.mid}</div><div style={{fontSize:fz(12),color:C.textMuted,marginTop:4}}>Projected Score</div></div>
               <div style={{flex:1}}>
-                <div style={{fontSize:14,color:C.textSub,marginBottom:6}}>Range: <strong style={{color:C.text}}>{pred.low} – {pred.high}</strong></div>
-                <div style={{fontSize:13,color:C.textMuted,marginBottom:10}}>Confidence: <Tag color={pred.confidence==="High"?C.success:pred.confidence==="Moderate"?C.gold:C.textMuted}>{pred.confidence}</Tag></div>
+                <div style={{fontSize:fz(14),color:C.textSub,marginBottom:6}}>Range: <strong style={{color:C.text}}>{pred.low} – {pred.high}</strong></div>
+                <div style={{fontSize:fz(13),color:C.textMuted,marginBottom:10}}>Confidence: <Tag color={pred.confidence==="High"?C.success:pred.confidence==="Moderate"?C.gold:C.textMuted}>{pred.confidence}</Tag></div>
                 <div style={{background:C.surfaceHigh,borderRadius:10,height:10,position:"relative",overflow:"hidden"}}>
                   <div style={{position:"absolute",left:`${(pred.low-120)/60*100}%`,width:`${(pred.high-pred.low)/60*100}%`,height:"100%",background:`linear-gradient(90deg,${C.accentSoft},${C.accent})`,borderRadius:10}}/>
                 </div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.textMuted,marginTop:4}}><span>120</span><span>150</span><span>180</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(10),color:C.textMuted,marginTop:4}}><span>120</span><span>150</span><span>180</span></div>
               </div>
             </div>
-            {pred.needed>0&&<div style={{fontSize:13,color:C.textMuted,background:C.surfaceHigh,borderRadius:8,padding:"10px 12px"}}>📊 Answer {pred.needed} more questions for <strong style={{color:C.text}}>High</strong> confidence prediction.</div>}
+            {pred.needed>0&&<div style={{fontSize:fz(13),color:C.textMuted,background:C.surfaceHigh,borderRadius:8,padding:"10px 12px"}}>📊 Answer {pred.needed} more questions for <strong style={{color:C.text}}>High</strong> confidence prediction.</div>}
           </div>
         ):(
           <div>
-            <p style={{color:C.textMuted,fontSize:14,lineHeight:1.7,marginBottom:10}}>Answer at least <strong style={{color:C.text}}>10 questions</strong> to unlock your Lumora score prediction. You've answered {history.length} so far.</p>
+            <p style={{color:C.textMuted,fontSize:fz(14),lineHeight:1.7,marginBottom:10}}>Answer at least <strong style={{color:C.text}}>10 questions</strong> to unlock your Lumora score prediction. You've answered {history.length} so far.</p>
             <div style={{background:C.surfaceHigh,borderRadius:6,height:6}}><div style={{height:"100%",width:`${Math.min(100,history.length/10*100)}%`,background:C.accent,borderRadius:6,transition:"width 0.5s"}}/></div>
-            <div style={{fontSize:12,marginTop:4,color:C.textMuted}}>{history.length}/10</div>
+            <div style={{fontSize:fz(12),marginTop:4,color:C.textMuted}}>{history.length}/10</div>
           </div>
         )}
       </Card>
 
       <Card style={{marginBottom:12}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>By Difficulty Level</div>
-        {lvData.filter(d=>d.t>0).map(({l,t,c})=>{const pct=Math.round(c/t*100);return<div key={l} style={{marginBottom:11}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:13}}><span style={{color:LEVEL_COLORS[l],fontWeight:600}}>Level {l} — {LEVEL_LABELS[l]}</span><span style={{color:sc(pct),fontWeight:600}}>{pct}% ({c}/{t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7}}><div style={{height:"100%",width:`${pct}%`,background:LEVEL_COLORS[l],borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
-        {lvData.every(d=>d.t===0)&&<p style={{color:C.textMuted,fontSize:14}}>Answer questions to see your level breakdown.</p>}
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>By Difficulty Level</div>
+        {lvData.filter(d=>d.t>0).map(({l,t,c})=>{const pct=Math.round(c/t*100);return<div key={l} style={{marginBottom:11}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:fz(13)}}><span style={{color:LEVEL_COLORS[l],fontWeight:600}}>Level {l} — {LEVEL_LABELS[l]}</span><span style={{color:sc(pct),fontWeight:600}}>{pct}% ({c}/{t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7}}><div style={{height:"100%",width:`${pct}%`,background:LEVEL_COLORS[l],borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
+        {lvData.every(d=>d.t===0)&&<p style={{color:C.textMuted,fontSize:fz(14)}}>Answer questions to see your level breakdown.</p>}
       </Card>
 
       {sorted.length>0&&<Card style={{marginBottom:12}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>By Question Type</div>
-        {sorted.map(([k,v])=>{const pct=Math.round(v.c/v.t*100);return<div key={k} style={{marginBottom:11}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:13}}><span style={{color:C.text}}>{k}</span><span style={{color:sc(pct),fontWeight:600}}>{pct}% ({v.c}/{v.t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>By Question Type</div>
+        {sorted.map(([k,v])=>{const pct=Math.round(v.c/v.t*100);return<div key={k} style={{marginBottom:11}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:fz(13)}}><span style={{color:C.text}}>{k}</span><span style={{color:sc(pct),fontWeight:600}}>{pct}% ({v.c}/{v.t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
       </Card>}
 
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Lumora LSAT Level</div>
+        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Lumora LSAT Level</div>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
           <div style={{width:54,height:54,borderRadius:13,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:900,color:"#fff"}}>{Math.floor((user.stats?.xp||0)/XP_PER_LEVEL)+1}</div>
-          <div style={{flex:1}}><XPBar xp={user.stats?.xp||0} level={Math.floor((user.stats?.xp||0)/XP_PER_LEVEL)+1}/><div style={{fontSize:12,color:C.textMuted,marginTop:5}}>{user.stats?.xp||0} total XP earned</div></div>
+          <div style={{flex:1}}><XPBar xp={user.stats?.xp||0} level={Math.floor((user.stats?.xp||0)/XP_PER_LEVEL)+1}/><div style={{fontSize:fz(12),color:C.textMuted,marginTop:5}}>{user.stats?.xp||0} total XP earned</div></div>
         </div>
       </Card>
 
@@ -6852,12 +6880,12 @@ function Dashboard({user,onUpdateUser}){
         if(insights.length===0)return null;
         return(
           <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
-            <div style={{fontSize:12,textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:12,fontWeight:700}}>Study Insights</div>
+            <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:12,fontWeight:700}}>Study Insights</div>
             {insights.map((insight,i)=>(
               <div key={i} style={{display:"flex",gap:10,marginBottom:i<insights.length-1?10:0,
                 padding:"10px 12px",background:C.surfaceHigh,borderRadius:10}}>
-                <span style={{color:C.accent,fontSize:14,flexShrink:0}}>→</span>
-                <span style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>{insight}</span>
+                <span style={{color:C.accent,fontSize:fz(14),flexShrink:0}}>→</span>
+                <span style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>{insight}</span>
               </div>
             ))}
           </Card>
@@ -7069,7 +7097,7 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
         <h2 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:8}}>
           Upgrade to Lumora Pro
         </h2>
-        <p style={{color:C.textSub,fontSize:14,lineHeight:1.7,marginBottom:24}}>
+        <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.7,marginBottom:24}}>
           {reasonMsg[reason]||reasonMsg.default}
         </p>
 
@@ -7087,13 +7115,13 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
             <div key={i} style={{display:"flex",alignItems:"center",gap:10,
               padding:"6px 0",borderBottom:i<6?`1px solid ${C.border}`:"none"}}>
               <span style={{color:C.success,fontWeight:700,fontSize:16}}>✓</span>
-              <span style={{fontSize:13,color:C.text}}>{f}</span>
+              <span style={{fontSize:fz(13),color:C.text}}>{f}</span>
             </div>
           ))}
         </div>
 
         {error&&<div style={{background:C.danger+"15",border:`1px solid ${C.danger}33`,
-          borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:C.danger}}>
+          borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:fz(13),color:C.danger}}>
           {error}
         </div>}
 
@@ -7106,8 +7134,8 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
               color:C.accent,cursor:"pointer",fontFamily:T.sans,
               opacity:loading&&loading!=="monthly"?0.5:1}}>
             <div style={{fontSize:22,fontWeight:900,color:C.accent}}>$24.99</div>
-            <div style={{fontSize:11,color:C.textMuted}}>per month</div>
-            {loading==="monthly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
+            <div style={{fontSize:fz(11),color:C.textMuted}}>per month</div>
+            {loading==="monthly"&&<div style={{fontSize:fz(11),marginTop:4}}>Redirecting…</div>}
           </button>
           <button onClick={()=>checkout(STRIPE_PRICE_YEARLY,"yearly")}
             disabled={!!loading}
@@ -7116,14 +7144,14 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
               color:C.gold,cursor:"pointer",fontFamily:T.sans,
               opacity:loading&&loading!=="yearly"?0.5:1,position:"relative"}}>
             <div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",
-              background:C.gold,color:"#1a0800",fontSize:10,fontWeight:800,
+              background:C.gold,color:"#1a0800",fontSize:fz(10),fontWeight:800,
               padding:"2px 10px",borderRadius:20,whiteSpace:"nowrap"}}>
               BEST VALUE
             </div>
             <div style={{fontSize:22,fontWeight:900,color:C.gold}}>$149</div>
-            <div style={{fontSize:11,color:C.textMuted}}>per year</div>
-            <div style={{fontSize:11,color:C.gold,marginTop:2}}>Save $151</div>
-            {loading==="yearly"&&<div style={{fontSize:11,marginTop:4}}>Redirecting…</div>}
+            <div style={{fontSize:fz(11),color:C.textMuted}}>per year</div>
+            <div style={{fontSize:fz(11),color:C.gold,marginTop:2}}>Save $151</div>
+            {loading==="yearly"&&<div style={{fontSize:fz(11),marginTop:4}}>Redirecting…</div>}
           </button>
         </div>
 
@@ -7138,11 +7166,11 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
                 placeholder="Have a promo code?"
                 style={{flex:1,background:C.surfaceHigh,border:"1px solid "+C.border,
                   borderRadius:10,padding:"8px 12px",color:C.text,
-                  fontSize:13,fontFamily:T.sans,outline:"none"}}/>
+                  fontSize:fz(13),fontFamily:T.sans,outline:"none"}}/>
               <button onClick={applyPromo} disabled={promoLoading||!promoInput.trim()}
                 style={{background:C.accentSoft,border:"1px solid "+C.accent+"44",
                   borderRadius:10,padding:"8px 14px",color:C.accent,
-                  fontSize:13,fontWeight:700,cursor:"pointer",
+                  fontSize:fz(13),fontWeight:700,cursor:"pointer",
                   fontFamily:T.sans,whiteSpace:"nowrap",
                   opacity:promoLoading||!promoInput.trim()?0.5:1}}>
                 {promoLoading?"…":"Apply"}
@@ -7152,14 +7180,14 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
         ):(
           <div style={{background:C.success+"18",border:"1px solid "+C.success+"44",
             borderRadius:10,padding:"10px 14px",color:C.success,
-            fontSize:14,fontWeight:600,textAlign:"center",marginBottom:8}}>
+            fontSize:fz(14),fontWeight:600,textAlign:"center",marginBottom:8}}>
             ✓ Promo code applied! Activating Pro…
           </div>
         )}
 
         <button onClick={onClose}
           style={{background:"none",border:"none",color:C.textMuted,
-            fontSize:13,cursor:"pointer",fontFamily:T.sans}}>
+            fontSize:fz(13),cursor:"pointer",fontFamily:T.sans}}>
           Maybe later
         </button>
       </div>
@@ -7175,11 +7203,11 @@ function LegalPage({title,onBack,children}){
   return(
     <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px 100px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,
-        cursor:"pointer",fontSize:13,fontFamily:T.sans,marginBottom:20}}>
+        cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20}}>
         ← Back
       </button>
       <h1 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,marginBottom:28}}>{title}</h1>
-      <div style={{fontSize:14,color:C.textSub,lineHeight:1.9}}>{children}</div>
+      <div style={{fontSize:fz(14),color:C.textSub,lineHeight:1.9}}>{children}</div>
     </main>
   );
 }
@@ -7245,7 +7273,7 @@ function JournalFloat({user,onUpdateUser,context}){
       style={{position:"fixed",bottom:104,left:24,zIndex:300,
         background:C.surface,border:"1px solid "+C.border,
         borderRadius:20,padding:"5px 14px",cursor:"pointer",
-        fontSize:12,fontWeight:700,color:C.textSub,
+        fontSize:fz(12),fontWeight:700,color:C.textSub,
         display:"flex",alignItems:"center",gap:6,
         boxShadow:"0 2px 8px #00000033",fontFamily:T.sans}}>
       <span style={{fontSize:16}}>📓</span>
@@ -7264,7 +7292,7 @@ function JournalFloat({user,onUpdateUser,context}){
             <button key={t} onClick={()=>setType(t)}
               style={{background:type===t?col+"22":"none",border:"none",
                 borderRadius:8,padding:"3px 8px",color:type===t?col:C.textMuted,
-                fontSize:13,cursor:"pointer"}}>
+                fontSize:fz(13),cursor:"pointer"}}>
               {icon}
             </button>
           ))}
@@ -7277,12 +7305,12 @@ function JournalFloat({user,onUpdateUser,context}){
           placeholder={type==="scratch"?"Work through the argument…":type==="mistake"?"Why was I wrong?":"Note to remember…"}
           rows={5}
           style={{width:"100%",background:C.bg,border:"1px solid "+typeColor+"33",
-            borderRadius:10,padding:"10px 12px",color:C.text,fontSize:13,
+            borderRadius:10,padding:"10px 12px",color:C.text,fontSize:fz(13),
             fontFamily:"Georgia, serif",lineHeight:1.9,resize:"none",
             boxSizing:"border-box",outline:"none"}}/>
         <button onClick={save} disabled={!text.trim()}
           style={{width:"100%",marginTop:8,background:typeColor,border:"none",
-            borderRadius:10,padding:"8px",color:"white",fontSize:13,
+            borderRadius:10,padding:"8px",color:"white",fontSize:fz(13),
             fontWeight:700,cursor:"pointer",opacity:!text.trim()?0.5:1}}>
           Save to Journal
         </button>
@@ -7320,6 +7348,7 @@ export default function App(){
   // Apply theme and font globally - sync before render
   C=darkMode?DARK:LIGHT;
   FONT_SCALE=fontScale;
+  setGlobalFontScale(fontScale); T.scale=fontScale;
 
   useEffect(()=>{
     (async()=>{
@@ -7336,7 +7365,7 @@ export default function App(){
           const email=DB.getSession();
           if(email)u=await DB.getUser(email);
         }
-        if(u){setUser(u);setScreen("home");}
+        if(u){setUser(u);setScreen(parseHash(window.location.hash)?"learn":"home");}
         // Back from Stripe Checkout: Pro is granted ONLY by the server (webhook). Wait briefly for it.
         const params=new URLSearchParams(window.location.search);
         if(params.get("checkout")==="success"&&u){
@@ -7392,8 +7421,14 @@ export default function App(){
     return()=>window.removeEventListener("focus",checkStreak);
   },[user?.email]);
 
+  // Deep links (#learn/… or #classic/…) open the Learn screen; Learn itself opens the lesson.
+  useEffect(()=>{
+    const onHash=()=>{if(user&&parseHash(window.location.hash))setScreen("learn");};
+    window.addEventListener("hashchange",onHash);return()=>window.removeEventListener("hashchange",onHash);
+  },[user]);
+
   const handleLogin=(u)=>{
-    setUser(u);setScreen("home");
+    setUser(u);setScreen(parseHash(window.location.hash)?"learn":"home");
     if(!u.onboardingDone&&(!u.history||u.history.length===0))setShowOnboarding(true);
   };
   const handleLogout=async()=>{await DB.clearSession();setUser(null);setScreen("landing");};
@@ -7522,7 +7557,7 @@ export default function App(){
         h1 { font-size: ${Math.round(26*fontScale)}px !important; }
         h2 { font-size: ${Math.round(20*fontScale)}px !important; }
         h3 { font-size: ${Math.round(17*fontScale)}px !important; }
-        p { font-size: ${Math.round(14*fontScale)}px !important; }
+        p { font-size: ${Math.round(16*fontScale)}px; }
       `}</style>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
       {user&&streakCelebrate&&<StreakCelebration streak={user.stats?.streak||0} onDismiss={()=>setStreakCelebrate(false)}/>}
@@ -7541,7 +7576,7 @@ export default function App(){
       {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
         onClose={()=>setUpgradeModal(null)}
         onPromoSuccess={async()=>{await refreshProfile();setUpgradeModal(null);}}/>}
-      {proNotice&&<div role="status" style={{position:"fixed",top:68,left:"50%",transform:"translateX(-50%)",zIndex:700,background:C.surface,border:`1px solid ${C.gold}66`,borderRadius:12,padding:"10px 16px",color:C.text,fontSize:14,boxShadow:"0 8px 32px #0006",maxWidth:"calc(100% - 32px)"}}>{proNotice}</div>}
+      {proNotice&&<div role="status" style={{position:"fixed",top:68,left:"50%",transform:"translateX(-50%)",zIndex:700,background:C.surface,border:`1px solid ${C.gold}66`,borderRadius:12,padding:"10px 16px",color:C.text,fontSize:fz(14),boxShadow:"0 8px 32px #0006",maxWidth:"calc(100% - 32px)"}}>{proNotice}</div>}
       {showLexChat&&user&&<MonkeyChat user={user} onUpdateUser={handleUpdateUser}
         onClose={()=>setShowLexChat(false)} onNavigate={handleSetScreen}/>}
       {/* Floating Lex button — always visible */}
@@ -7595,7 +7630,7 @@ class ErrorBoundary extends Component {
             <h2 style={{color:"#ef4444",fontSize:20,marginBottom:12}}>
               App Error — please report this
             </h2>
-            <pre style={{color:"#fca5a5",fontSize:12,whiteSpace:"pre-wrap",
+            <pre style={{color:"#fca5a5",fontSize:fz(12),whiteSpace:"pre-wrap",
               background:"#0a0f1e",padding:16,borderRadius:8,overflow:"auto",
               maxHeight:300}}>
               {this.state.error?.toString()}
@@ -7603,7 +7638,7 @@ class ErrorBoundary extends Component {
             </pre>
             <button onClick={()=>window.location.reload()}
               style={{marginTop:16,background:"#3b82f6",border:"none",borderRadius:8,
-                padding:"10px 20px",color:"white",cursor:"pointer",fontSize:14}}>
+                padding:"10px 20px",color:"white",cursor:"pointer",fontSize:fz(14)}}>
               Reload App
             </button>
           </div>

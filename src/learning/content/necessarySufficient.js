@@ -118,7 +118,7 @@ export const LESSON_NS = {
   items: [
     // Learn checkpoint
     {
-      id: 'ns.l1', stage: 'learn', difficulty: 1,
+      id: 'ns.l1', stage: 'orient', difficulty: 1,
       stimulus: '"Whenever the alarm sounds, the doors lock."',
       stem: 'Which condition is SUFFICIENT?',
       choices: { A: 'The alarm sounds.', B: 'The doors lock.', C: 'Both are sufficient for each other.', D: 'Neither; the sentence is not conditional.' },

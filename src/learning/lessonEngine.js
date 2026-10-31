@@ -2,9 +2,15 @@
 // Transitions are idempotent: replaying the same event (refresh, double-click) is a no-op.
 import { LESSON_POLICY } from './config.js';
 
-export const STAGES = ['not_started', 'learn', 'recognize', 'apply', 'challenge', 'mastery_check', 'completed'];
-export const STAGE_LABELS = { learn: 'Learn', recognize: 'Recognize', apply: 'Apply', challenge: 'Challenge', mastery_check: 'Mastery check', completed: 'Completed' };
-export const PLAYABLE_STAGES = ['learn', 'recognize', 'apply', 'challenge', 'mastery_check'];
+// Curriculum v2.0 lesson stages: Orient → Learn → Recognize → Guided apply → Challenge → Explain & reflect
+// → Mastery check → Retention review. 'learn' holds Orient (an unscored diagnostic question shown first)
+// AND the instruction; retention review happens afterwards in Review (spaced, fresh questions).
+// Stage keys are stable (stored in progress); 'explain' was added in v2 — older progress simply passes through it.
+export const STAGES = ['not_started', 'learn', 'recognize', 'apply', 'challenge', 'explain', 'mastery_check', 'completed'];
+export const STAGE_LABELS = { orient: 'Orient', learn: 'Orient & learn', recognize: 'Recognize', apply: 'Guided apply', challenge: 'Challenge', explain: 'Explain & reflect', mastery_check: 'Mastery check', review: 'Retention review', completed: 'Completed' };
+export const PLAYABLE_STAGES = ['learn', 'recognize', 'apply', 'challenge', 'explain', 'mastery_check'];
+/** Stages whose answers never count toward mastery (diagnostic / instructional). */
+export const UNSCORED_STAGES = ['orient', 'learn', 'recognize'];
 
 export function newLessonProgress(lessonId, version, now = Date.now()) {
   return { lessonId, version, stage: 'not_started', completedStages: [], startedAt: null, updatedAt: now, completedAt: null, placement: null, remediation: null, stageEpoch: {}, events: [] };
@@ -57,7 +63,7 @@ export function applyLessonEvent(progress, event, now = Date.now()) {
     case 'tested_out':
       if (p.placement === 'tested_out') return { progress, changed: false, awarded };
       p.placement = 'tested_out';
-      for (const s of ['learn', 'recognize', 'apply', 'challenge']) if (!p.completedStages.includes(s)) p.completedStages.push(s);
+      for (const s of ['learn', 'recognize', 'apply', 'challenge', 'explain']) if (!p.completedStages.includes(s)) p.completedStages.push(s);
       if (STAGES.indexOf(p.stage) < STAGES.indexOf('mastery_check')) p.stage = 'mastery_check';
       if (!p.startedAt) p.startedAt = now;
       awarded.push({ key: `placement:${p.lessonId}`, kind: 'placement_passed' });
@@ -85,6 +91,11 @@ export function challengeOutcome(stageAttempts, policy = LESSON_POLICY) {
   const n = stageAttempts.length; const c = stageAttempts.filter(a => a.correct).length;
   const done = n >= policy.challenge.itemCount;
   return { done, correct: c, total: n, remediate: done && c / n < policy.challenge.remediateBelow };
+}
+/** Explain & reflect: a self-check against the model explanation. Acceptable = at least `needed` checks. */
+export function explanationOutcome(checks = [], policy = LESSON_POLICY) {
+  const n = checks.filter(Boolean).length;
+  return { acceptable: n >= policy.explain.checksNeeded, checked: n, needed: policy.explain.checksNeeded };
 }
 export function placementOutcome(stageAttempts, policy = LESSON_POLICY) {
   const indepCorrect = stageAttempts.filter(a => a.correct && !a.revealed && !(a.hintsUsed > 0) && a.confidence !== 'guess').length;

@@ -13,7 +13,7 @@ import { scheduleInitial, recordReview, dueReviews } from '../src/learning/revie
 import { awardXP } from '../src/learning/xp.js';
 import { validateGeneratedQuestion, fingerprintQuestion, screenDuplicate, parseExplanation } from '../src/learning/questionValidation.js';
 import { generateSkillQuestion, buildGenerationRequest, requestToPrompt } from '../src/learning/practiceEngine.js';
-import { emptyEngine, recordAttempt, lessonEvent, flagItem, getEngine, engineUpdate, ENGINE_KEY } from '../src/learning/store.js';
+import { emptyEngine, recordAttempt, lessonEvent, flagItem, getEngine, engineUpdate, ENGINE_KEY, recordExplanation } from '../src/learning/store.js';
 import { recommendNext } from '../src/learning/recommend.js';
 import { formatForDate, MASTERY_POLICY } from '../src/learning/config.js';
 
@@ -128,9 +128,10 @@ test('stage checkpoints', () => {
 });
 
 // ─── E. Mastery model (adaptive-system tests from spec §16C) ───────────────
-const att = (i, o = {}) => ({ id: 'x' + i, ts: T0 + i * 60000, skillId: 's', stage: 'challenge', correct: true, hintsUsed: 0, confidence: 'sure', difficulty: 2, itemId: 'item' + i, ...o });
+const att = (i, o = {}) => ({ id: 'x' + i, ts: T0 + i * 60000, skillId: 's', stage: 'challenge', correct: true, hintsUsed: 0, confidence: 'sure', difficulty: 2, itemId: 'item' + i, structure: 'form' + (i % 3), ...o });
+const OK = { explanationOk: true }; // spec gate: an acceptable explanation is part of Proficient
 test('one perfect set does not produce Mastered', () => {
-  const m = assessMastery([0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i)));
+  const m = assessMastery([0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i)), OK);
   assert.equal(m.state, 'proficient');
   assert.notEqual(m.state, 'mastered');
 });
@@ -158,18 +159,31 @@ test('repeating the same item does not establish breadth', () => {
 test('delayed independent review promotes Proficient to Mastered', () => {
   const base = [0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i));
   const late = att(99, { ts: T0 + (MASTERY_POLICY.mastered.retentionDelayDays + 1) * DAY, stage: 'review' });
-  assert.equal(assessMastery([...base, late]).state, 'mastered');
+  assert.equal(assessMastery([...base, late], OK).state, 'proficient', 'delayed review alone is not enough: mixed transfer is required');
+  const mixed = att(98, { ts: T0 + 2 * DAY, stage: 'review', mixed: true, itemId: 'mx', structure: 'formM' });
+  assert.equal(assessMastery([...base, mixed, late], OK).state, 'mastered');
+});
+test('CUR gate: Proficient needs 8 distinct items, 3 structures, an explanation, and no unresolved misconception', () => {
+  const base = [0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i));
+  assert.equal(assessMastery(base, {}).state, 'developing', 'no explanation yet');
+  assert.ok(assessMastery(base, {}).reasons.some(r => r.includes('explanation')));
+  assert.equal(assessMastery(base.map(a => ({ ...a, structure: 'one' })), OK).state, 'developing', 'one structure only');
+  assert.equal(assessMastery(base.slice(0, 7), OK).state, 'developing', 'only 7 distinct items');
+  const m = assessMastery(base, { ...OK, unresolvedMisconceptions: ['Conditional translation error'] });
+  assert.equal(m.state, 'developing'); assert.ok(m.reasons.some(r => r.includes('repeated mistake')));
+  assert.equal(assessMastery(base, OK).state, 'proficient');
 });
 test('failed delayed reviews mark needs-review and lower state, keeping peak', () => {
   const base = [0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i));
   const late = (k, c) => att(100 + k, { ts: T0 + (4 + k) * DAY, stage: 'review', correct: c });
-  const m1 = assessMastery([...base, late(0, true)]);
-  const m2 = assessMastery([...base, late(0, true), late(1, false), late(2, false)], { peakState: m1.peakState });
+  const mixed = att(98, { ts: T0 + 2 * DAY, stage: 'review', mixed: true, itemId: 'mx' });
+  const m1 = assessMastery([...base, mixed, late(0, true)], OK);
+  const m2 = assessMastery([...base, mixed, late(0, true), late(1, false), late(2, false)], { ...OK, peakState: m1.peakState });
   assert.equal(m2.needsReview, true); assert.equal(m2.state, 'developing'); assert.equal(m2.peakState, 'mastered');
 });
 test('one isolated error does not collapse progress', () => {
   const list = [0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i)); list.push(att(8, { correct: false }));
-  assert.equal(assessMastery(list).state, 'proficient');
+  assert.equal(assessMastery(list, OK).state, 'proficient');
 });
 test('provisional (unverified) items are excluded from mastery scoring', () => {
   const m = assessMastery([0, 1, 2, 3, 4, 5, 6, 7].map(i => att(i, { scorable: false })));
@@ -222,7 +236,7 @@ test('lesson completion schedules a review; stage XP is not double-awarded after
   assert.ok(e.reviews[lesson.skillId]);
 });
 test('flagging an item removes it from mastery scoring', () => {
-  let e = emptyEngine();
+  let e = recordExplanation(emptyEngine(), { lessonId: lesson.id, skillId: lesson.skillId, itemId: 'q0', checks: [true, true, true], acceptable: true }, T0);
   for (let i = 0; i < 8; i++) e = recordAttempt(e, att(i, { skillId: lesson.skillId, lessonId: lesson.id, itemId: 'q' + i }), T0 + i).engine;
   assert.equal(e.mastery[lesson.skillId].state, 'proficient');
   for (let i = 0; i < 4; i++) e = flagItem(e, { itemKey: 'q' + i, skillId: lesson.skillId, reason: 'ambiguous' });

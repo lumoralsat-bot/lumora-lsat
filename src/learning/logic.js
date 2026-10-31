@@ -104,6 +104,8 @@ export function checkFormalItem(item) {
   const ids = Object.keys(f.choices);
   const good = ids.filter(id => {
     if (f.mode === 'equivalent') return equivalent(f.premises[0], f.choices[id]);
+    // Sufficient-assumption items: premises + choice must guarantee the target (and stay consistent).
+    if (f.mode === 'sufficient') return consistent([...f.premises, f.choices[id]]) && entails([...f.premises, f.choices[id]], f.target);
     return entails(f.premises, f.choices[id]);
   });
   if (good.length !== 1) problems.push(`expected exactly one valid choice, found ${good.length} (${good.join(',')})`);
@@ -169,7 +171,9 @@ export function qConsistent(premises) {
 export function checkQuantifiedItem(item) {
   const f = item.formal; const problems = [];
   if (!qConsistent(f.premises)) problems.push('premises are inconsistent');
-  const good = Object.keys(f.choices).filter(id => qEntails(f.premises, f.choices[id]));
+  const good = Object.keys(f.choices).filter(id => f.mode === 'sufficient'
+    ? qConsistent([...f.premises, f.choices[id]]) && qEntails([...f.premises, f.choices[id]], f.target)
+    : qEntails(f.premises, f.choices[id]));
   if (good.length !== 1) problems.push(`expected exactly one valid choice, found ${good.length} (${good.join(',')})`);
   if (good.length === 1 && good[0] !== item.correct) problems.push(`keyed ${item.correct} but logic supports ${good[0]}`);
   return { ok: problems.length === 0, entailedChoices: good, problems };

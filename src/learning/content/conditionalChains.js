@@ -41,7 +41,7 @@ export const LESSON_CHAINS = {
     { tag: 'negation_error', label: 'Ignoring a “not” when linking', fix: 'B and ¬B are different terms. Use a contrapositive to make terms match before linking.' },
   ],
   items: [
-    { id: 'ch.l1', stage: 'learn', difficulty: 1,
+    { id: 'ch.l1', stage: 'orient', difficulty: 1,
       stimulus: 'Rule 1: Fox → Den. Rule 2: Den → Trail.', stem: 'Which conclusion follows from linking these rules?',
       choices: { A: 'Fox → Trail', B: 'Trail → Fox', C: '¬Fox → ¬Trail', D: 'They do not link.' }, correct: 'A',
       formal: { mode: 'must_be_true', premises: ['Fox -> Den', 'Den -> Trail', 'Fox_y -> Den_y', 'Den_y -> Trail_y'], choices: { A: 'Fox_y -> Trail_y', B: 'Trail_y -> Fox_y', C: '~Fox_y -> ~Trail_y', D: 'Unrelated' } },

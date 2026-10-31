@@ -90,7 +90,7 @@ export function buildDailyPlan(engine, profile = {}, { now = Date.now(), lessons
   const mode = planMode(profile, now);
   const budgetKnown = profile?.minutesPerDay != null;
   const budget = budgetKnown ? profile.minutesPerDay : DEFAULT_MINUTES;
-  const evidence = engine.attempts.filter(a => a.scorable !== false && a.stage !== 'learn').length;
+  const evidence = engine.attempts.filter(a => a.scorable !== false && !['orient', 'learn'].includes(a.stage)).length;
   const provisional = evidence < 10;
   const notes = [];
   if (!budgetKnown) notes.push(`Using a default ${DEFAULT_MINUTES}-minute session. Set your daily time in your study profile.`);
@@ -152,7 +152,7 @@ function reviewTask(n, total = n) {
 export function weeklyCheckpoint(engine, profile = {}, now = Date.now()) {
   const since = now - 7 * DAY;
   const week = engine.attempts.filter(a => a.ts >= since);
-  const scorable = week.filter(a => a.scorable !== false && a.stage !== 'learn');
+  const scorable = week.filter(a => a.scorable !== false && !['orient', 'learn'].includes(a.stage));
   const indep = scorable.filter(a => !(a.hintsUsed > 0) && !a.revealed);
   const indepCorrect = indep.filter(a => a.correct && a.confidence !== 'guess');
   const days = new Set(week.map(a => new Date(a.ts).toDateString())).size;

@@ -17,7 +17,7 @@ export function isIndependentAttempt(a) { return !a.revealed && (a.hintsUsed || 
 
 /**
  * @param {object[]} attempts - this skill's attempts (any order)
- * @param {{lessonStarted?:boolean, testedOut?:boolean, peakState?:string}} ctx
+ * @param {{lessonStarted?:boolean, testedOut?:boolean, peakState?:string, explanationOk?:boolean, unresolvedMisconceptions?:string[]}} ctx
  * @returns {{state, needsReview, reasons:string[], evidence:object, policyVersion}}
  */
 export function assessMastery(attempts = [], ctx = {}, policy = MASTERY_POLICY) {
@@ -30,6 +30,12 @@ export function assessMastery(attempts = [], ctx = {}, policy = MASTERY_POLICY) 
   const assisted = correct.filter(a => !isIndependentCorrect(a));
   const lowConfCorrect = correct.filter(a => a.confidence === 'guess');
   const distinctItems = new Set(indepCorrect.map(a => a.fingerprint || a.itemId)).size;
+  // Question "structure": generated items carry a structural fingerprint; authored items an explicit
+  // structure key, else their stem form. An approximation — documented in docs/CURRICULUM_TRACEABILITY.md.
+  const distinctStructures = new Set(indepCorrect.map(a => a.structure || a.itemId)).size;
+  const mixedCorrect = scorable.filter(a => a.mixed && isIndependentCorrect(a));
+  const unresolved = ctx.unresolvedMisconceptions || [];
+  const explanationOk = !policy.proficient.requireExplanation || !!ctx.explanationOk;
   const harderCorrect = indepCorrect.filter(a => (a.difficulty || 1) >= policy.proficient.harderDifficulty).length;
   const firstTs = all.length ? all[0].ts : null;
   const delayed = scorable.filter(a => firstTs && (a.ts - firstTs) >= policy.mastered.retentionDelayDays * DAY && ['review', 'mastery_check'].includes(a.stage) && isIndependentAttempt(a));
@@ -38,7 +44,8 @@ export function assessMastery(attempts = [], ctx = {}, policy = MASTERY_POLICY) 
   const evidence = {
     scorable: scorable.length, correct: correct.length, independentCorrect: indepCorrect.length,
     assistedCorrect: assisted.length, lowConfidenceCorrect: lowConfCorrect.length,
-    distinctItems, harderCorrect, delayedAttempts: delayed.length, delayedCorrect: delayedCorrect.length,
+    distinctItems, distinctStructures, harderCorrect, delayedAttempts: delayed.length, delayedCorrect: delayedCorrect.length,
+    mixedCorrect: mixedCorrect.length, explanationOk, unresolvedMisconceptions: unresolved.length,
     excludedProvisional: all.filter(a => a.scorable === false).length,
   };
   const reasons = [];
@@ -53,10 +60,13 @@ export function assessMastery(attempts = [], ctx = {}, policy = MASTERY_POLICY) 
   const proficientOk = indep.length >= P.proficient.minIndependent
     && recentIndepAcc(P.proficient.recentWindow) >= P.proficient.recentIndependentAccuracy
     && harderCorrect >= P.proficient.minHarderCorrect
-    && distinctItems >= P.proficient.minDistinctItems;
+    && distinctItems >= P.proficient.minDistinctItems
+    && distinctStructures >= (P.proficient.minDistinctStructures || 1)
+    && explanationOk && unresolved.length === 0;
   if (state === 'developing' && proficientOk) state = 'proficient';
   const lastDelayed = delayed[delayed.length - 1];
-  if (state === 'proficient' && delayedCorrect.length >= P.mastered.minDelayedCorrect && lastDelayed && isIndependentCorrect(lastDelayed)) state = 'mastered';
+  if (state === 'proficient' && delayedCorrect.length >= P.mastered.minDelayedCorrect && lastDelayed && isIndependentCorrect(lastDelayed)
+    && mixedCorrect.length >= (P.mastered.minMixedCorrect || 0)) state = 'mastered';
 
   // Retention decay: recent delayed checks failing → needs review (history preserved via peakState)
   let needsReview = false;
@@ -76,12 +86,15 @@ export function assessMastery(attempts = [], ctx = {}, policy = MASTERY_POLICY) 
     const need = [];
     if (indep.length < P.proficient.minIndependent) need.push(`${P.proficient.minIndependent - indep.length} more unassisted answers`);
     if (harderCorrect < P.proficient.minHarderCorrect) need.push('more success on harder (challenge-level) items');
-    if (distinctItems < P.proficient.minDistinctItems) need.push('success across more distinct questions');
+    if (distinctItems < P.proficient.minDistinctItems) need.push(`${P.proficient.minDistinctItems - distinctItems} more different questions answered correctly on your own`);
+    if (distinctStructures < (P.proficient.minDistinctStructures || 1)) need.push('success on more kinds of question, not just one format');
+    if (!explanationOk) need.push('an explanation in your own words (the Explain & reflect stage)');
+    if (unresolved.length) need.push('fixing a repeated mistake: ' + unresolved.slice(0, 2).join(', '));
     if (recentIndepAcc(P.proficient.recentWindow) < P.proficient.recentIndependentAccuracy) need.push('higher recent unassisted accuracy');
     if (need.length) reasons.push('To reach Proficient: ' + need.join('; ') + '.');
   }
-  if (state === 'proficient') reasons.push(`Reliable, unassisted performance. Mastered requires a correct, unassisted review at least ${P.mastered.retentionDelayDays} days after you first practiced this skill.`);
-  if (state === 'mastered') reasons.push('Reliable unassisted performance, including a delayed retention check.');
+  if (state === 'proficient') reasons.push(`Reliable, unassisted performance. Mastered requires a correct, unassisted review at least ${P.mastered.retentionDelayDays} days after you first practiced this skill${P.mastered.minMixedCorrect ? ', plus a correct answer in mixed review (where the question type is not named)' : ''}.`);
+  if (state === 'mastered') reasons.push('Reliable unassisted performance, including a delayed retention check and mixed review.');
   if (needsReview) reasons.push('Your recent delayed reviews were missed, so this skill needs review. Your earlier progress is still recorded.');
   if (ctx.testedOut) reasons.push('You tested out of the introductory lesson; the placement results count as evidence but not as mastery on their own.');
 

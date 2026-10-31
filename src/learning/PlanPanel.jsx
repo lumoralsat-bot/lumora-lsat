@@ -1,4 +1,5 @@
 // Adaptive study plan UI: Today card (Home), full plan + study profile editor (Study Plan screen).
+import { fz } from '../ui/scale.js';
 import { useState } from 'react';
 import { getEngine, engineUpdate, setStudyProfile } from './store.js';
 import { LESSONS_BY_SKILL } from './content/index.js';
@@ -23,9 +24,9 @@ function TaskList({ tasks, C, S, onNavigate }) {
     <ol style={{ listStyle: 'none', padding: 0, margin: '8px 0' }}>
       {tasks.map((t, i) => (
         <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderTop: i ? `1px solid ${C.border}` : 'none' }}>
-          <span aria-hidden="true" style={{ minWidth: 44, fontSize: 12, fontWeight: 700, color: t.primary ? C.accent : C.textSub }}>{t.minutes} min</span>
+          <span aria-hidden="true" style={{ minWidth: 44, fontSize: fz(12), fontWeight: 700, color: t.primary ? C.accent : C.textSub }}>{t.minutes} min</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: t.primary ? 700 : 600, color: C.text, fontSize: 14 }}>{t.title}{t.primary && <span style={{ ...S.tag(C.accent), marginLeft: 8 }}>Main goal</span>}</div>
+            <div style={{ fontWeight: t.primary ? 700 : 600, color: C.text, fontSize: fz(14) }}>{t.title}{t.primary && <span style={{ ...S.tag(C.accent), marginLeft: 8 }}>Main goal</span>}</div>
             <div style={{ ...S.small }}>{t.reason}</div>
           </div>
           <button className="lp-focus" style={{ ...S.btnGhost, padding: '5px 10px' }} onClick={() => goTask(t, onNavigate)} aria-label={`Start: ${t.title}`}>Start</button>
@@ -47,7 +48,7 @@ export function TodayPlanCard({ user, theme: C, fonts: T, onNavigate }) {
     <section aria-label="Today’s plan" style={{ ...S.card, marginBottom: 16, borderColor: C.accent + '66', background: `linear-gradient(135deg, ${C.accentSoft}, ${C.surface})` }}>
       <FocusStyles C={C} />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent }}>Your next step · {header}</div>
+        <div style={{ fontSize: fz(12), fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent }}>Your next step · {header}</div>
         {plan.provisional && <span style={S.tag(C.gold)} title="Sharpens as you answer more questions">Provisional plan</span>}
       </div>
       {plan.needsDateUpdate ? <>
@@ -57,7 +58,7 @@ export function TodayPlanCard({ user, theme: C, fonts: T, onNavigate }) {
         <p style={{ ...S.p, color: C.text, marginTop: 8 }}>Today is a rest day based on your settings. Nothing is owed.</p>
         {plan.shorter && <button className="lp-focus" style={S.btnGhost} onClick={() => onNavigate && onNavigate('review')}>Optional: one 4-minute review</button>}
       </> : <>
-        <div style={{ fontSize: 18, fontWeight: 700, color: C.text, margin: '6px 0 2px' }}>{plan.primary.title}</div>
+        <div style={{ fontSize: Math.round(18 * (globalThis.__LUMORA_FONT_SCALE__ || 1)), fontWeight: 700, color: C.text, margin: '6px 0 2px' }}>{plan.primary.title}</div>
         <p style={{ ...S.small, margin: '0 0 8px' }}><strong style={{ color: C.text }}>Why: </strong>{plan.primary.reason}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="lp-focus" style={S.btn} onClick={() => goTask(plan.primary, onNavigate)}>Continue learning →</button>
@@ -101,13 +102,13 @@ export function AdaptivePlanPanel({ user, onUpdateUser, theme: C, fonts: T, onNa
     setErrors([]); setChanges(why); setEditing(false);
   };
 
-  const field = { display: 'block', width: '100%', marginTop: 4, padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: 14, fontFamily: 'inherit' };
+  const field = { display: 'block', width: '100%', marginTop: 4, padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontSize: fz(14), fontFamily: 'inherit' };
   const help = (t) => <span style={{ ...S.small, display: 'block', marginTop: 2 }}>{t}</span>;
 
   return (
     <section aria-labelledby="ap-h" style={{ marginBottom: 28 }}>
       <FocusStyles C={C} />
-      <h2 id="ap-h" style={{ ...S.h1, fontSize: 22 }}>Your adaptive plan</h2>
+      <h2 id="ap-h" style={{ ...S.h1, fontSize: Math.round(22 * (globalThis.__LUMORA_FONT_SCALE__ || 1)) }}>Your adaptive plan</h2>
       <p style={S.small}>Built from your test date, available time, and actual performance. It updates itself — missed days never pile up.</p>
 
       {changes && <div role="status" style={{ ...S.card, marginTop: 12, borderColor: C.success + '66' }}>
@@ -117,9 +118,9 @@ export function AdaptivePlanPanel({ user, onUpdateUser, theme: C, fonts: T, onNa
 
       {editing ? (
         <form onSubmit={save} style={{ ...S.card, marginTop: 12 }} noValidate>
-          <h3 style={{ ...S.h2, fontSize: 17 }}>Study profile</h3>
+          <h3 style={{ ...S.h2, fontSize: Math.round(17 * (globalThis.__LUMORA_FONT_SCALE__ || 1)) }}>Study profile</h3>
           {profile.estimatedFrom === 'onboarding' && !engine.profile && <p style={S.small}>We pre-filled some fields from your onboarding answers as estimates. Adjust anything that is off.</p>}
-          {errors.length > 0 && <div role="alert" style={{ color: C.danger, fontSize: 13, marginBottom: 8 }}>{errors.map((x, i) => <div key={i}>{x}</div>)}</div>}
+          {errors.length > 0 && <div role="alert" style={{ color: C.danger, fontSize: fz(13), marginBottom: 8 }}>{errors.map((x, i) => <div key={i}>{x}</div>)}</div>}
           <fieldset style={{ border: 'none', padding: 0, margin: '0 0 12px' }}>
             <legend style={{ ...S.small, fontWeight: 700, color: C.text }}>Test date</legend>
             {help('Sets how the plan balances new learning, review, and timed practice.')}
@@ -153,14 +154,14 @@ export function AdaptivePlanPanel({ user, onUpdateUser, theme: C, fonts: T, onNa
       )}
 
       {!plan.needsDateUpdate && !plan.rest && <div style={{ ...S.card, marginTop: 12 }}>
-        <h3 style={{ ...S.h2, fontSize: 17 }}>Today · {plan.modeLabel}</h3>
+        <h3 style={{ ...S.h2, fontSize: Math.round(17 * (globalThis.__LUMORA_FONT_SCALE__ || 1)) }}>Today · {plan.modeLabel}</h3>
         <p style={S.small}>{plan.emphasis}</p>
         <TaskList tasks={plan.tasks} C={C} S={S} onNavigate={onNavigate} />
         <p style={S.small}>Short on time? Do just: {plan.shorter.tasks.map(t => t.title).join(' + ')} (~{plan.shorter.minutes} min).</p>
       </div>}
 
       <div style={{ ...S.card, marginTop: 12 }}>
-        <h3 style={{ ...S.h2, fontSize: 17 }}>This week</h3>
+        <h3 style={{ ...S.h2, fontSize: Math.round(17 * (globalThis.__LUMORA_FONT_SCALE__ || 1)) }}>This week</h3>
         <ul style={{ paddingLeft: 18, margin: 0 }}>
           {week.adherence && <li style={S.small}>{week.adherence}</li>}
           <li style={S.small}>{week.answered} practice answers{week.independentAccuracy != null ? ` · ${week.independentAccuracy}% correct without help` : ''}</li>

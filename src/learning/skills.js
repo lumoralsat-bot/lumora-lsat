@@ -1,8 +1,7 @@
 // Curriculum skill graph. Stable IDs — never rename an ID once shipped (attempts reference it).
-// `lesson`: 'full' = complete 5-stage lesson in the new engine;
-//           'legacy:LR|RC:<Type>' = links to the existing type lesson in LEARN_CURRICULUM;
-//           null = planned, not yet authored (shown honestly as "Coming soon").
-export const CURRICULUM_VERSION = '2026.10-v1';
+// `lesson`: 'full' = complete lesson in the guided engine (Curriculum v2.0: every node is full).
+// `classic`: Classic (original) lessons that now route to this node — see content/classicMap.js.
+export const CURRICULUM_VERSION = '2026.10-v2';
 
 export const BRANCHES = [
   { id: 'foundations', title: 'Foundations' },
@@ -19,39 +18,39 @@ const S = (id, branch, title, prerequisites = [], lesson = null, summary = '') =
 
 export const SKILLS = [
   S('found.argument_parts', 'foundations', 'Premises & Conclusions', [], 'full', 'Identify what an argument claims and what it offers as support.'),
-  S('found.validity', 'foundations', 'Truth vs. Logical Support', ['found.argument_parts'], null, 'Separate whether claims are true from whether they support the conclusion.'),
-  S('found.deductive_inductive', 'foundations', 'Deductive vs. Inductive Reasoning', ['found.validity'], null, 'Certainty versus probability.'),
+  S('found.validity', 'foundations', 'Truth vs. Logical Support', ['found.argument_parts'], 'full', 'Separate whether claims are true from whether they support the conclusion.'),
+  S('found.deductive_inductive', 'foundations', 'Deductive vs. Inductive Reasoning', ['found.validity'], 'full', 'Certainty versus probability.'),
 
   S('formal.necessary_sufficient', 'formal', 'Necessary & Sufficient Conditions', ['found.argument_parts'], 'full', 'Translate conditional language and draw only valid conclusions.'),
   S('formal.negation_or', 'formal', 'Negation, "And" & "Or"', ['formal.necessary_sufficient'], 'full', 'Negate compound statements correctly; inclusive vs. exclusive or.'),
   S('formal.quantifiers', 'formal', 'Quantifiers: All, Most, Some, None', ['formal.necessary_sufficient'], 'full', 'Scope words and what they do and do not allow you to infer.'),
   S('formal.chains', 'formal', 'Conditional Chains', ['formal.necessary_sufficient'], 'full', 'Link conditionals and spot broken links.'),
 
-  S('analysis.main_conclusion', 'analysis', 'Main Conclusion', ['found.argument_parts'], 'legacy:LR:Main Point', 'Find the claim everything else supports.'),
-  S('analysis.role', 'analysis', 'Role of a Statement', ['analysis.main_conclusion'], null, 'Describe what a claim does in the argument.'),
-  S('analysis.method', 'analysis', 'Method of Reasoning', ['analysis.role'], 'legacy:LR:Method of Reasoning', 'Describe how an argument proceeds.'),
+  S('analysis.main_conclusion', 'analysis', 'Main Conclusion', ['found.argument_parts'], 'full', 'Find the claim everything else supports.'),
+  S('analysis.role', 'analysis', 'Role of a Statement', ['analysis.main_conclusion'], 'full', 'Describe what a claim does in the argument.'),
+  S('analysis.method', 'analysis', 'Method of Reasoning', ['analysis.role'], 'full', 'Describe how an argument proceeds.'),
 
-  S('evaluation.necessary_assumption', 'evaluation', 'Necessary Assumptions', ['analysis.main_conclusion', 'formal.necessary_sufficient'], 'legacy:LR:Assumption', 'What the argument requires.'),
-  S('evaluation.sufficient_assumption', 'evaluation', 'Sufficient Assumptions', ['evaluation.necessary_assumption', 'formal.chains'], null, 'What would guarantee the conclusion.'),
-  S('evaluation.strengthen', 'evaluation', 'Strengthen', ['evaluation.necessary_assumption'], 'legacy:LR:Strengthen', 'Add support to the gap.'),
-  S('evaluation.weaken', 'evaluation', 'Weaken', ['evaluation.necessary_assumption'], 'legacy:LR:Weaken', 'Undermine the gap.'),
-  S('evaluation.causal', 'evaluation', 'Causal Reasoning', ['found.deductive_inductive'], null, 'Correlation, alternative causes, mechanisms.'),
-  S('evaluation.evaluate', 'evaluation', 'Evaluate the Argument', ['evaluation.strengthen', 'evaluation.weaken'], 'legacy:LR:Evaluate', 'Which question would matter most.'),
-  S('evaluation.paradox', 'evaluation', 'Resolve / Explain', ['found.argument_parts'], 'legacy:LR:Paradox', 'Reconcile apparently conflicting facts.'),
+  S('evaluation.necessary_assumption', 'evaluation', 'Necessary Assumptions', ['analysis.main_conclusion', 'formal.necessary_sufficient'], 'full', 'What the argument requires.'),
+  S('evaluation.sufficient_assumption', 'evaluation', 'Sufficient Assumptions', ['evaluation.necessary_assumption', 'formal.chains'], 'full', 'What would guarantee the conclusion.'),
+  S('evaluation.strengthen', 'evaluation', 'Strengthen', ['evaluation.necessary_assumption'], 'full', 'Add support to the gap.'),
+  S('evaluation.weaken', 'evaluation', 'Weaken', ['evaluation.necessary_assumption'], 'full', 'Undermine the gap.'),
+  S('evaluation.causal', 'evaluation', 'Causal Reasoning', ['found.deductive_inductive'], 'full', 'Correlation, alternative causes, mechanisms.'),
+  S('evaluation.evaluate', 'evaluation', 'Evaluate the Argument', ['evaluation.strengthen', 'evaluation.weaken'], 'full', 'Which question would matter most.'),
+  S('evaluation.paradox', 'evaluation', 'Resolve / Explain', ['evaluation.causal'], 'full', 'Reconcile apparently conflicting facts.'),
 
-  S('inference.must_be_true', 'inference', 'Must Be True', ['formal.necessary_sufficient', 'formal.quantifiers'], 'legacy:LR:Inference', 'Draw only what the facts guarantee.'),
-  S('inference.flaws', 'inference', 'Common Reasoning Flaws', ['evaluation.necessary_assumption'], 'legacy:LR:Flaw', 'Name the unsupported inference.'),
+  S('inference.must_be_true', 'inference', 'Must Be True', ['formal.necessary_sufficient', 'formal.quantifiers'], 'full', 'Draw only what the facts guarantee.'),
+  S('inference.flaws', 'inference', 'Common Reasoning Flaws', ['evaluation.necessary_assumption'], 'full', 'Name the unsupported inference.'),
 
-  S('advanced.parallel', 'advanced', 'Parallel Reasoning & Parallel Flaw', ['analysis.method', 'formal.chains'], 'legacy:LR:Parallel Reasoning', 'Match logical structure, not topic.'),
-  S('advanced.principles', 'advanced', 'Principles', ['formal.necessary_sufficient', 'evaluation.strengthen'], null, 'Apply and justify with general rules.'),
+  S('advanced.parallel', 'advanced', 'Parallel Reasoning & Parallel Flaw', ['analysis.method', 'formal.chains'], 'full', 'Match logical structure, not topic.'),
+  S('advanced.principles', 'advanced', 'Principles', ['formal.necessary_sufficient', 'evaluation.strengthen'], 'full', 'Apply and justify with general rules.'),
 
-  S('rc.structure', 'rc', 'Passage Structure', ['found.argument_parts'], 'legacy:RC:Main Idea', 'Map paragraphs by function.'),
-  S('rc.author', 'rc', 'Author Perspective & Tone', ['rc.structure'], "legacy:RC:Author's Tone", 'Separate the author’s view from others’.'),
-  S('rc.inference', 'rc', 'RC Inference & Detail', ['rc.structure'], 'legacy:RC:Detail', 'Answer from the text, not outside knowledge.'),
-  S('rc.comparative', 'rc', 'Comparative Passages', ['rc.author'], 'legacy:RC:Comparative Passage', 'Agreement, disagreement, relationship.'),
+  S('rc.structure', 'rc', 'Passage Structure', ['found.argument_parts'], 'full', 'Map paragraphs by function.'),
+  S('rc.author', 'rc', 'Author Perspective & Tone', ['rc.structure'], 'full', 'Separate the author’s view from others’.'),
+  S('rc.inference', 'rc', 'RC Inference & Detail', ['rc.structure'], 'full', 'Answer from the text, not outside knowledge.'),
+  S('rc.comparative', 'rc', 'Comparative Passages', ['rc.author'], 'full', 'Agreement, disagreement, relationship.'),
 
-  S('transfer.statistics', 'transfer', 'Statistics & Base Rates', ['evaluation.causal'], null, 'Percentages, samples, and risk in everyday claims.'),
-  S('transfer.media', 'transfer', 'Evaluating Claims in the Media', ['evaluation.causal', 'inference.flaws'], null, 'Apply LSAT reasoning to news and ads.'),
+  S('transfer.statistics', 'transfer', 'Statistics & Base Rates', ['evaluation.causal', 'found.deductive_inductive'], 'full', 'Percentages, samples, and risk in everyday claims.'),
+  S('transfer.media', 'transfer', 'Evaluating Claims in the Media', ['evaluation.causal', 'inference.flaws'], 'full', 'Apply LSAT reasoning to news and ads.'),
 ];
 
 export const SKILL_BY_ID = Object.fromEntries(SKILLS.map(s => [s.id, s]));

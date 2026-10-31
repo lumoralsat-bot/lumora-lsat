@@ -3,6 +3,7 @@ export const ERROR_CATEGORY_LABELS = {
   unclassified: 'Not sure yet', conceptual: 'Conceptual misunderstanding', structure: 'Misidentified conclusion or structure',
   conditional_translation: 'Conditional translation error', scope_quantifier: 'Scope or quantifier misread', causal: 'Causal reasoning error',
   unsupported_inference: 'Unsupported inference / overstatement', distractor_attraction: 'Attracted to a wrong answer', misread_stem: 'Misread the question stem',
+  misread_passage: 'Misread the passage or whose view it is', statistical: 'Statistics, sampling, or base-rate error',
   timing: 'Rushed / time pressure', careless: 'Careless selection', guess: 'Guess or low confidence',
 };
 const DAY = 86400000;
