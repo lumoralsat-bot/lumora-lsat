@@ -72,7 +72,7 @@ export function ReviewHub({ user, onUpdateUser, theme: C, fonts: T, callModel, p
         </div>
         {errors.length === 0 && <div style={S.card}><p style={S.p}>{filter === 'open' ? 'No open mistakes. Every miss you make in a lesson lands here with an explanation and a link to the right lesson section.' : 'Nothing here yet.'}</p></div>}
         {errors.slice(0, 50).map(e => <ErrorEntry key={e.id} {...{ e, C, S, commit, skillTitle, onOpenLesson: (sid) => setOpen({ mode: 'lesson', skillId: sid }) }} />)}
-        <p style={{ ...S.small, marginTop: 10 }}>Older practice mistakes from the question generator are in the <button className="lp-focus" onClick={() => onNavigate && onNavigate('mistakes')} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, fontSize: fz(13) }}>classic Mistake Journal</button>.</p>
+        <p style={{ ...S.small, marginTop: 10 }}>Mistakes from practice sessions (question generator, Quick 5, timed sections) are in <button className="lp-focus" onClick={() => onNavigate && onNavigate('mistakes')} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, fontSize: fz(13) }}>Practice mistakes</button>.</p>
       </section>}
 
       {tab === 'weak' && <section role="tabpanel">

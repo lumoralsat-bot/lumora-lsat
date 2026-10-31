@@ -6,7 +6,8 @@
 import { fz } from '../ui/scale.js';
 import { useState, useRef, useMemo, useEffect, createContext, useContext } from 'react';
 import { BRANCHES, SKILLS, SKILL_BY_ID } from './skills.js';
-import { LESSONS_BY_SKILL, TAG_TO_ERROR_CATEGORY, sectionForTag, orderForTrack, CLASSIC_ROUTES } from './content/index.js';
+import { LESSONS_BY_SKILL, TAG_TO_ERROR_CATEGORY, sectionForTag, orderForTrack } from './content/index.js';
+import { LearnHub, LessonDetail } from './LearnHub.jsx';
 import { STATE_LABELS } from './mastery.js';
 import { STAGE_LABELS, PLAYABLE_STAGES, UNSCORED_STAGES, recognizeCheckpoint, applyCheckpoint, challengeOutcome, placementOutcome, explanationOutcome } from './lessonEngine.js';
 import { getEngine, engineUpdate, recordAttempt, lessonEvent, newId, flagItem, updateErrorRecord, logGeneration, recordExplanation } from './store.js';
@@ -61,107 +62,33 @@ export function FocusStyles({ C }) {
 // ═════════════════════════════════════════════════════════════════════════════
 // GUIDED PATH (entry point rendered at the top of the Learn screen)
 // ═════════════════════════════════════════════════════════════════════════════
-export function GuidedPath({ user, onUpdateUser, theme: C, fonts: T, callModel, practiceSystem, parseJSON, onOpenLegacy, onMixedPractice, open: openProp, setOpen: setOpenProp }) {
-  const [openLocal, setOpenLocal] = useState(null); // {skillId, mode:'lesson'|'placement'|'review'}
+export function GuidedPath({ user, onUpdateUser, theme: C, fonts: T, callModel, practiceSystem, parseJSON, onOpenDrill, onOpenLegacy, onMixedPractice, onNotes, open: openProp, setOpen: setOpenProp }) {
+  const [openLocal, setOpenLocal] = useState(null); // {skillId, mode:'lesson'|'detail'|'placement'|'review'|'mixed', track?}
   const open = openProp !== undefined ? openProp : openLocal;
   const setOpen = setOpenProp || setOpenLocal;
   const engine = getEngine(user);
-  const S = styles(C, T);
-  const rec = recommendNext(engine, { lessonsById: LESSONS_BY_SKILL });
-  const due = dueReviews(engine.reviews);
   const deps = { callModel, practiceSystem, parseJSON };
+  const drill = onOpenDrill || onOpenLegacy;
 
   if (open) {
     const lesson = LESSONS_BY_SKILL[open.skillId];
     const back = () => setOpen(null);
     const wrap = (el) => <AIContext.Provider value={deps}>{el}</AIContext.Provider>;
-    if (open.mode === 'placement') return wrap(<PlacementSession {...{ user, onUpdateUser, C, T, lesson, onDone: back }} />);
     if (open.mode === 'mixed') return wrap(<MixedReviewSession {...{ user, onUpdateUser, C, T, deps, onDone: back }} />);
     if (!lesson) return null;
+    if (open.mode === 'detail') return <LessonDetail {...{ user, theme: C, fonts: T, skillId: open.skillId, setOpen, onOpenDrill: drill }} />;
+    if (open.mode === 'placement') return wrap(<PlacementSession {...{ user, onUpdateUser, C, T, lesson, onDone: back }} />);
     if (open.mode === 'review') return wrap(<ReviewSession {...{ user, onUpdateUser, C, T, lesson, deps, onDone: back }} />);
-    return wrap(<LessonPlayer {...{ user, onUpdateUser, C, T, lesson, deps, onBack: back, track: open.track || null, fromClassic: open.fromClassic || null, onOpenLegacy }} />);
+    return wrap(<LessonPlayer {...{ user, onUpdateUser, C, T, lesson, deps, onBack: back, track: open.track || null, onNotes }} />);
   }
-
-  const act = (r) => {
-    if (r.kind === 'review') setOpen({ skillId: r.skillId, mode: 'review' });
-    else if (r.kind === 'mixed') { if (mixedSkills(engine).length >= 2) setOpen({ mode: 'mixed' }); else if (onMixedPractice) onMixedPractice(); }
-    else if (r.skillId) setOpen({ skillId: r.skillId, mode: 'lesson' });
-  };
-
-  return (
-    <section aria-labelledby="gp-title" style={{ marginBottom: 28 }}>
-      <FocusStyles C={C} />
-      <h2 id="gp-title" style={{ ...S.h1, fontSize: Math.round(22 * (globalThis.__LUMORA_FONT_SCALE__ || 1)) }}>Your learning path</h2>
-      <p style={S.small}>Learn a skill, recognize it, apply it with support, then prove it on your own. New questions are generated for you along the way.</p>
-
-      <div style={{ ...S.card, marginTop: 14, borderColor: C.accent + '66', background: `linear-gradient(135deg, ${C.accentSoft}, ${C.surface})` }}>
-        <div style={{ fontSize: fz(12), fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.accent, marginBottom: 6 }}>Recommended next · about {rec.minutes} min</div>
-        <div style={{ fontSize: Math.round(18 * (globalThis.__LUMORA_FONT_SCALE__ || 1)), fontWeight: 700, color: C.text, marginBottom: 6 }}>{rec.title}</div>
-        <p style={{ ...S.p, fontSize: fz(14) }}><strong style={{ color: C.text }}>Why: </strong>{rec.reason}</p>
-        <button className="lp-focus" style={S.btn} onClick={() => act(rec)}>{rec.kind === 'review' ? 'Start review' : rec.title.startsWith('Continue') ? 'Continue learning' : 'Start'}</button>
-      </div>
-
-      {mixedSkills(engine).length >= 2 && rec.kind !== 'mixed' && (
-        <div style={{ ...S.card, marginTop: 10, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span style={S.small}>🔀 Mixed review: questions from different skills, type not named — the transfer check Mastered needs.</span>
-          <button className="lp-focus" style={S.btnGhost} onClick={() => setOpen({ mode: 'mixed' })}>Start mixed review</button>
-        </div>
-      )}
-      {due.totalDue > 0 && rec.kind !== 'review' && (
-        <div role="status" style={{ ...S.card, marginTop: 10, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <span style={S.small}>🔁 {due.totalDue} review{due.totalDue > 1 ? 's' : ''} due today</span>
-          <button className="lp-focus" style={S.btnGhost} onClick={() => setOpen({ skillId: due.items[0].skillId, mode: 'review' })}>Review now</button>
-        </div>
-      )}
-
-      <div style={{ marginTop: 18 }}>
-        {BRANCHES.map(b => {
-          const skills = SKILLS.filter(s => s.branch === b.id);
-          return (
-            <div key={b.id} style={{ marginBottom: 14 }}>
-              <h3 style={{ fontSize: fz(13), color: C.textSub, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>{b.title}</h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 8 }}>
-                {skills.map(s => <SkillNode key={s.id} {...{ s, engine, C, S, onOpen: setOpen, onOpenLegacy }} />)}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function SkillNode({ s, engine, C, S, onOpen, onOpenLegacy }) {
-  const m = engine.mastery[s.id];
-  const st = m?.state || 'not_started';
-  const full = s.lesson === 'full' && !!LESSONS_BY_SKILL[s.id];
-  const classics = CLASSIC_ROUTES.filter(r => r.skillId === s.id);
-  const prereqOk = prerequisitesMet(s.id, engine.mastery);
-  const prereqNames = s.prerequisites.map(p => SKILL_BY_ID[p]?.title).filter(Boolean);
-  const label = full ? `${STATE_ICON[st]} ${STATE_LABELS[st]}${m?.needsReview ? ' · needs review' : ''}` : 'Coming soon';
-  const color = !full ? C.textSub : st === 'mastered' ? C.gold : st === 'proficient' ? C.success : st === 'not_started' ? C.textSub : C.accent;
-  return (
-    <li style={{ ...S.card, padding: 14, borderRadius: 12, opacity: s.lesson ? 1 : 0.65 }}>
-      <div style={{ fontWeight: 700, color: C.text, fontSize: fz(14), marginBottom: 4 }}>{s.title}</div>
-      <div style={{ ...S.small, marginBottom: 8 }}>{s.summary}</div>
-      <div style={{ fontSize: fz(12), color, fontWeight: 600, marginBottom: 8 }} aria-label={`Status: ${label}`}>{label}</div>
-      {prereqNames.length > 0 && <div style={{ fontSize: fz(12), color: C.textSub, marginBottom: 8 }}>{prereqOk ? 'Builds on' : 'Recommended first'}: {prereqNames.join(', ')}</div>}
-      {full && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px', color: C.accent, borderColor: C.accent + '66' }} onClick={() => onOpen({ skillId: s.id, mode: 'lesson' })} aria-label={`Open lesson: ${s.title}`}>Open</button>
-          {LESSONS_BY_SKILL[s.id]?.placementItemIds?.length > 0 && engine.lessons[LESSONS_BY_SKILL[s.id]?.id]?.placement !== 'tested_out' && <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} onClick={() => onOpen({ skillId: s.id, mode: 'placement' })} aria-label={`Test out of ${s.title}`}>Test out</button>}
-        </div>
-      )}
-      {classics.length > 0 && <div style={{ fontSize: fz(12), color: C.textSub, marginTop: 8 }}>Replaces Classic: {classics.map(r => (r.section === 'RC' ? 'RC ' : '') + r.label).join(', ')}</div>}
-      {!full && <span style={{ fontSize: fz(12), color: C.textSub }}>Lesson in development</span>}
-    </li>
-  );
+  const canMix = mixedSkills(engine).length >= 2;
+  return <LearnHub {...{ user, theme: C, fonts: T, setOpen, canMix, onMixed: () => (canMix ? setOpen({ mode: 'mixed' }) : onMixedPractice && onMixedPractice()) }} />;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // LESSON PLAYER
 // ═════════════════════════════════════════════════════════════════════════════
-export function LessonPlayer({ user, onUpdateUser, C, T, lesson, deps, onBack, track = null, fromClassic = null, onOpenLegacy }) {
+export function LessonPlayer({ user, onUpdateUser, C, T, lesson, deps, onBack, track = null, onNotes }) {
   const S = styles(C, T);
   const commit = useEngineCommit(onUpdateUser);
   const engine = getEngine(user);
@@ -181,40 +108,20 @@ export function LessonPlayer({ user, onUpdateUser, C, T, lesson, deps, onBack, t
   const completed = progress?.completedStages || [];
 
   return (
-    <main style={{ maxWidth: 780, margin: '0 auto', padding: '24px 18px' }}>
+    <main className="lm-lesson" style={{ maxWidth: 760, margin: '0 auto', padding: '20px 20px 64px' }}>
       <FocusStyles C={C} />
-      <nav aria-label="Breadcrumb" style={{ ...S.small, marginBottom: 12 }}>
-        <button className="lp-focus" onClick={onBack} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, fontSize: fz(13) }}>Learn</button>
-        <span aria-hidden="true"> › </span>{BRANCHES.find(b => b.id === SKILL_BY_ID[lesson.skillId].branch)?.title}<span aria-hidden="true"> › </span><span aria-current="page">{lesson.title}</span>
-      </nav>
-      <h1 ref={topRef} tabIndex={-1} style={{ ...S.h1, fontSize: Math.round(26 * (globalThis.__LUMORA_FONT_SCALE__ || 1)), outline: 'none' }}>{lesson.title}</h1>
-      <p style={S.small}>{lesson.objective}</p>
-      {fromClassic && <div role="note" style={{ ...S.card, padding: 12, marginTop: 10, borderColor: C.accent + '55' }}>
-        <p style={{ ...S.small, margin: 0 }}>You opened the Classic <strong style={{ color: C.text }}>{fromClassic.label}</strong> lesson. It has been rebuilt here{track && lesson.tracks ? ` — you're on the ${lesson.tracks.find(t => t.id === track)?.title || track} track` : ''}. Your Classic progress is kept and shown as legacy; only this lesson counts toward mastery.</p>
-        {onOpenLegacy && <button className="lp-focus" style={{ ...S.btnGhost, padding: '4px 10px', marginTop: 8 }} onClick={() => onOpenLegacy(fromClassic.section === 'RC' ? 'Reading Comprehension' : 'Logical Reasoning', fromClassic.label, { reference: true })}>View the original Classic lesson (reference)</button>}
-      </div>}
-      {!fromClassic && lesson.tracks && <p style={{ ...S.small, marginTop: 6 }}>Tracks in this lesson: {lesson.tracks.map(t => t.title).join(' · ')}{track ? ` — starting with ${lesson.tracks.find(t => t.id === track)?.title}` : ''}.</p>}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+        <nav aria-label="Breadcrumb" style={{ ...S.small, minWidth: 0 }}>
+          <button className="lp-focus" onClick={onBack} style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, fontSize: fz(14), fontWeight: 600 }}>← Learning path</button>
+          <span aria-hidden="true" style={{ margin: '0 6px' }}>·</span>{BRANCHES.find(b => b.id === SKILL_BY_ID[lesson.skillId].branch)?.title}
+        </nav>
+        {onNotes && <button className="lp-focus" onClick={() => onNotes(lesson.title)} style={{ ...S.btnGhost, padding: '6px 12px', flex: '0 0 auto' }} aria-label="Open notes for this lesson">📝 Notes</button>}
+      </div>
+      <h1 ref={topRef} tabIndex={-1} style={{ ...S.h1, fontSize: Math.round(26 * (globalThis.__LUMORA_FONT_SCALE__ || 1)), outline: 'none', marginBottom: 6 }}>{lesson.title}</h1>
+      <p style={{ ...S.p, margin: '0 0 4px' }}>{lesson.objective}</p>
+      {lesson.tracks && track && <p style={{ ...S.small, margin: '4px 0 0' }}>Track: <strong style={{ color: C.text }}>{lesson.tracks.find(t => t.id === track)?.title}</strong></p>}
 
-      <ol aria-label="Lesson stages" style={{ display: 'flex', gap: 6, listStyle: 'none', padding: 0, margin: '16px 0 20px', flexWrap: 'wrap' }}>
-        {PLAYABLE_STAGES.map((st, i) => {
-          const done = completed.includes(st); const isCur = current === st || (current === 'not_started' && st === 'learn'); const reachable = done || isCur;
-          return (
-            <li key={st} style={{ flex: '1 1 120px' }}>
-              <button className="lp-focus" disabled={!reachable} onClick={() => setView(isCur ? null : st)} aria-current={shown === st ? 'step' : undefined}
-                style={{ width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 10, cursor: reachable ? 'pointer' : 'not-allowed', fontFamily: T.sans, fontSize: fz(13),
-                  border: `1.5px solid ${shown === st ? C.accent : C.border}`, background: shown === st ? C.accentSoft : 'transparent', color: reachable ? C.text : C.textSub, opacity: reachable ? 1 : 0.6 }}>
-                <span aria-hidden="true">{done ? '✓' : i + 1}</span> {STAGE_LABELS[st]}<span className="sr-only" style={{ position: 'absolute', left: -9999 }}>{done ? ' (completed)' : isCur ? ' (current)' : ' (locked until earlier stages are done)'}</span>
-              </button>
-            </li>
-          );
-        })}
-        <li style={{ flex: '1 1 120px' }}>
-          <div style={{ padding: '8px 10px', borderRadius: 10, fontSize: fz(13), border: `1.5px dashed ${C.border}`, color: C.textSub }}>
-            <span aria-hidden="true">{engine.reviews[lesson.skillId] ? '🔁' : PLAYABLE_STAGES.length + 1}</span> {STAGE_LABELS.review}
-            <span style={{ display: 'block', fontSize: fz(12) }}>{engine.reviews[lesson.skillId] ? `Due ${new Date(engine.reviews[lesson.skillId].due).toLocaleDateString()}` : 'Scheduled after the mastery check'}</span>
-          </div>
-        </li>
-      </ol>
+      <StageStepper {...{ C, T, S, completed, current, shown, setView, review: engine.reviews[lesson.skillId] }} />
 
       {progress?.remediation && !view && <div role="status" style={{ ...S.card, padding: 12, marginBottom: 14, borderColor: C.gold + '88' }}><span style={S.small}>↩ Revisiting {STAGE_LABELS[progress.remediation.toStage]}: {progress.remediation.reason}</span></div>}
 
@@ -232,6 +139,33 @@ export function LessonPlayer({ user, onUpdateUser, C, T, lesson, deps, onBack, t
       {shown === 'explain' && (current !== 'completed' || view) && <ExplainStage {...{ lesson, C, S, T, commit, engine, replay: completed.includes('explain'), onComplete: () => completeStage('explain') }} />}
       {shown === 'mastery_check' && (current !== 'completed' || view) && <MasteryCheckStage {...{ lesson, C, S, T, commit, engine, deps, attempts: stageAttempts('mastery_check'), replay: completed.includes('mastery_check'), onComplete: () => completeStage('mastery_check') }} />}
     </main>
+  );
+}
+
+/** Compact stage indicator: one line of segments + the current stage name. Done stages are revisitable. */
+function StageStepper({ C, T, S, completed, current, shown, setView, review }) {
+  const curIdx = Math.max(0, PLAYABLE_STAGES.indexOf(current === 'not_started' ? 'learn' : current));
+  const shownIdx = PLAYABLE_STAGES.indexOf(shown);
+  return (
+    <div style={{ margin: '14px 0 20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: fz(14), color: C.textSub }}>{current === 'completed' && shownIdx < 0 ? 'Lesson complete' : <>Stage {(shownIdx >= 0 ? shownIdx : curIdx) + 1} of {PLAYABLE_STAGES.length}: <strong style={{ color: C.text }}>{STAGE_LABELS[shownIdx >= 0 ? shown : PLAYABLE_STAGES[curIdx]]}</strong></>}</span>
+        <span style={{ fontSize: fz(13), color: C.textSub }}>Then: {STAGE_LABELS.review}{review ? ` · due ${new Date(review.due).toLocaleDateString()}` : ''}</span>
+      </div>
+      <ol aria-label="Lesson stages" style={{ display: 'flex', gap: 4, listStyle: 'none', padding: 0, margin: 0 }}>
+        {PLAYABLE_STAGES.map((st) => {
+          const done = completed.includes(st); const isCur = current === st || (current === 'not_started' && st === 'learn'); const reachable = done || isCur;
+          return (
+            <li key={st} style={{ flex: 1 }}>
+              <button className="lp-focus" disabled={!reachable} onClick={() => setView(isCur ? null : st)} aria-current={shown === st ? 'step' : undefined}
+                aria-label={`${STAGE_LABELS[st]}${done ? ', completed' : isCur ? ', current' : ', not yet available'}`} title={STAGE_LABELS[st]}
+                style={{ display: 'block', width: '100%', height: 8, padding: 0, borderRadius: 4, border: 'none', cursor: reachable ? 'pointer' : 'default',
+                  background: shown === st ? C.accent : done ? C.success : isCur ? C.accent + '88' : C.surfaceHigh, outline: shown === st ? `2px solid ${C.accent}55` : 'none', outlineOffset: 2 }} />
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

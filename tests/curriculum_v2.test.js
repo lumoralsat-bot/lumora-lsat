@@ -104,15 +104,30 @@ test('CL-03 deep links round-trip and reject junk', () => {
   for (const bad of ['', '#', '#access_token=abc&type=recovery', '#classic/XX/Weaken', '#classic/LR/%E0%A4%A', '#learn/../../etc']) assert.equal(parseHash(bad), null, bad);
 });
 
-test('CL-04 Classic grid opens the rebuilt lesson; Classic progress is labeled legacy and not promoted', () => {
-  assert.ok(APP.includes('onClick={()=>openClassic(activeSection,t.type)}'));
-  assert.ok(APP.includes('Legacy: level {prog} of 4'));
-  assert.ok(!/learnProgress\[[^\]]+\][^;\n]*mastery/.test(APP), 'legacy levels never feed mastery');
+test('CL-04 older lesson links resolve to the current lesson without migration language', () => {
+  const p = parseHash('#classic/LR/Assumption');
+  assert.equal(p.skillId, 'evaluation.necessary_assumption');
+  assert.ok(APP.includes('routeToHash({skillId:pathOpen.skillId,track:pathOpen.track})'), 'URL is rewritten to the current lesson link');
 });
 
-test('CL-05 the original Classic lesson stays reachable as reference with a way back', () => {
-  assert.ok(APP.includes('reference:true'));
-  assert.ok(APP.includes('returnTo:pathOpen'));
+test('CL-05 question-type drills stay reachable, with a way back to where you were', () => {
+  assert.ok(APP.includes('setDrill({section:sec,typeObj:list[idx],returnTo:pathOpen,fromPractice:false})'));
+  assert.ok(APP.includes('onOpenDrill={openDrill}'));
+});
+
+test('UI-01 no student-facing migration terminology anywhere in the UI', () => {
+  const files = ['src/App.jsx', ...['LearnPath', 'LearnHub', 'HomeDashboard', 'PracticeHub', 'ProgressPanel', 'ReviewHub', 'PlanPanel'].map(f => `src/learning/${f}.jsx`)];
+  // Internal identifiers kept for compatibility (not shown to students).
+  const ALLOWED = /classicRoute|CLASSIC_ROUTES|classicLabel|legacy_login|_dropLegacyLocal|profileFromLegacyDiagnostic|onOpenLegacy|#classic|\(learn\|classic\)|never call any part of it old, new, classic, legacy, or a replacement|classical/g;
+  const BANNED = /\b(classic|legacy|rebuilt|replaces|replacement version|new version|updated version|old lesson|previous system)\b/i;
+  for (const f of files) {
+    const src = readFileSync(new URL('../' + f, import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map(l => l.replace(/(^|[^:"'`])\/\/.*$/, '$1')).join('\n')
+      .replace(ALLOWED, '');
+    const lines = src.split('\n').filter(l => BANNED.test(l));
+    assert.deepEqual(lines, [], f);
+  }
+  for (const L of LESSONS) assert.ok(!BANNED.test(JSON.stringify({ ...L, classicLabel: undefined })), L.id);
 });
 
 test('CL-06 lesson events still work for a rebuilt lesson opened from Classic', () => {

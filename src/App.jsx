@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback, Component } from "react";
-import { GuidedPath, ContinueLearningCard } from "./learning/LearnPath.jsx";
+import { GuidedPath } from "./learning/LearnPath.jsx";
+import { HomeDashboard } from "./learning/HomeDashboard.jsx";
+import { PracticeHub } from "./learning/PracticeHub.jsx";
+import { Page, Panel, Tabs, Stat, SectionTitle, UI_CSS } from "./ui/kit.jsx";
 import { classicRoute, parseHash, routeToHash } from "./learning/content/index.js";
 import { createAuth } from "./auth.js";
 import { fz, setFontScale as setGlobalFontScale } from "./ui/scale.js";
 import { ReviewHub } from "./learning/ReviewHub.jsx";
-import { TodayPlanCard, AdaptivePlanPanel } from "./learning/PlanPanel.jsx";
-import { ProgressPanel } from "./learning/ProgressPanel.jsx";
+import { AdaptivePlanPanel } from "./learning/PlanPanel.jsx";
+import { ProgressOverview, SkillMasterySection, AchievementsSection, MIN_SAMPLE } from "./learning/ProgressPanel.jsx";
 import { getEngine } from "./learning/store.js";
 import { SKILLS as GUIDED_SKILLS } from "./learning/skills.js";
 
@@ -890,7 +893,7 @@ COMMON WRONG ANSWER TYPES for Main Point:
 
 You are not proving one fact wrong. You are explaining how BOTH can coexist.
 
-Classic example:
+Typical example:
 FACT 1: "Exercise improves cardiovascular health."
 FACT 2: "Professional athletes have a higher rate of heart disease than the general population."
 
@@ -1909,7 +1912,7 @@ FINAL TIP: On comparative passage questions, always re-check which author the qu
 // ─── DESIGN ───────────────────────────────────────────────────────────────────
 const LIGHT={
   bg:"#f0f4fc",surface:"#ffffff",surfaceHigh:"#e8eef8",border:"#d0daea",
-  text:"#0d1526",textMuted:"#7a8aaa",textSub:"#3a4d70",
+  text:"#0d1526",textMuted:"#55668a",textSub:"#3a4d70",
   accent:"#3a6bff",accentSoft:"#dce8ff",
   gold:"#c09000",goldSoft:"#fff8dc",
   success:"#0f9e72",danger:"#e03a3a",purple:"#7c3aed",pink:"#db2777",
@@ -1917,7 +1920,7 @@ const LIGHT={
 };
 const DARK={
   bg:"#06080f",surface:"#0c1220",surfaceHigh:"#131c30",border:"#1c2744",
-  text:"#edf2ff",textMuted:"#4a5c80",textSub:"#7a90bb",
+  text:"#edf2ff",textMuted:"#8494ba",textSub:"#9aaccf",
   accent:"#4f7fff",accentSoft:"#162448",
   gold:"#f5c842",goldSoft:"#241d08",
   success:"#2dd4a0",danger:"#f87171",purple:"#a78bfa",pink:"#f472b6",
@@ -2455,8 +2458,8 @@ function MonkeyChat({user,onUpdateUser,onClose,onNavigate}){
         "Keep every response to 2-3 sentences maximum. Be direct, clear, and professional. "+
         "Do not use emojis, asterisks, bullet points, or any markdown formatting. Plain prose only. "+
         "Do not make puns or jokes. Do not sign off with your name each time. "+
-        "App sections: Practice (adaptive questions), Learn (question type lessons), Quick 5 (5 timed questions), "+
-        "Daily Challenge, Flaw Lab, Writing, Full Section (35-min timed), Mistake Journal, SRS Review, Study Plan, Progress. "+
+        "App sections: Home, Learn (the guided learning path of lessons), Practice (question generator, Quick 5, daily challenge, timed section, Flaw Lab, Writing, question-type drills, practice mistakes), Review (spaced reviews and the mistake journal), Progress, Study Plan, Notes. "+
+        "Describe the app as one product; never call any part of it old, new, classic, legacy, or a replacement. "+
         "The LSAT tests Logical Reasoning and Reading Comprehension. "+
         "If you do not know something, say so. If the user asks to navigate somewhere, name the destination clearly.";
       const raw=await callClaude(sys,userMsg,300);
@@ -2796,7 +2799,7 @@ function Quick5({user,onUpdateUser,onDone}){
     setSubmitted(true);
     setFlash(correct?"correct":"wrong");
     setTimeout(()=>setFlash(null),700);
-    const record={section:q.section,qType:q.qType,level:q.assignedLevel,correct,
+    const record={mode:"quick5",timed:true,section:q.section,qType:q.qType,level:q.assignedLevel,correct,
       xp:correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()};
     setResults(prev=>[...prev,record]);
     onUpdateUser({history:[...(user.history||[]),record],
@@ -2885,7 +2888,7 @@ function Quick5({user,onUpdateUser,onDone}){
             ))}
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-            <Btn ghost onClick={onDone}>Back to Home</Btn>
+            <Btn ghost onClick={onDone}>Done</Btn>
             <Btn onClick={startSession}>Play Again ⚡</Btn>
           </div>
         </div>
@@ -3054,221 +3057,104 @@ function AccessibilityBar({darkMode,setDarkMode,fontScale,setFontScale}){
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
+// Primary destinations (always visible) and where every other screen belongs.
+const PRIMARY_NAV=[
+  {id:"home",label:"Home",icon:"⌂"},
+  {id:"learn",label:"Learn",icon:"📖"},
+  {id:"practiceHub",label:"Practice",icon:"🎯"},
+  {id:"review",label:"Review",icon:"↻"},
+  {id:"dashboard",label:"Progress",icon:"📊"},
+];
+// Screens reached from a primary destination highlight that destination.
+const NAV_PARENT={practice:"practiceHub",quick5:"practiceHub",daily:"practiceHub",fullsection:"practiceHub",flaw:"practiceHub",writing:"practiceHub",mistakes:"practiceHub",srs:"practiceHub"};
+
 function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDarkMode,fontScale,setFontScale}){
   const [menuOpen,setMenuOpen]=useState(false);
-
-  const PAGES=[
-    {id:"home",label:"Home",icon:"⌂",group:"main"},
-    {id:"learn",label:"Learn",icon:"📖",group:"main"},
-    {id:"review",label:"Review",icon:"🧠",group:"main"},
-    {id:"dashboard",label:"Progress",icon:"📊",group:"main"},
-    {id:"practice",label:"Question Generator",icon:"🎯",group:"main"},
-    {id:"daily",label:"Daily Challenge",icon:"📅",group:"study"},
-    {id:"quick5",label:"Quick 5",icon:"⚡",group:"study"},
-    {id:"fullsection",label:"Timed Section",icon:"⏱",group:"study"},
-    {id:"flaw",label:"Flaw Lab",icon:"⚖",group:"study"},
-    {id:"writing",label:"Writing",icon:"✍",group:"study"},
-    {id:"plan",label:"Study Plan",icon:"📋",group:"tools"},
-    {id:"notes",label:"Study Journal",icon:"📓",group:"tools"},
-    {id:"mistakes",label:"Classic Mistake Journal",icon:"❌",group:"tools"},
-    {id:"srs",label:"Classic SRS Review",icon:"🔁",group:"tools"},
-  ];
-
   const close=()=>setMenuOpen(false);
+  const active=NAV_PARENT[screen]||screen;
+  const go=(id)=>{setScreen(id);close();};
+  const setScale=(f)=>{setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}};
+  const menuBtn={display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"10px 12px",borderRadius:10,border:"none",background:"transparent",color:C.text,fontSize:fz(15),fontFamily:T.sans,cursor:"pointer"};
+  const groupLabel=(t)=><div style={{fontSize:fz(12),color:C.textSub,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700,padding:"0 12px",margin:"14px 0 4px"}}>{t}</div>;
 
   return(
     <>
-      <style>{`@media(max-width:560px){.lm-nav{padding:0 10px!important}.lm-nav-word{display:none!important}.lm-nav-right{gap:6px!important}}@media(max-width:400px){.lm-nav-streak{display:none!important}.lm-nav-a11y button{width:26px!important}}@media(max-width:600px){.lm-lex-fab{width:46px!important;height:46px!important;left:10px!important;bottom:10px!important;opacity:0.9}.lm-lex-fab img{width:36px!important;height:36px!important}}`}</style>
+      <style>{`
+        .lm-nav-tab{background:none;border:none;border-bottom:2px solid transparent;color:${C.textSub};font-size:${fz(15)}px;font-weight:600;padding:16px 4px 14px;margin:0 8px;cursor:pointer;font-family:inherit}
+        .lm-nav-tab[aria-current=page]{color:${C.text};border-bottom-color:${C.accent}}
+        .lm-nav-tab:hover{color:${C.text}}
+        .lm-bottom{display:none}
+        @media(max-width:820px){.lm-nav-tabs{display:none!important}.lm-bottom{display:flex!important}.lm-lex-fab{bottom:84px!important}}
+        @media(max-width:560px){.lm-nav{padding:0 12px!important}.lm-nav-word{display:none!important}}
+        @media(max-width:600px){.lm-lex-fab{width:48px!important;height:48px!important;left:auto!important;right:12px!important}.lm-lex-fab img{width:38px!important;height:38px!important}}
+      `}</style>
       <nav role="navigation" aria-label="Main navigation" className="lm-nav"
-        style={{background:C.surface+"f0",backdropFilter:"blur(16px)",
-          borderBottom:`1px solid ${C.border}`,padding:"0 20px",
-          display:"flex",alignItems:"center",justifyContent:"space-between",
-          height:56,position:"sticky",top:0,zIndex:100}}>
-
-        {/* Logo */}
-        <button onClick={()=>{setScreen("home");close();}} aria-label="Home"
+        style={{background:C.surface+"f2",backdropFilter:"blur(16px)",borderBottom:`1px solid ${C.border}`,padding:"0 20px",
+          display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:100,gap:12}}>
+        <button onClick={()=>go("home")} aria-label="Lumora LSAT home"
           style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",background:"none",border:"none",padding:0,flexShrink:0}}>
-          <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:fz(15),fontWeight:900,color:"#fff",fontFamily:T.serif,
-            boxShadow:"0 0 16px #3a6bff44"}}>L</div>
-          <span className="lm-nav-word" style={{fontFamily:T.serif,fontSize:Math.round(17*FONT_SCALE),color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
-            <span style={{color:C.accent}}>Lumora</span> LSAT
-          </span>
-          {user?.isPro&&<span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",fontSize:fz(10),fontWeight:800,padding:"2px 7px",borderRadius:20,letterSpacing:"0.05em"}}>PRO</span>}
+          <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:fz(15),fontWeight:900,color:"#fff",fontFamily:T.serif}}>L</div>
+          <span className="lm-nav-word" style={{fontFamily:T.serif,fontSize:Math.round(17*FONT_SCALE),color:C.text,fontWeight:700}}><span style={{color:C.accent}}>Lumora</span> LSAT</span>
         </button>
 
-        <div className="lm-nav-right" style={{display:"flex",alignItems:"center",gap:10}}>
-          {/* Streak badge */}
-          {user&&(user.stats?.streak||0)>0&&(
-            <div className="lm-nav-streak" style={{display:"flex",alignItems:"center",gap:4,
-              background:"#ff6b0018",border:"1px solid #ff6b0033",
-              borderRadius:20,padding:"3px 10px"}}>
-              <span>🔥</span>
-              <span style={{fontSize:fz(12),fontWeight:700,color:"#ff8c42"}}>{user.stats.streak}</span>
-            </div>
-          )}
+        <div className="lm-nav-tabs" style={{display:"flex",alignItems:"stretch",flex:1,justifyContent:"center",height:"100%"}}>
+          {PRIMARY_NAV.map(p=><button key={p.id} className="lm-nav-tab lp-focus" aria-current={active===p.id?"page":undefined} onClick={()=>go(p.id)}>{p.label}</button>)}
+        </div>
 
-          {/* Avatar */}
-          {user&&!user.isPro&&(
-            <button onClick={()=>onUpgrade&&onUpgrade("default")}
-              style={{background:"linear-gradient(135deg,#4f7fff,#a78bfa)",border:"none",
-                borderRadius:10,padding:"5px 10px",color:"white",fontSize:fz(11),
-                fontWeight:700,cursor:"pointer",fontFamily:T.sans,whiteSpace:"nowrap"}}>
-              Upgrade ✦
-            </button>
-          )}
-          {user&&user.isPro&&(
-            <span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",
-              fontSize:fz(10),fontWeight:800,padding:"2px 8px",borderRadius:20}}>PRO</span>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          {user&&(user.stats?.streak||0)>0&&(
+            <span title={`${user.stats.streak}-day streak`} aria-label={`${user.stats.streak}-day streak`} style={{display:"flex",alignItems:"center",gap:4,fontSize:fz(14),fontWeight:700,color:"#ff9a52"}}>🔥{user.stats.streak}</span>
           )}
           {user&&(
-            <button onClick={()=>{setScreen("profile");close();}}
-              title="Profile"
-              style={{background:"none",border:"none",cursor:"pointer",padding:"2px"}}>
-              <Avatar user={user} size={32}/>
+            <button onClick={()=>setMenuOpen(o=>!o)} aria-label="Account and settings" aria-expanded={menuOpen} aria-haspopup="dialog" className="lp-focus"
+              style={{display:"flex",alignItems:"center",gap:6,background:"none",border:`1px solid ${C.border}`,borderRadius:999,padding:"3px 10px 3px 3px",cursor:"pointer"}}>
+              <Avatar user={user} size={28}/><span aria-hidden="true" style={{color:C.textSub,fontSize:fz(13)}}>▾</span>
             </button>
           )}
-
-          {/* Accessibility quick controls */}
-          <div className="lm-nav-a11y" style={{display:"flex",gap:4,alignItems:"center"}}>
-            <button onClick={()=>{const v=!darkMode;setDarkMode(v);try{localStorage.setItem("lumora_dark",v?"1":"0");}catch{}}}
-              title={darkMode?"Light mode":"Dark mode"}
-              style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
-                width:30,height:30,color:C.textMuted,cursor:"pointer",
-                fontSize:fz(14),display:"flex",alignItems:"center",justifyContent:"center"}}>
-              {darkMode?"☀️":"🌙"}
-            </button>
-            <button onClick={()=>{const f=Math.min(1.3,fontScale+0.1);setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}
-              title="Increase text size"
-              style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
-                width:30,height:30,color:C.textMuted,cursor:"pointer",
-                fontSize:fz(15),display:"flex",alignItems:"center",justifyContent:"center"}}>
-              A+
-            </button>
-            <button onClick={()=>{const f=Math.max(0.85,fontScale-0.1);setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}
-              title="Decrease text size"
-              style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
-                width:30,height:30,color:C.textMuted,cursor:"pointer",
-                fontSize:fz(12),display:"flex",alignItems:"center",justifyContent:"center"}}>
-              A-
-            </button>
-          </div>
-
-          {/* Hamburger */}
-          <button onClick={()=>setMenuOpen(o=>!o)}
-            aria-label={menuOpen?"Close menu":"Open menu"}
-            aria-expanded={menuOpen}
-            style={{background:menuOpen?C.accentSoft:"none",
-              border:`1px solid ${menuOpen?C.accent+"44":C.border}`,
-              borderRadius:10,padding:"7px 10px",cursor:"pointer",
-              display:"flex",flexDirection:"column",gap:4,transition:"all 0.2s"}}>
-            <div style={{width:18,height:2,borderRadius:1,
-              background:menuOpen?C.accent:C.textMuted,
-              transform:menuOpen?"rotate(45deg) translate(4px,4px)":"none",
-              transition:"all 0.25s"}}/>
-            <div style={{width:18,height:2,borderRadius:1,
-              background:menuOpen?C.accent:C.textMuted,
-              opacity:menuOpen?0:1,transition:"all 0.2s"}}/>
-            <div style={{width:18,height:2,borderRadius:1,
-              background:menuOpen?C.accent:C.textMuted,
-              transform:menuOpen?"rotate(-45deg) translate(4px,-4px)":"none",
-              transition:"all 0.25s"}}/>
-          </button>
         </div>
       </nav>
 
-      {/* Side drawer */}
+      {/* Mobile bottom navigation */}
+      {user&&<nav aria-label="Primary" className="lm-bottom" style={{position:"fixed",left:0,right:0,bottom:0,zIndex:120,background:C.surface,borderTop:`1px solid ${C.border}`,justifyContent:"space-around",padding:"6px 4px calc(6px + env(safe-area-inset-bottom))"}}>
+        {PRIMARY_NAV.map(p=><button key={p.id} onClick={()=>go(p.id)} aria-current={active===p.id?"page":undefined} className="lp-focus"
+          style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",color:active===p.id?C.accent:C.textSub,fontSize:fz(12),fontWeight:active===p.id?700:500,cursor:"pointer",minWidth:56,padding:"4px 2px",fontFamily:T.sans}}>
+          <span aria-hidden="true" style={{fontSize:18,lineHeight:1}}>{p.icon}</span>{p.label}
+        </button>)}
+      </nav>}
+
+      {/* Account & settings panel: account, subscription, study tools, display, help, legal */}
       {menuOpen&&(
         <>
-          {/* Backdrop */}
-          <div onClick={close}
-            style={{position:"fixed",inset:0,background:"#00000066",
-              zIndex:198,backdropFilter:"blur(2px)"}}/>
-
-          {/* Drawer panel */}
-          <div style={{position:"fixed",top:0,right:0,bottom:0,width:280,
-            background:C.surface,borderLeft:"1px solid "+C.border,
-            zIndex:199,overflowY:"auto",
-            boxShadow:"-8px 0 32px #00000044",
-            display:"flex",flexDirection:"column"}}>
-
-            {/* Drawer header */}
-            <div style={{padding:"18px 20px 12px",borderBottom:`1px solid ${C.border}`,
-              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span style={{fontFamily:T.serif,fontSize:Math.round(16*FONT_SCALE),color:C.text,fontWeight:700}}>
-                <span style={{color:C.accent}}>Lumora</span> LSAT
-              </span>
-              <button onClick={close} aria-label="Close menu"
-                style={{background:"none",border:"none",color:C.textMuted,
-                  fontSize:22,cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
-            </div>
-
-            {/* Nav groups */}
-            {[
-              {label:"Learn",pages:PAGES.filter(p=>p.group==="main")},
-              {label:"Challenges",pages:PAGES.filter(p=>p.group==="study")},
-              {label:"Tools",pages:PAGES.filter(p=>p.group==="tools")},
-            ].map(group=>(
-              <div key={group.label} style={{padding:"12px 12px 4px"}}>
-                <div style={{fontSize:fz(10),color:C.textMuted,textTransform:"uppercase",
-                  letterSpacing:"0.12em",fontWeight:700,padding:"0 8px",marginBottom:4}}>
-                  {group.label}
-                </div>
-                {group.pages.map(p=>(
-                  <button key={p.id} aria-label={p.label} aria-current={screen===p.id?"page":undefined}
-                    onClick={()=>{setScreen(p.id);close();}}
-                    style={{display:"flex",alignItems:"center",gap:12,width:"100%",
-                      textAlign:"left",padding:"10px 12px",borderRadius:12,border:"none",
-                      background:screen===p.id?C.accentSoft:"transparent",
-                      color:screen===p.id?C.accent:C.text,
-                      fontSize:fz(14),fontFamily:T.sans,cursor:"pointer",
-                      fontWeight:screen===p.id?600:400,
-                      transition:"all 0.15s",marginBottom:2,
-                      outline:"none"}}>
-                    <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{p.icon}</span>
-                    {p.label}
-                    {screen===p.id&&<div style={{marginLeft:"auto",width:6,height:6,
-                      borderRadius:"50%",background:C.accent,flexShrink:0}}/>}
-                  </button>
-                ))}
+          <div onClick={close} style={{position:"fixed",inset:0,background:"#00000066",zIndex:198}}/>
+          <div role="dialog" aria-label="Account and settings" style={{position:"fixed",top:0,right:0,bottom:0,width:300,maxWidth:"88vw",background:C.surface,borderLeft:"1px solid "+C.border,zIndex:199,overflowY:"auto",boxShadow:"-8px 0 32px #00000044",display:"flex",flexDirection:"column",padding:"12px 10px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"6px 12px 12px",borderBottom:`1px solid ${C.border}`}}>
+              <Avatar user={user} size={36}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:fz(15),color:C.text,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis"}}>{user?.name}</div>
+                <div style={{fontSize:fz(13),color:C.textSub}}>{user?.isPro?"Lumora Pro":"Free plan"}</div>
               </div>
-            ))}
-
-            {/* Bottom: profile + signout */}
-            <div style={{marginTop:"auto",borderTop:`1px solid ${C.border}`,padding:12}}>
-              {user&&(
-                <>
-                  <button onClick={()=>{setScreen("profile");close();}}
-                    style={{display:"flex",alignItems:"center",gap:10,width:"100%",
-                      padding:"10px 12px",borderRadius:12,border:"none",
-                      background:"transparent",cursor:"pointer",marginBottom:6,
-                      fontFamily:T.sans}}>
-                    <Avatar user={user} size={28}/>
-                    <div style={{textAlign:"left"}}>
-                      <div style={{fontSize:fz(13),color:C.text,fontWeight:600}}>{user.name}</div>
-                      <div style={{fontSize:fz(11),color:C.textMuted}}>View Profile</div>
-                    </div>
-                  </button>
-                  <button onClick={()=>{onLogout();close();}}
-                    style={{width:"100%",padding:"9px 12px",borderRadius:10,
-                      border:`1px solid ${C.border}`,background:"transparent",
-                      color:C.textMuted,fontSize:fz(13),cursor:"pointer",
-                      fontFamily:T.sans,textAlign:"left"}}>
-                    Sign Out
-                  </button>
-                  <button onClick={()=>{onLexChat&&onLexChat();close();}}
-                    style={{width:"100%",marginTop:8,padding:"9px 12px",borderRadius:10,
-                      border:"1px solid #4f7fff44",background:"linear-gradient(135deg,#1a1a3e,#2d1a4e)",
-                      color:"#a78bfa",fontSize:fz(13),cursor:"pointer",
-                      fontFamily:T.sans,textAlign:"left",
-                      display:"flex",alignItems:"center",gap:8}}>
-                    <img src={LEX_IDLE} alt="Lex"
-                      style={{width:24,height:24,objectFit:"contain"}}/>
-                    Ask Lex
-                  </button>
-                </>
-              )}
+              <button onClick={close} aria-label="Close" className="lp-focus" style={{background:"none",border:"none",color:C.textSub,fontSize:22,cursor:"pointer"}}>×</button>
+            </div>
+            {!user?.isPro&&<button onClick={()=>{onUpgrade&&onUpgrade("default");close();}} style={{...menuBtn,marginTop:10,background:"linear-gradient(135deg,#3a6bff22,#a78bfa22)",border:`1px solid ${C.accent}44`,color:C.accent,fontWeight:700}}>✦ Upgrade to Pro</button>}
+            {groupLabel("Account")}
+            <button style={menuBtn} onClick={()=>go("profile")}>👤 Profile &amp; settings</button>
+            {groupLabel("Study tools")}
+            <button style={menuBtn} onClick={()=>go("plan")}>📋 Study plan</button>
+            <button style={menuBtn} onClick={()=>go("notes")}>📓 Notes</button>
+            <button style={menuBtn} onClick={()=>{onLexChat&&onLexChat();close();}}>🐵 Ask Lex</button>
+            {groupLabel("Display")}
+            <button style={menuBtn} aria-pressed={!darkMode} onClick={()=>{const v=!darkMode;setDarkMode(v);try{localStorage.setItem("lumora_dark",v?"1":"0");}catch{}}}>{darkMode?"☀️ Light mode":"🌙 Dark mode"}</button>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px"}}>
+              <span style={{color:C.text,fontSize:fz(15),flex:1}}>Text size</span>
+              <button aria-label="Smaller text" className="lp-focus" onClick={()=>setScale(Math.max(0.85,+(fontScale-0.1).toFixed(2)))} style={{width:34,height:34,borderRadius:8,border:`1px solid ${C.border}`,background:"none",color:C.text,cursor:"pointer",fontSize:fz(13)}}>A−</button>
+              <span style={{color:C.textSub,fontSize:fz(13),minWidth:40,textAlign:"center"}}>{Math.round(fontScale*100)}%</span>
+              <button aria-label="Larger text" className="lp-focus" onClick={()=>setScale(Math.min(1.3,+(fontScale+0.1).toFixed(2)))} style={{width:34,height:34,borderRadius:8,border:`1px solid ${C.border}`,background:"none",color:C.text,cursor:"pointer",fontSize:fz(16)}}>A+</button>
+            </div>
+            <div style={{marginTop:"auto",borderTop:`1px solid ${C.border}`,paddingTop:8}}>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"4px 12px 8px"}}>
+                {[["terms","Terms"],["privacy","Privacy"],["disclaimer","LSAC disclaimer"]].map(([s2,l])=><button key={s2} onClick={()=>go(s2)} style={{background:"none",border:"none",color:C.textSub,fontSize:fz(13),cursor:"pointer",padding:0,textDecoration:"underline"}}>{l}</button>)}
+              </div>
+              <button style={{...menuBtn,color:C.textSub}} onClick={()=>{onLogout();close();}}>Sign out</button>
             </div>
           </div>
         </>
@@ -3824,7 +3710,7 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
 
   return(
     <main style={{maxWidth:700,margin:"0 auto",padding:"24px 20px"}}>
-      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Home</button>
+      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Practice</button>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <div style={{width:44,height:44,borderRadius:12,background:"linear-gradient(135deg,#f5c842,#ffad42)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>⚡</div>
         <div>
@@ -3869,7 +3755,7 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
               <div style={{background:C.goldSoft,border:"1px solid "+C.gold+"33",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>
                 <strong style={{color:C.gold}}>+{selected===challenge.correct?XP_PER_CORRECT[challenge.assignedLevel||2]*2:0} XP earned.</strong> Come back tomorrow at 2am for a new challenge.
               </div>
-              <Btn onClick={onBack} style={{width:"100%"}}>Back to Home</Btn>
+              <Btn onClick={onBack} style={{width:"100%"}}>Back to Practice</Btn>
             </div>
           )}
         </div>
@@ -3878,291 +3764,52 @@ function DailyChallengeScreen({user,onUpdateUser,onBack}){
   );
 }
 
-function Home({user,setScreen,onUpdateUser}){
-  const history=user.history||[];
-  const overall=history.length>0?Math.round(history.filter(h=>h.correct).length/history.length*100):null;
-  const todayCount=history.filter(h=>new Date(h.timestamp).toDateString()===new Date().toDateString()).length;
-  const xp=user.stats?.xp||0;
-  const level=Math.floor(xp/XP_PER_LEVEL)+1;
-  const hour=new Date().getHours();
-  const greeting=hour<12?"Good morning":hour<18?"Good afternoon":"Good evening";
-  const learnProgress=user.learnProgress||{};
-  const testDate=user.diagnostic?.test_date||null;
-  const daysUntilTest=testDate?(()=>{
-    const td=new Date(testDate);
-    const now=new Date();
-    const diff=Math.ceil((td-now)/(1000*60*60*24));
-    return diff>0?diff:null;
-  })():null;
-  // Learn progress = guided skills at Proficient or better (Classic levels are legacy and not counted).
-  const totalTypes=GUIDED_SKILLS.length;
-  const learnedTypes=(()=>{const m=getEngine(user).mastery||{};return GUIDED_SKILLS.filter(s=>["proficient","mastered"].includes(m[s.id]?.state)).length;})();
-  const earnedBadges=BADGES.filter(b=>(user.earnedBadges||[]).includes(b.id));
-  const nextBadge=BADGES.find(b=>!(user.earnedBadges||[]).includes(b.id));
-
-  // Smart suggestion
-  const getSuggestion=()=>{
-    if(history.length===0)return{text:"Start with the Learn section to build your foundation.",action:"learn",cta:"Go to Learn"};
-    const typeStats={};
-    history.filter(h=>!h.source).forEach(h=>{if(!typeStats[h.qType])typeStats[h.qType]={c:0,t:0};typeStats[h.qType].t++;if(h.correct)typeStats[h.qType].c++;});
-    const sorted=Object.entries(typeStats).filter(([,v])=>v.t>=2).map(([k,v])=>({type:k,pct:Math.round(v.c/v.t*100)})).sort((a,b)=>a.pct-b.pct);
-    if(sorted.length>0&&sorted[0].pct<60)return{text:`Your ${sorted[0].type} accuracy is ${sorted[0].pct}% — that's your highest-priority weakness right now.`,action:"practice",cta:"Drill It Now"};
-    if(todayCount===0&&history.length>0)return{text:"You haven't studied today yet. Consistency is the key to a higher score.",action:"practice",cta:"Start Practicing"};
-    if(learnedTypes<totalTypes)return{text:`${learnedTypes} of ${totalTypes} skills are Proficient or better. Keep going in Learn.`,action:"learn",cta:"Continue Learning"};
-    return{text:"You're on track. Keep the momentum going.",action:"practice",cta:"Keep Practicing"};
-  };
-  const suggestion=getSuggestion();
-
-  const quickActions=[
-    {id:"practice",icon:"🎯",label:"Practice",desc:"Lumora questions, no repeats, adapts to you",color:C.accent},
-    {id:"learn",icon:"📖",label:"Learn",desc:`${learnedTypes}/${totalTypes} skills proficient`,color:C.purple,badge:learnedTypes<totalTypes?{label:"Continue",color:C.purple}:null},
-    {id:"flaw",icon:"⚖️",label:"Flaw Lab",desc:"Find hidden flaws in legal arguments",color:C.teal,badge:{label:"Infinite",color:C.teal}},
-    {id:"writing",icon:"✍️",label:"Writing",desc:"2026 LSAC format, Lumora feedback",color:C.success,badge:{label:"2026",color:C.success}},
-    {id:"fullsection",icon:"⏱",label:"Full Section",desc:"35-min timed simulation",color:C.gold,badge:{label:"Instant Start",color:C.gold}},
-    {id:"dashboard",icon:"📊",label:"Progress",desc:"Lumora score predictor + analytics",color:C.pink},
-    {id:"plan",icon:"📋",label:"Study Plan",desc:"Your personalized roadmap",color:C.orange},
-    {id:"notes",icon:"📝",label:"Notes",desc:`${(user.notes||[]).length} notes saved`,color:C.textSub},
-    {id:"mistakes",icon:"❌",label:"Mistakes",desc:`Review wrong answers · Teach It Back`,color:C.danger},
-    {id:"srs",icon:"🔁",label:"SRS Review",desc:"Spaced repetition — due today",color:C.gold},
-  ];
-
-  // Today's goal
-  const dailyGoal=5;
-  const goalPct=Math.min(100,Math.round(todayCount/dailyGoal*100));
-  const goalDone=todayCount>=dailyGoal;
-
-  return(
-    <main style={{maxWidth:820,margin:"0 auto",padding:"32px 20px"}}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,gap:16,flexWrap:"wrap"}}>
-        <div>
-          <div style={{fontSize:fz(13),color:C.textSub,marginBottom:4}}>{greeting}</div>
-          <h1 style={{fontFamily:T.serif,fontSize:"clamp(24px,4vw,34px)",color:C.text,lineHeight:1.15,marginBottom:6}}>{user.name.split(" ")[0]}.</h1>
-          <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.6}}>
-            {history.length===0?"Your LSAT journey starts here.":todayCount===0?"Pick up where you left off.":`${todayCount} question${todayCount!==1?"s":""} answered today.`}
-          </p>
-        </div>
-        <button onClick={()=>setScreen("profile")} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:12,padding:"8px 14px",color:C.textSub,fontSize:fz(13),cursor:"pointer",fontFamily:T.sans,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <Avatar user={user} size={22}/>Profile
-        </button>
-      </div>
-
-      {/* Guided learning path — primary next action */}
-      <TodayPlanCard user={user} theme={C} fonts={T} onNavigate={setScreen}/>
-
-      {/* Smart suggestion banner */}
-      <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}44`,borderRadius:16,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-        <div style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6,flex:1}}>💡 {suggestion.text}</div>
-        <button onClick={()=>setScreen(suggestion.action)} style={{background:"linear-gradient(135deg,#3a6bff,#6a9fff)",border:"none",borderRadius:10,padding:"8px 18px",color:"#fff",fontSize:fz(12),fontWeight:700,cursor:"pointer",fontFamily:T.sans,flexShrink:0}}>{suggestion.cta} →</button>
-      </div>
-
-      {/* Daily Challenge */}
-      <DailyChallenge onStart={()=>setScreen("daily")}/>
-
-      {/* Stats */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:12}}>
-        {[{label:"Questions",value:history.length,color:C.accent},{label:"Accuracy",value:overall!==null?overall+"%":"—",color:overall>=70?C.success:overall>=50?C.gold:C.danger},{label:"Streak",value:`${user.stats?.streak||0}🔥`,color:"#ff8c42"},{label:"XP",value:xp.toLocaleString(),color:C.gold}].map(s=><Card key={s.label} style={{padding:"12px 14px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:s.color,marginBottom:2}}>{s.value}</div><div style={{fontSize:fz(10),color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.07em"}}>{s.label}</div></Card>)}
-      </div>
-      <Card style={{marginBottom:12,padding:"12px 18px"}}><XPBar xp={xp} level={level}/></Card>
-
-      {/* Badges row */}
-      {earnedBadges.length>0&&<Card style={{marginBottom:12,padding:"12px 18px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <span style={{fontSize:fz(12),color:C.textMuted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Badges</span>
-          {earnedBadges.map(b=><div key={b.id} title={b.name+": "+b.desc} style={{fontSize:20,cursor:"default"}}>{b.icon}</div>)}
-          {nextBadge&&<div style={{fontSize:fz(12),color:C.textMuted,marginLeft:4}}>Next: {nextBadge.icon} {nextBadge.name}</div>}
-        </div>
-      </Card>}
-
-      {/* Learn progress */}
-      {learnedTypes>0&&<Card style={{marginBottom:12,padding:"12px 18px",borderColor:C.purple+"44"}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(12),color:C.textMuted,marginBottom:5}}><span style={{fontWeight:600,color:C.purple}}>📖 Learn Progress</span><span>{learnedTypes}/{totalTypes} mastered</span></div>
-        <div style={{background:C.surfaceHigh,borderRadius:4,height:5}}><div style={{height:"100%",width:`${learnedTypes/totalTypes*100}%`,background:`linear-gradient(90deg,${C.purple},#c084fc)`,borderRadius:4,transition:"width 0.6s"}}/></div>
-      </Card>}
-
-      {/* Quick 5 + Today's Goal row */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-        <div onClick={()=>setScreen("quick5")} style={{background:`linear-gradient(135deg,#7c3aed,#a78bfa)`,border:"none",borderRadius:18,padding:"18px 18px",cursor:"pointer",transition:"all 0.2s",display:"flex",flexDirection:"column",justifyContent:"space-between"}}
-          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px #7c3aed44";}}
-          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}>
-          <div style={{fontSize:28,marginBottom:8}}>⚡</div>
-          <div style={{fontWeight:800,fontSize:fz(15),color:"#fff",marginBottom:3}}>Quick 5</div>
-          <div style={{fontSize:fz(12),color:"#e0d4ff",lineHeight:1.55}}>5 questions · ~7 min · instant start</div>
-          <div style={{marginTop:10,background:"#ffffff22",borderRadius:7,padding:"4px 10px",display:"inline-block",fontSize:fz(11),fontWeight:700,color:"#fff",width:"fit-content"}}>Play Now →</div>
-        </div>
-        <Card style={{display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-          <div>
-            <div style={{fontSize:fz(11),color:goalDone?C.success:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontWeight:700}}>{goalDone?"✓ Today's Goal Done!":"Today's Goal"}</div>
-            <div style={{fontSize:26,fontWeight:900,color:goalDone?C.success:C.text,fontFamily:T.serif}}>{todayCount}<span style={{fontSize:fz(14),fontWeight:400,color:C.textMuted}}>/{dailyGoal}</span></div>
-            <div style={{fontSize:fz(12),color:C.textMuted,marginBottom:8}}>questions answered</div>
-          </div>
-          <div>
-            <div style={{background:C.surfaceHigh,borderRadius:6,height:7,overflow:"hidden"}}>
-              <div style={{height:"100%",width:`${goalPct}%`,background:goalDone?`linear-gradient(90deg,${C.success},#4ade80)`:`linear-gradient(90deg,${C.accent},#a78bfa)`,borderRadius:6,transition:"width 0.6s"}}/>
-            </div>
-            {!goalDone&&<div style={{fontSize:fz(11),color:C.textMuted,marginTop:4}}>{dailyGoal-todayCount} more to hit your goal</div>}
-          </div>
-        </Card>
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {quickActions.map(c=>(
-          <Card key={c.id} onClick={()=>setScreen(c.id)} role="button" ariaLabel={`Go to ${c.label}`}
-            style={{cursor:"pointer",transition:"all 0.2s"}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor=c.color+"66";e.currentTarget.style.transform="translateY(-2px)";}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.transform="translateY(0)";}}>
-            <div style={{fontSize:26,marginBottom:8}}>{c.icon}</div>
-            <div style={{fontWeight:700,fontSize:fz(14),color:C.text,marginBottom:3}}>{c.label}</div>
-            <div style={{fontSize:fz(12),color:C.textMuted,lineHeight:1.55,marginBottom:c.badge?7:0}}>{c.desc}</div>
-            {c.badge&&<Tag color={c.badge.color}>{c.badge.label}</Tag>}
-          </Card>
-        ))}
-      </div>
-      {/* Footer */}
-      <div style={{textAlign:"center",padding:"20px 0 10px",display:"flex",
-        justifyContent:"center",gap:16,flexWrap:"wrap"}}>
-        {[["terms","Terms"],["privacy","Privacy"],["disclaimer","LSAC Disclaimer"]].map(([s,l])=>(
-          <button key={s} onClick={()=>setScreen(s)}
-            style={{background:"none",border:"none",color:C.textMuted,
-              fontSize:fz(12),cursor:"pointer",fontFamily:T.sans,
-              textDecoration:"underline"}}>
-            {l}
-          </button>
-        ))}
-      </div>
-    </main>
-  );
+function Home({user,setScreen}){
+  return <HomeDashboard user={user} theme={C} fonts={T} onNavigate={setScreen}/>;
 }
 
 // ─── LEARN SECTION ────────────────────────────────────────────────────────────
 
-function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
-  const [selected,setSelected]=useState(null);
-  const [pathOpen,setPathOpen]=useState(()=>intent||null);
-  useEffect(()=>{if(intent){setPathOpen(intent);onIntentUsed&&onIntentUsed();}},[intent]);
-  const [activeSection,setActiveSection]=useState("Logical Reasoning");
-  const learnProgress=user.learnProgress||{};
+function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed,onFocusChange,onNotes}){
+  const [drill,setDrill]=useState(null); // {section,typeObj,returnTo} — question-type walkthrough + leveled drills
+  const [pathOpen,setPathOpen]=useState(()=>intent&&!intent.drill?intent:null);
   const isPro=user?.isPro||false;
-
-  // Deep links: #learn/<skillId>[/<track>] and #classic/<LR|RC>/<Label> (Classic entries open the rebuilt lesson).
+  // Question-type drills (walkthrough + four levels). The first type per section is free; the rest are Pro.
+  const openDrill=(section,typeName)=>{
+    const sec=/^R/i.test(section)?"Reading Comprehension":"Logical Reasoning";
+    const list=LEARN_CURRICULUM[sec]||[];
+    const idx=list.findIndex(t=>t.type===typeName);
+    if(idx<0)return;
+    if(!isPro&&idx>0){onUpgrade&&onUpgrade("pro_only");return;}
+    setDrill({section:sec,typeObj:list[idx],returnTo:pathOpen,fromPractice:false});
+  };
+  useEffect(()=>{if(intent){if(intent.drill){openDrill(intent.drill.section,intent.drill.type);if(intent.drill.from)setDrill(d=>d&&{...d,fromPractice:true});}else setPathOpen(intent);onIntentUsed&&onIntentUsed();}},[intent]);
+  // Deep links: #learn/<skillId>[/<track>]; older #classic/<LR|RC>/<Type> links resolve to the same lesson.
   useEffect(()=>{
-    const apply=()=>{const r=parseHash(window.location.hash);if(r)setPathOpen({skillId:r.skillId,mode:"lesson",track:r.track,fromClassic:r.fromClassic||null});};
+    const apply=()=>{const r=parseHash(window.location.hash);if(r)setPathOpen({skillId:r.skillId,mode:"lesson",track:r.track});};
     apply();window.addEventListener("hashchange",apply);return()=>window.removeEventListener("hashchange",apply);
   },[]);
   useEffect(()=>{
     try{
       const cur=window.location.hash||"";
-      const want=pathOpen&&pathOpen.mode==="lesson"&&pathOpen.skillId?routeToHash(pathOpen.fromClassic?{kind:"classic",...pathOpen.fromClassic}:{skillId:pathOpen.skillId,track:pathOpen.track}):"";
+      const want=pathOpen&&pathOpen.mode==="lesson"&&pathOpen.skillId?routeToHash({skillId:pathOpen.skillId,track:pathOpen.track}):"";
       if(want&&cur!==want)window.history.replaceState(null,"",want);
       if(!want&&/^#(learn|classic)\//.test(cur))window.history.replaceState(null,"",window.location.pathname+window.location.search);
     }catch{}
   },[pathOpen]);
+  // Lesson workspace = focus mode (the app hides unrelated floating UI).
+  const inLesson=!!(pathOpen&&["lesson","placement","review","mixed"].includes(pathOpen.mode))&&!drill;
+  useEffect(()=>{onFocusChange&&onFocusChange(inLesson);return()=>onFocusChange&&onFocusChange(false);},[inLesson]);
 
-  if(selected)return <LearnLesson key={selected.typeObj.type} user={user} onUpdateUser={onUpdateUser} typeObj={selected.typeObj} section={selected.section} onBack={()=>{const back=selected.returnTo;setSelected(null);if(back)setPathOpen(back);}}/>;
+  if(drill)return <LearnLesson key={drill.typeObj.type} user={user} onUpdateUser={onUpdateUser} typeObj={drill.typeObj} section={drill.section} backLabel={drill.fromPractice?"Back to Practice":drill.returnTo?"Back to lesson":"Back to Learn"} onBack={()=>{const d=drill;setDrill(null);if(d.fromPractice){onNavigate&&onNavigate("practiceHub");return;}if(d.returnTo)setPathOpen(d.returnTo);}}/>;
 
-  // Every Classic entry opens the rebuilt lesson that teaches the same skill (with a link back to the original as reference).
-  const openClassic=(section,typeName)=>{
-    const r=classicRoute(section,typeName);
-    if(r){setPathOpen({skillId:r.skillId,mode:"lesson",track:r.track,fromClassic:{section:r.section,label:r.label}});return;}
-    openLegacy(section,typeName,{reference:true});
-  };
-  const openLegacy=(section,typeName,opts={})=>{
-    const list=LEARN_CURRICULUM[section]||[];
-    const idx=list.findIndex(t=>t.type===typeName);
-    if(idx<0)return;
-    if(!opts.reference){openClassic(section,typeName);return;}
-    if(!isPro&&idx>0){onUpgrade&&onUpgrade("pro_only");return;}
-    setSelected({section,typeObj:list[idx],returnTo:pathOpen});
-  };
-  const guided=<GuidedPath user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T}
+  return <GuidedPath user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T}
     callModel={callClaude} practiceSystem={PRACTICE_SYSTEM} parseJSON={parseJSON}
-    open={pathOpen} setOpen={setPathOpen}
-    onOpenLegacy={openLegacy} onMixedPractice={()=>onNavigate&&onNavigate("practice")}/>;
-  if(pathOpen)return guided;
-
-  const sectionTypes=LEARN_CURRICULUM[activeSection];
-  return(
-    <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
-        <div>
-          <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Learn</h1>
-          <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.6}}>A guided path from logic foundations to full LSAT reasoning.</p>
-        </div>
-        {!isPro&&(
-          <div style={{background:"linear-gradient(135deg,#4f7fff22,#a78bfa22)",border:"1px solid #4f7fff44",borderRadius:12,padding:"8px 14px",fontSize:fz(12),color:C.accent,maxWidth:220}}>
-            <strong>Free:</strong> every guided lesson. Pro adds the original Classic lessons as reference.
-          </div>
-        )}
-      </div>
-
-      <div style={{marginTop:20}}>{guided}</div>
-
-      <h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,margin:"8px 0 4px"}}>Classic lessons by question type</h2>
-      <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.6,margin:0}}>Each Classic lesson now opens its rebuilt version in the guided path. Your Classic levels are kept below as legacy progress; they don't count toward mastery.</p>
-      <div style={{display:"flex",gap:8,marginBottom:20,marginTop:16}}>
-        {SECTIONS.map(s=>(
-          <button key={s} onClick={()=>setActiveSection(s)}
-            style={{padding:"8px 18px",borderRadius:10,
-              border:"1.5px solid "+(activeSection===s?C.accent:C.border),
-              background:activeSection===s?C.accentSoft:"transparent",
-              color:activeSection===s?C.accent:C.textMuted,
-              fontSize:fz(13),fontWeight:activeSection===s?700:400,
-              cursor:"pointer",fontFamily:T.sans,outline:"none"}}>
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
-        {sectionTypes.map((t,idx)=>{
-          const prog=learnProgress[t.type]||0;
-          const mastered=prog>=4;
-          const started=prog>0;
-          const pct=Math.round(prog/4*100);
-          const locked=false; // Classic entries route to the rebuilt lessons; the Pro lock applies only to the original reference view
-          const route=classicRoute(activeSection,t.type);
-          return(
-            <Card key={t.type}
-              onClick={()=>openClassic(activeSection,t.type)}
-              role="button"
-              style={{cursor:"pointer",position:"relative",
-                borderColor:locked?"transparent":mastered?C.success+"44":started?C.accent+"33":C.border,
-                opacity:locked?0.7:1,transition:"all 0.2s"}}>
-              {locked&&(
-                <div style={{position:"absolute",inset:0,borderRadius:14,
-                  background:"linear-gradient(135deg,#0a0f1e88,#1a1a2e88)",
-                  backdropFilter:"blur(2px)",display:"flex",alignItems:"center",
-                  justifyContent:"center",zIndex:2}}>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:22,marginBottom:4}}>🔒</div>
-                    <div style={{fontSize:fz(12),color:"white",fontWeight:600}}>Pro Only</div>
-                  </div>
-                </div>
-              )}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                <div style={{fontWeight:700,fontSize:fz(15),color:C.text}}>{t.type}</div>
-                {mastered&&<span style={{fontSize:fz(11),color:C.textMuted,fontWeight:700,background:C.surfaceHigh,padding:"2px 8px",borderRadius:10}}>Legacy: complete</span>}
-                {!mastered&&started&&!locked&&<span style={{fontSize:fz(11),color:C.accent,fontWeight:700,background:C.accentSoft,padding:"2px 8px",borderRadius:10}}>In Progress</span>}
-              </div>
-              <div style={{fontSize:fz(13),color:C.textMuted,lineHeight:1.55,marginBottom:12}}>{t.tagline}</div>
-              {started&&!mastered&&!locked&&<div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(11),color:C.textMuted,marginBottom:4}}>
-                  <span>Legacy: level {prog} of 4</span><span>{pct}%</span>
-                </div>
-                <div style={{background:C.surfaceHigh,borderRadius:4,height:4}}>
-                  <div style={{height:"100%",width:`${pct}%`,background:C.accent,borderRadius:4}}/>
-                </div>
-              </div>}
-              {!started&&!locked&&<div style={{fontSize:fz(12),color:C.textMuted}}>Not started</div>}
-              {route&&<div style={{fontSize:fz(12),color:C.accent,marginTop:8}}>Opens the rebuilt lesson{started?" · Classic progress shown as legacy":""} →</div>}
-            </Card>
-          );
-        })}
-      </div>
-    </main>
-  );
+    open={pathOpen} setOpen={setPathOpen} onNotes={onNotes}
+    onOpenDrill={openDrill} onMixedPractice={()=>onNavigate&&onNavigate("practice")}/>;
 }
 
-function LearnLesson({user,onUpdateUser,typeObj,section,onBack}){
+function LearnLesson({user,onUpdateUser,typeObj,section,onBack,backLabel="Back"}){
   const [view,setView]=useState("lesson"); // lesson | practice | complete
   const [sectionIdx,setSectionIdx]=useState(0);
   const [levelIdx,setLevelIdx]=useState(0);
@@ -4232,7 +3879,7 @@ Respond ONLY with valid JSON (no markdown):
 
   return(
     <main style={{maxWidth:760,margin:"0 auto",padding:"24px 20px"}}>
-      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back to Learn</button>
+      <button onClick={onBack} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:fz(13),fontFamily:T.sans,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← {backLabel}</button>
 
       {/* Header */}
       <div style={{marginBottom:20}}>
@@ -4363,7 +4010,7 @@ Respond ONLY with valid JSON (no markdown):
           <p style={{color:C.textSub,fontSize:fz(15),lineHeight:1.7,marginBottom:8}}>You've worked through all 4 levels of <strong style={{color:C.text}}>{typeObj.type}</strong> questions.</p>
           <p style={{color:C.textSub,fontSize:fz(13),lineHeight:1.7,marginBottom:28}}>Keep practicing in the Practice section to reinforce this skill. Spaced repetition is the key to making it automatic under test pressure.</p>
           <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-            <Btn onClick={onBack}>← Back to Learn</Btn>
+            <Btn onClick={onBack}>← {backLabel}</Btn>
             <Btn ghost onClick={()=>{setView("practice");setLevelIdx(0);setQuestion(null);setSubmitted(false);setSelected(null);genQuestion();}}>Practice More</Btn>
           </div>
         </Card>
@@ -4774,7 +4421,7 @@ function Practice({user,onUpdateUser,initialWeakType,requirePro}){
   // ── CONFIG SCREEN ──
   if(!configured)return(
     <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
-      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Practice</h1>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:6}}>Question generator</h1>
       <p style={{color:C.textSub,fontSize:fz(14),marginBottom:16}}>Lumora generates a fresh question every time — infinite practice, no repeats.</p>
       <WeaknessRadar user={user} onDrillWeakness={(w)=>{if(requirePro&&!requirePro("practice"))return;cfgRef.current={section:w.section,level:null,qType:w.type,adaptive:false};setSection(w.section);setQType(w.type);setLevel(null);setAdaptive(false);setConfigured(true);startPractice();}}/>
       <p style={{color:C.textMuted,fontSize:fz(12),marginBottom:12}}>Tap a selected option again to clear it. Anything left on <strong style={{color:C.text}}>Any</strong> is randomized for every question.</p>
@@ -5560,7 +5207,7 @@ function FullSection({user,onUpdateUser,requirePro}){
     const byLevel={1:{c:0,t:0},2:{c:0,t:0},3:{c:0,t:0},4:{c:0,t:0}};
     let correct=0;
     qs.forEach(q=>{const l=q.assignedLevel||2;byLevel[l].t++;if(ans[q.qi]===q.correct){correct++;byLevel[l].c++;}});
-    const records=qs.map(q=>({section:q.section,qType:q.qType,level:q.assignedLevel,correct:ans[q.qi]===q.correct,xp:ans[q.qi]===q.correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()}));
+    const records=qs.map(q=>({mode:"fullsection",timed:true,section:q.section,qType:q.qType,level:q.assignedLevel,correct:ans[q.qi]===q.correct,xp:ans[q.qi]===q.correct?XP_PER_CORRECT[q.assignedLevel||2]:0,timestamp:Date.now()}));
     const totalXP=records.reduce((s,r)=>s+r.xp,0);
     onUpdateUser({history:[...(user.history||[]),...records],stats:{...user.stats,xp:(user.stats?.xp||0)+totalXP}});
     setResults({correct,total:qs.length,pct:Math.round(correct/qs.length*100),byLevel,timeUsed:SECTION_TIME-tLeft});
@@ -5695,11 +5342,12 @@ function StudyPlan({user,onUpdateUser,setScreen}){
   };
   return(
     <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
+      <h1 style={{fontFamily:T.serif,fontSize:Math.round(28*FONT_SCALE),color:C.text,margin:"0 0 6px"}}>Study plan</h1>
+      <p style={{color:C.textSub,fontSize:fz(15),margin:"0 0 18px"}}>Your schedule, today's tasks, and your study profile. Your next lesson always appears on Home.</p>
       <AdaptivePlanPanel user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T} onNavigate={setScreen}/>
-      <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 4px"}}>AI-written overview (classic)</h2>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:22}}>
-        <div><h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:fz(14)}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
-        <Btn onClick={gen} small>{plan?"Regenerate":"Generate Plan"}</Btn>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",margin:"24px 0 14px"}}>
+        <div><h2 style={{fontFamily:T.serif,fontSize:Math.round(20*FONT_SCALE),color:C.text,margin:"0 0 4px"}}>Written study guide</h2><p style={{color:C.textSub,fontSize:fz(14),margin:0}}>A written overview of how to reach {user.diagnostic?.target_score||"your target score"}.</p></div>
+        <Btn onClick={gen} small>{plan?"Regenerate":"Write my guide"}</Btn>
       </div>
       {(!user.diagnostic||Object.keys(user.diagnostic).length===0)&&(
         <Card style={{marginBottom:16,borderColor:C.gold+"44",background:C.goldSoft}}>
@@ -6001,7 +5649,7 @@ function Notes({user,onUpdateUser}){
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <div>
-          <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:2}}>Study Journal</h1>
+          <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:2}}>Notes</h1>
           <p style={{color:C.textMuted,fontSize:fz(13)}}>{notes.length} total {notes.length===1?"entry":"entries"}</p>
         </div>
         <Btn onClick={()=>{setEditId(null);setTitle("");setText("");setWriting(true);}}>+ New</Btn>
@@ -6191,7 +5839,7 @@ function MistakeJournal({user,onUpdateUser}){
   return(
     <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
-        <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Mistake Journal</h1>
+        <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Practice mistakes</h1>
         <div style={{display:"flex",gap:8}}>
           {["all","unreviewed"].map(f=>(
             <button key={f} onClick={()=>setFilter(f)}
@@ -6378,7 +6026,7 @@ function SRSReview({user,onUpdateUser,onDone}){
         <div style={{fontSize:48,marginBottom:12}}>✅</div>
         <h2 style={{fontFamily:T.serif,fontSize:Math.round(24*FONT_SCALE),color:C.text,marginBottom:8}}>All Caught Up!</h2>
         <p style={{color:C.textSub,fontSize:fz(14),lineHeight:1.7,marginBottom:24}}>No question types are due for review today. Keep practicing to build your SRS queue.</p>
-        <Btn onClick={onDone}>Back to Home</Btn>
+        <Btn onClick={onDone}>Done</Btn>
       </div>
     </div>
   );
@@ -6388,7 +6036,7 @@ function SRSReview({user,onUpdateUser,onDone}){
       <div style={{maxWidth:680,margin:"0 auto",padding:"20px 20px 40px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <div>
-            <span style={{fontWeight:800,color:C.gold,fontSize:fz(15)}}>🔁 SRS Review</span>
+            <span style={{fontWeight:800,color:C.gold,fontSize:fz(15)}}>🔁 Question-type review</span>
             <span style={{color:C.textMuted,fontSize:fz(13),marginLeft:10}}>{doneCount}/{dueTypes.length} done</span>
           </div>
           <button onClick={onDone} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"4px 10px",color:C.textMuted,fontSize:fz(12),cursor:"pointer"}}>Exit</button>
@@ -6526,59 +6174,29 @@ function Onboarding({user,onUpdateUser,onDone}){
 
   const TOUR_CARDS=[
     {
-      icon:"🎯",color:"#4f7fff",
-      title:"Practice",
-      desc:"Lumora generates fresh, unique LSAT questions every session — no question bank, no repeats. It adapts to your weak areas automatically and adjusts difficulty as you improve. Use Adaptive Mode for smart targeting, or pick a specific type to drill.",
-    },
-    {
       icon:"📖",color:"#a78bfa",
       title:"Learn",
-      desc:"A comprehensive interactive textbook covering all 17 LSAT question types. Each lesson explains the concept, gives you a step-by-step framework, shows common traps, and then walks you through practice at four difficulty levels. Think of it as having a tutor explain each type from scratch.",
+      desc:"Your guided path, from logic foundations to every LSAT question type. Each lesson starts with a quick warm-up question, teaches the idea with worked examples, then moves you from recognizing it, to applying it with hints, to independent challenge questions and a mastery check. Home always shows the lesson to continue.",
     },
     {
-      icon:"⚡",color:"#f5c842",
-      title:"Quick 5",
-      desc:"Five timed LR questions — 75 seconds each — in a focused burst session. Great for warming up before a study session or squeezing in practice when you're short on time. Questions generate in parallel so there's almost no wait.",
+      icon:"↻",color:"#f5c842",
+      title:"Review",
+      desc:"After a lesson, Lumora schedules short reviews with fresh questions — tomorrow, then a few days later, then weeks later — so skills stick. Mixed review hides the question type, the way the real test does. Your mistake journal lives here too, linked back to the right part of each lesson.",
     },
     {
-      icon:"📅",color:"#f5c842",
-      title:"Daily Challenge",
-      desc:"One question per day, the same for every Lumora user. It resets at 2am and earns double XP. Building the habit of doing at least one question daily is one of the most reliable predictors of score improvement.",
-    },
-    {
-      icon:"⚖",color:"#22d3ee",
-      title:"Flaw Lab",
-      desc:"Lumora generates a unique, realistic legal argument containing a hidden logical flaw. Your job: identify the flaw precisely, explain why the reasoning fails, and construct a counter-argument. Scored on four dimensions including precision and writing quality.",
-    },
-    {
-      icon:"✍",color:"#2dd4a0",
-      title:"Argumentative Writing",
-      desc:"Full 2026 LSAC-format writing practice. A unique prompt is generated each session with four perspectives on a debatable issue. You have 15 minutes to prewrite, 35 minutes to write. Lumora scores your thesis, perspective engagement, argumentation, and mechanics.",
-    },
-    {
-      icon:"⏱",color:"#f5c842",
-      title:"Full Section",
-      desc:"A 35-minute timed simulation of a full LSAT section — 25 questions ramping from Level 1 to Level 4. The first question appears instantly; the rest generate in the background while you work. Your pacing and level-by-level accuracy are tracked.",
-    },
-    {
-      icon:"❌",color:"#f87171",
-      title:"Mistake Journal",
-      desc:"Every question you get wrong is automatically saved here with the full explanation. Review your mistakes, then use Teach It Back to write your own explanation of why the correct answer is right — Lumora evaluates your understanding and gives feedback.",
-    },
-    {
-      icon:"🔁",color:"#f5c842",
-      title:"SRS Review",
-      desc:"Spaced Repetition System — the same technique used by Anki and medical schools worldwide. Lumora tracks which question types you struggle with and schedules them for review at optimal intervals: tomorrow if you got it wrong, longer if you got it right.",
+      icon:"🎯",color:"#4f7fff",
+      title:"Practice",
+      desc:"Optional extra practice for speed and stamina: the question generator, Quick 5, the daily challenge, 35-minute timed sections, Flaw Lab, LSAT Writing, and question-type drills. Practice mistakes and question-type review are here as well.",
     },
     {
       icon:"📊",color:"#f472b6",
       title:"Progress",
-      desc:"Your Lumora Score Predictor projects your current LSAT score range based on your accuracy across difficulty levels. The score trajectory chart shows how your projected score has changed over time. Your weakness breakdown by question type shows exactly where to focus.",
+      desc:"See which skills you can do on your own and remember later, how your practice is going by question type and difficulty, your achievements, and a clearly labeled score estimate with its limits explained.",
     },
     {
-      icon:"📓",color:"#a78bfa",
-      title:"Study Journal",
-      desc:"Your personal study notebook — always accessible from the sidebar. Use Scratch Paper to work through arguments during practice, the Notebook to save strategies and insights you want to remember, and the Wrong Answer Log to analyze mistakes in depth. Everything saves to your account.",
+      icon:"📋",color:"#2dd4a0",
+      title:"Study plan and notes",
+      desc:"Open the account menu (your avatar, top right) for your study plan, your notes, display settings like text size and light mode, and your subscription. In a lesson, the Notes button saves a note tied to that lesson.",
     },
   ];
 
@@ -6773,125 +6391,113 @@ function computeScore(history){
     needed:Math.max(0,40-history.length)};
 }
 
+// Practice-performance helpers. Groups smaller than MIN_SAMPLE are reported as "needs more answers".
+function accuracyOf(items){return items.length?Math.round(items.filter(h=>h.correct).length/items.length*100):null;}
+function PerfBar({label,items,min=MIN_SAMPLE}){
+  const pct=accuracyOf(items);const enough=items.length>=min;
+  return(<div style={{marginBottom:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:fz(15)}}>
+      <span style={{color:C.text}}>{label}</span>
+      <span style={{color:enough?C.text:C.textSub,fontWeight:enough?700:400,fontSize:fz(enough?15:13)}}>{enough?`${pct}%`:`needs ${min-items.length} more`} <span style={{color:C.textSub,fontWeight:400,fontSize:fz(13)}}>· {items.length} answered</span></span>
+    </div>
+    <div style={{background:C.surfaceHigh,borderRadius:4,height:6}}><div style={{height:"100%",width:enough?`${pct}%`:"0%",background:pct>=70?C.success:pct>=50?C.gold:C.danger,borderRadius:4}}/></div>
+  </div>);
+}
+
 function Dashboard({user,onUpdateUser}){
+  const [tab,setTab]=useState("overview");
   const history=user.history||[];
-  const overall=history.length>0?Math.round(history.filter(h=>h.correct).length/history.length*100):null;
-  const sData=SECTIONS.map(s=>{const items=history.filter(h=>h.section===s);return{s,score:items.length>0?Math.round(items.filter(h=>h.correct).length/items.length*100):null,total:items.length};});
-  const tStats={};history.forEach(h=>{if(!tStats[h.qType])tStats[h.qType]={c:0,t:0};tStats[h.qType].t++;if(h.correct)tStats[h.qType].c++;});
-  const sorted=Object.entries(tStats).sort((a,b)=>(a[1].c/a[1].t)-(b[1].c/b[1].t));
-  const lvData=[1,2,3,4].map(l=>{const items=history.filter(h=>h.level===l);return{l,t:items.length,c:items.filter(h=>h.correct).length};});
-  const sc=p=>p>=70?C.success:p>=50?C.gold:C.danger;
-
+  const practiceHist=history.filter(h=>h.source!=="onboarding");
   const pred=computeScore(history);
-
   const srsData=user.email?DB.getSRS(user.email):{};
   const srsDue=srsDueTypes(srsData);
-  const isPro=user?.isPro||false;
+  const types={};practiceHist.forEach(h=>{if(!h.qType)return;(types[h.qType]=types[h.qType]||[]).push(h);});
+  const typeRows=Object.entries(types).sort((a,b)=>b[1].length-a[1].length);
+  const reliable=typeRows.filter(([,v])=>v.length>=MIN_SAMPLE).sort((a,b)=>accuracyOf(a[1])-accuracyOf(b[1]));
+  const timed=practiceHist.filter(h=>h.timed), untimed=practiceHist.filter(h=>!h.timed);
+  const TABS=[{id:"overview",label:"Overview"},{id:"mastery",label:"Skill mastery"},{id:"practice",label:"Practice performance"},{id:"achievements",label:"Achievements"},{id:"estimates",label:"Score estimates"}];
+  const earnedBadges=BADGES.filter(b=>(user.earnedBadges||[]).includes(b.id));
+  const xp=user.stats?.xp||0;
 
   return(
-    <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
-      <ProgressPanel user={user} theme={C} fonts={T}/>
-      <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 12px"}}>Practice statistics (classic)</h2>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
-        <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Progress</h1>
-        {srsDue.length>0&&<div style={{background:C.gold+"20",border:`1px solid ${C.gold}44`,borderRadius:12,padding:"6px 14px",fontSize:fz(13),color:C.gold,fontWeight:600}}>
-          🔁 {srsDue.length} type{srsDue.length!==1?"s":""} due for review
-        </div>}
-      </div>
-      <p style={{color:C.textMuted,fontSize:fz(14),marginBottom:14}}>{history.length} total questions answered.</p>
+    <Page C={C} T={T} title="Progress" subtitle="What you can do on your own, what you remember, and how your practice is going.">
+      <style>{UI_CSS(C)}</style>
+      <Tabs C={C} T={T} label="Progress sections" tabs={TABS} value={tab} onChange={setTab}/>
+      <div role="tabpanel" id={"panel-"+tab} aria-labelledby={"tab-"+tab}>
+      {tab==="overview"&&<>
+        <ProgressOverview user={user} theme={C} fonts={T}/>
+        <Panel C={C} tone="quiet">
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{color:C.textSub,fontSize:fz(15)}}>Practice: {practiceHist.length} question{practiceHist.length===1?"":"s"} answered{practiceHist.length>=MIN_SAMPLE?` · ${accuracyOf(practiceHist)}% correct`:""}.</span>
+            <button className="lp-focus" onClick={()=>setTab("practice")} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:fz(14),fontWeight:600}}>Practice performance →</button>
+          </div>
+        </Panel>
+      </>}
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:10,marginBottom:14}}>
-        <Card style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={overall} size={86} color={overall>=70?C.success:overall>=50?C.gold:C.danger} label={`Overall: ${overall}%`}/><div style={{fontSize:fz(12),color:C.textMuted,marginTop:8}}>Overall</div></Card>
-        {sData.map(({s,score,total})=><Card key={s} style={{textAlign:"center",padding:"16px 10px"}}><Arc pct={score} size={72} color={score>=70?C.success:score>=50?C.gold:C.danger} label={`${s}: ${score}%`}/><div style={{fontSize:fz(12),color:C.textMuted,marginTop:8}}>{s.split(" ")[0]}</div><div style={{fontSize:fz(11),color:C.textMuted}}>{total} q's</div></Card>)}
-      </div>
+      {tab==="mastery"&&<SkillMasterySection user={user} theme={C} fonts={T}/>}
 
-      <ScoreTrajectory user={user}/>
+      {tab==="practice"&&<>
+        {practiceHist.length<MIN_SAMPLE?(
+          <Panel C={C}><p style={{color:C.textSub,fontSize:fz(15),margin:0,lineHeight:1.6}}>Answer at least {MIN_SAMPLE} practice questions to see your accuracy. You have answered {practiceHist.length}. Small samples swing a lot, so Lumora waits before drawing conclusions.</p></Panel>
+        ):<>
+          <div className="lm-grid-3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
+            <Stat C={C} T={T} label="All practice" value={`${accuracyOf(practiceHist)}%`} note={`${practiceHist.length} answered`}/>
+            {SECTIONS.map(sec=>{const it=practiceHist.filter(h=>h.section===sec);return <Stat key={sec} C={C} T={T} label={sec==="Logical Reasoning"?"Logical Reasoning":"Reading Comp."} value={it.length>=MIN_SAMPLE?`${accuracyOf(it)}%`:"—"} note={it.length>=MIN_SAMPLE?`${it.length} answered`:`${it.length} answered · need ${MIN_SAMPLE}`}/>;})}
+          </div>
+          <SectionTitle C={C}>By question type</SectionTitle>
+          <Panel C={C}>
+            {reliable.map(([k,v])=><PerfBar key={k} label={k} items={v}/>)}
+            {typeRows.filter(([,v])=>v.length<MIN_SAMPLE).length>0&&<p style={{color:C.textSub,fontSize:fz(14),margin:reliable.length?"6px 0 0":0}}>Not enough answers yet for: {typeRows.filter(([,v])=>v.length<MIN_SAMPLE).map(([k,v])=>`${k} (${v.length})`).join(", ")}.</p>}
+          </Panel>
+          <SectionTitle C={C}>By difficulty</SectionTitle>
+          <Panel C={C}>{[1,2,3,4].map(l=><PerfBar key={l} label={`Level ${l}`} items={practiceHist.filter(h=>h.level===l)}/>)}</Panel>
+          <SectionTitle C={C}>Timed vs. untimed</SectionTitle>
+          <Panel C={C}>
+            <PerfBar label="Timed (Quick 5, timed sections)" items={timed}/>
+            <PerfBar label="Untimed practice" items={untimed}/>
+            <p style={{color:C.textSub,fontSize:fz(13),margin:0}}>Timing is recorded for sessions from now on; earlier answers count as untimed.</p>
+          </Panel>
+        </>}
+        {srsDue.length>0&&<Panel C={C} tone="quiet"><span style={{color:C.text,fontSize:fz(15)}}>↻ {srsDue.length} question type{srsDue.length!==1?"s are":" is"} due for review in Practice → Question-type review.</span></Panel>}
+      </>}
 
-      {/* Score Predictor */}
-      <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
-        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:14,fontWeight:700}}>🎯 Lumora Score Predictor</div>
-        {pred?(
-          <div>
-            <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:14,flexWrap:"wrap"}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:48,fontWeight:900,color:C.accent,fontFamily:T.serif,lineHeight:1}}>{pred.mid}</div><div style={{fontSize:fz(12),color:C.textMuted,marginTop:4}}>Projected Score</div></div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:fz(14),color:C.textSub,marginBottom:6}}>Range: <strong style={{color:C.text}}>{pred.low} – {pred.high}</strong></div>
-                <div style={{fontSize:fz(13),color:C.textMuted,marginBottom:10}}>Confidence: <Tag color={pred.confidence==="High"?C.success:pred.confidence==="Moderate"?C.gold:C.textMuted}>{pred.confidence}</Tag></div>
-                <div style={{background:C.surfaceHigh,borderRadius:10,height:10,position:"relative",overflow:"hidden"}}>
-                  <div style={{position:"absolute",left:`${(pred.low-120)/60*100}%`,width:`${(pred.high-pred.low)/60*100}%`,height:"100%",background:`linear-gradient(90deg,${C.accentSoft},${C.accent})`,borderRadius:10}}/>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:fz(10),color:C.textMuted,marginTop:4}}><span>120</span><span>150</span><span>180</span></div>
-              </div>
+      {tab==="achievements"&&<AchievementsSection user={user} theme={C} fonts={T} extra={
+        <Panel C={C}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
+            <h3 className="lm-h" style={{color:C.text,fontSize:fz(17),margin:0}}>Practice XP</h3><span style={{color:C.textSub,fontSize:fz(14)}}>{xp} XP total</span>
+          </div>
+          <XPBar xp={xp} level={Math.floor(xp/XP_PER_LEVEL)+1}/>
+          <div style={{marginTop:12,color:C.textSub,fontSize:fz(14)}}>Practice badges: {earnedBadges.length?earnedBadges.map(b=><span key={b.id} title={b.name+": "+b.desc} style={{marginRight:8,color:C.text}}>{b.icon} {b.name}</span>):"none yet"}</div>
+        </Panel>}/>}
+
+      {tab==="estimates"&&<>
+        <Panel C={C}>
+          <h3 className="lm-h" style={{color:C.text,fontSize:fz(17),margin:"0 0 6px"}}>Estimated LSAT score</h3>
+          {pred?(<>
+            <div style={{display:"flex",alignItems:"center",gap:20,flexWrap:"wrap",margin:"8px 0 12px"}}>
+              <div><div style={{fontSize:Math.round(40*FONT_SCALE),fontWeight:900,color:C.text,fontFamily:T.serif,lineHeight:1}}>{pred.low}–{pred.high}</div><div style={{fontSize:fz(13),color:C.textSub,marginTop:4}}>Estimated range · midpoint {pred.mid}</div></div>
+              <Tag color={pred.confidence==="High"?C.success:pred.confidence==="Moderate"?C.gold:C.textSub}>{pred.confidence} confidence</Tag>
             </div>
-            {pred.needed>0&&<div style={{fontSize:fz(13),color:C.textMuted,background:C.surfaceHigh,borderRadius:8,padding:"10px 12px"}}>📊 Answer {pred.needed} more questions for <strong style={{color:C.text}}>High</strong> confidence prediction.</div>}
-          </div>
-        ):(
-          <div>
-            <p style={{color:C.textMuted,fontSize:fz(14),lineHeight:1.7,marginBottom:10}}>Answer at least <strong style={{color:C.text}}>10 questions</strong> to unlock your Lumora score prediction. You've answered {history.length} so far.</p>
-            <div style={{background:C.surfaceHigh,borderRadius:6,height:6}}><div style={{height:"100%",width:`${Math.min(100,history.length/10*100)}%`,background:C.accent,borderRadius:6,transition:"width 0.5s"}}/></div>
-            <div style={{fontSize:fz(12),marginTop:4,color:C.textMuted}}>{history.length}/10</div>
-          </div>
-        )}
-      </Card>
-
-      <Card style={{marginBottom:12}}>
-        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>By Difficulty Level</div>
-        {lvData.filter(d=>d.t>0).map(({l,t,c})=>{const pct=Math.round(c/t*100);return<div key={l} style={{marginBottom:11}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:fz(13)}}><span style={{color:LEVEL_COLORS[l],fontWeight:600}}>Level {l} — {LEVEL_LABELS[l]}</span><span style={{color:sc(pct),fontWeight:600}}>{pct}% ({c}/{t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:7}}><div style={{height:"100%",width:`${pct}%`,background:LEVEL_COLORS[l],borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
-        {lvData.every(d=>d.t===0)&&<p style={{color:C.textMuted,fontSize:fz(14)}}>Answer questions to see your level breakdown.</p>}
-      </Card>
-
-      {sorted.length>0&&<Card style={{marginBottom:12}}>
-        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>By Question Type</div>
-        {sorted.map(([k,v])=>{const pct=Math.round(v.c/v.t*100);return<div key={k} style={{marginBottom:11}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:fz(13)}}><span style={{color:C.text}}>{k}</span><span style={{color:sc(pct),fontWeight:600}}>{pct}% ({v.c}/{v.t})</span></div><div style={{background:C.surfaceHigh,borderRadius:4,height:6}}><div style={{height:"100%",width:`${pct}%`,background:sc(pct),borderRadius:4,transition:"width 0.5s"}}/></div></div>;})}
-      </Card>}
-
-      <Card style={{marginBottom:14}}>
-        <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.textMuted,marginBottom:12}}>Lumora LSAT Level</div>
-        <div style={{display:"flex",alignItems:"center",gap:14}}>
-          <div style={{width:54,height:54,borderRadius:13,background:"linear-gradient(135deg,#3a6bff,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:900,color:"#fff"}}>{Math.floor((user.stats?.xp||0)/XP_PER_LEVEL)+1}</div>
-          <div style={{flex:1}}><XPBar xp={user.stats?.xp||0} level={Math.floor((user.stats?.xp||0)/XP_PER_LEVEL)+1}/><div style={{fontSize:fz(12),color:C.textMuted,marginTop:5}}>{user.stats?.xp||0} total XP earned</div></div>
-        </div>
-      </Card>
-
-      <div style={{textAlign:"center",marginTop:20}}>
-        <Btn ghost danger onClick={()=>{if(window.confirm("Reset all progress? Cannot be undone."))onUpdateUser({history:[],notes:[],studyPlan:null,learnProgress:{},stats:{xp:0,streak:0,lastDay:null}});}}>Reset All Progress</Btn>
+            {pred.needed>0&&<p style={{color:C.textSub,fontSize:fz(14),margin:0}}>Answer {pred.needed} more practice questions for a high-confidence estimate.</p>}
+          </>):(<p style={{color:C.textSub,fontSize:fz(15),margin:0}}>An estimate appears after 10 practice questions. You have answered {history.length}.</p>)}
+        </Panel>
+        <ScoreTrajectory user={user}/>
+        <Panel C={C} tone="quiet">
+          <h3 className="lm-h" style={{color:C.text,fontSize:fz(16),margin:"0 0 6px"}}>How this estimate works — and its limits</h3>
+          <ul style={{margin:0,paddingLeft:18,color:C.textSub,fontSize:fz(14),lineHeight:1.65}}>
+            <li>It weights your practice accuracy by difficulty level (harder levels count more) and maps it to the 120–180 scale.</li>
+            <li>The range narrows as you answer more: at least 10 questions to show anything, 20 for moderate and 40 for high confidence.</li>
+            <li>It is not an official LSAC conversion. Practice questions here are generated, not released LSAT items, and untimed practice usually runs higher than test-day performance.</li>
+            <li>Use it to see direction over time, not as a prediction of your test-day score. Timed sections are the closest check.</li>
+          </ul>
+        </Panel>
+      </>}
       </div>
-      {/* Study Insights */}
-      {(user.history||[]).length>=5&&(()=>{
-        const h=user.history||[];
-        const insights=[];
-        // Find weakest type
-        const tStats2={};
-        h.forEach(q=>{if(!tStats2[q.qType])tStats2[q.qType]={c:0,t:0};tStats2[q.qType].t++;if(q.correct)tStats2[q.qType].c++;});
-        const weakest=Object.entries(tStats2).filter(([,v])=>v.t>=3).sort((a,b)=>(a[1].c/a[1].t)-(b[1].c/b[1].t))[0];
-        if(weakest&&weakest[1].c/weakest[1].t<0.6)insights.push("Your weakest type is "+weakest[0]+" ("+Math.round(weakest[1].c/weakest[1].t*100)+"%). Focus your next practice session here.");
-        // Check if doing harder questions
-        const l4=h.filter(q=>q.level===4);
-        if(l4.length===0&&h.length>20)insights.push("You have not attempted any Level 4 questions yet. Push into harder difficulty to accelerate improvement.");
-        // RC check
-        const rc=h.filter(q=>q.section==="Reading Comprehension");
-        const lr=h.filter(q=>q.section==="Logical Reasoning");
-        if(lr.length>0&&rc.length===0)insights.push("You have not practiced Reading Comprehension yet. Both sections appear on the LSAT.");
-        if(rc.length>0&&lr.length>0){
-          const rcAcc=Math.round(rc.filter(h=>h.correct).length/rc.length*100);
-          const lrAcc=Math.round(lr.filter(h=>h.correct).length/lr.length*100);
-          if(Math.abs(rcAcc-lrAcc)>20)insights.push("Large gap between your RC ("+rcAcc+"%) and LR ("+lrAcc+"%) accuracy. Balance your practice between both sections.");
-        }
-        if(insights.length===0)return null;
-        return(
-          <Card style={{marginBottom:14,borderColor:C.accent+"44"}}>
-            <div style={{fontSize:fz(12),textTransform:"uppercase",letterSpacing:"0.08em",color:C.accent,marginBottom:12,fontWeight:700}}>Study Insights</div>
-            {insights.map((insight,i)=>(
-              <div key={i} style={{display:"flex",gap:10,marginBottom:i<insights.length-1?10:0,
-                padding:"10px 12px",background:C.surfaceHigh,borderRadius:10}}>
-                <span style={{color:C.accent,fontSize:fz(14),flexShrink:0}}>→</span>
-                <span style={{fontSize:fz(13),color:C.textSub,lineHeight:1.6}}>{insight}</span>
-              </div>
-            ))}
-          </Card>
-        );
-      })()}
-    </main>
+
+      <div style={{textAlign:"center",marginTop:28}}>
+        <Btn ghost danger onClick={()=>{if(window.confirm("Reset all progress? Cannot be undone."))onUpdateUser({history:[],notes:[],studyPlan:null,learnProgress:{},stats:{xp:0,streak:0,lastDay:null}});}}>Reset all progress</Btn>
+      </div>
+    </Page>
   );
 }
 
@@ -7253,8 +6859,9 @@ function Disclaimer({onBack}){
 }
 
 
-function JournalFloat({user,onUpdateUser,context}){
-  const [open,setOpen]=useState(false);
+function JournalFloat({user,onUpdateUser,context,startOpen=false,onClose,bottom=104}){
+  const [open,setOpenRaw]=useState(!!startOpen);
+  const setOpen=(v)=>{setOpenRaw(v);if(!v&&onClose)onClose();};
   const [text,setText]=useState("");
   const [type,setType]=useState("scratch");
   const typeColor=type==="scratch"?"#4f7fff":type==="mistake"?"#ef4444":"#a78bfa";
@@ -7268,21 +6875,21 @@ function JournalFloat({user,onUpdateUser,context}){
     setText("");setOpen(false);
   };
 
-  if(!open)return(
-    <button onClick={()=>setOpen(true)} title="Open journal"
-      style={{position:"fixed",bottom:104,left:24,zIndex:300,
+  if(!open)return onClose?null:(
+    <button onClick={()=>setOpen(true)} title="Open notes"
+      style={{position:"fixed",bottom,left:24,zIndex:300,
         background:C.surface,border:"1px solid "+C.border,
         borderRadius:20,padding:"5px 14px",cursor:"pointer",
         fontSize:fz(12),fontWeight:700,color:C.textSub,
         display:"flex",alignItems:"center",gap:6,
         boxShadow:"0 2px 8px #00000033",fontFamily:T.sans}}>
       <span style={{fontSize:16}}>📓</span>
-      <span>Journal</span>
+      <span>Notes</span>
     </button>
   );
 
   return(
-    <div style={{position:"fixed",bottom:148,left:24,width:270,zIndex:400,
+    <div role="dialog" aria-label="Notes" style={{position:"fixed",bottom:bottom+44,left:24,width:270,maxWidth:"calc(100vw - 48px)",zIndex:400,
       background:C.surface,border:"1px solid "+typeColor+"44",borderRadius:16,
       boxShadow:"0 8px 32px #00000055"}}>
       <div style={{padding:"10px 14px",borderBottom:"1px solid "+C.border,
@@ -7312,7 +6919,7 @@ function JournalFloat({user,onUpdateUser,context}){
           style={{width:"100%",marginTop:8,background:typeColor,border:"none",
             borderRadius:10,padding:"8px",color:"white",fontSize:fz(13),
             fontWeight:700,cursor:"pointer",opacity:!text.trim()?0.5:1}}>
-          Save to Journal
+          Save note
         </button>
       </div>
     </div>
@@ -7343,6 +6950,8 @@ export default function App(){
   const [authNotice,setAuthNotice]=useState("");
   const [proNotice,setProNotice]=useState("");
   const [learnIntent,setLearnIntent]=useState(null); // open a specific guided lesson when navigating to Learn
+  const [lessonFocus,setLessonFocus]=useState(false); // lesson workspace open: hide unrelated floating UI
+  const [notesFor,setNotesFor]=useState(null); // lesson notes panel (context title)
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme and font globally - sync before render
@@ -7520,10 +7129,14 @@ export default function App(){
 
   const pages={
     home:<Home user={user} setScreen={handleSetScreen} onUpdateUser={handleUpdateUser}/>,
-    daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
+    daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("practiceHub")}/>,
     mistakes:<MistakeJournal user={user} onUpdateUser={handleUpdateUser}/>,
     review:<ReviewHub user={user} onUpdateUser={handleUpdateUser} theme={C} fonts={T} callModel={callClaude} practiceSystem={PRACTICE_SYSTEM} parseJSON={parseJSON} onNavigate={handleSetScreen}/>,
-    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)} onNavigate={handleSetScreen} intent={learnIntent} onIntentUsed={()=>setLearnIntent(null)}/>,
+    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)} onNavigate={handleSetScreen} intent={learnIntent} onIntentUsed={()=>setLearnIntent(null)} onFocusChange={setLessonFocus} onNotes={(title)=>setNotesFor(title+" — lesson notes")}/>,
+    practiceHub:<PracticeHub theme={C} fonts={T} onNavigate={handleSetScreen} isPro={!!user.isPro}
+      drillTypes={{"Logical Reasoning":LEARN_CURRICULUM["Logical Reasoning"],"Reading Comprehension":LEARN_CURRICULUM["Reading Comprehension"]}}
+      drillProgress={user.learnProgress||{}}
+      onOpenDrill={(section,type)=>{setLearnIntent({drill:{section,type,from:"practiceHub"}});setScreen("learn");}}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
     writing:<Writing/>,
     flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
@@ -7540,7 +7153,7 @@ export default function App(){
 
   return(
     <ErrorBoundary>
-    <div key={darkMode?"dark":"light"} style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,paddingBottom:user?90:0}}>
+    <div key={darkMode?"dark":"light"} className="lm-app" style={{minHeight:"100vh",background:C.bg,fontFamily:T.sans,paddingBottom:user?90:0}}>
       <style>{`
         :root {
           --fs: ${Math.round(16*fontScale)}px;
@@ -7554,9 +7167,9 @@ export default function App(){
         body { background: ${C.bg}; margin: 0; }
         html { font-size: ${Math.round(16*fontScale)}px; }
         * { box-sizing: border-box; }
-        h1 { font-size: ${Math.round(26*fontScale)}px !important; }
-        h2 { font-size: ${Math.round(20*fontScale)}px !important; }
-        h3 { font-size: ${Math.round(17*fontScale)}px !important; }
+        h1:not(.lm-h) { font-size: ${Math.round(26*fontScale)}px !important; }
+        h2:not(.lm-h) { font-size: ${Math.round(20*fontScale)}px !important; }
+        h3:not(.lm-h) { font-size: ${Math.round(17*fontScale)}px !important; }
         p { font-size: ${Math.round(16*fontScale)}px; }
       `}</style>
       <style>{`*{box-sizing:border-box;}body{margin:0;background:${C.bg};}button,input,textarea,select{font-family:inherit;}@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}`}</style>
@@ -7567,8 +7180,9 @@ export default function App(){
       {screen!=="profile"&&<Nav screen={screen} setScreen={handleSetScreen} user={user} onLogout={handleLogout} onUpgrade={(reason)=>setUpgradeModal(reason)} onLexChat={()=>setShowLexChat(true)} darkMode={darkMode} setDarkMode={setDarkMode} fontScale={fontScale} setFontScale={(f)=>{setFontScale(f);FONT_SCALE=f;try{localStorage.setItem("lumora_font",String(f));}catch{}}}/>}
       {pages[screen]||pages.home}
 
-      <LexManager user={user} screen={screen} sessionResult={lexSessionResult}
-        onNavigate={handleSetScreen} onUpdateUser={handleUpdateUser}/>
+      {!(screen==="learn"&&lessonFocus)&&<LexManager user={user} screen={screen} sessionResult={lexSessionResult}
+        onNavigate={handleSetScreen} onUpdateUser={handleUpdateUser}/>}
+      {user&&notesFor&&screen==="learn"&&<JournalFloat key={notesFor} user={user} onUpdateUser={handleUpdateUser} context={notesFor} startOpen onClose={()=>setNotesFor(null)} bottom={24}/>}
       {user&&["practice","flaw","writing","fullsection","quick5"].includes(screen)&&(
         <JournalFloat user={user} onUpdateUser={handleUpdateUser}
           context={screen.charAt(0).toUpperCase()+screen.slice(1)+" session"}/>
@@ -7580,7 +7194,7 @@ export default function App(){
       {showLexChat&&user&&<MonkeyChat user={user} onUpdateUser={handleUpdateUser}
         onClose={()=>setShowLexChat(false)} onNavigate={handleSetScreen}/>}
       {/* Floating Lex button — always visible */}
-      {user&&!showLexChat&&(
+      {user&&!showLexChat&&!(screen==="learn"&&lessonFocus)&&(
         <button
           onClick={()=>setShowLexChat(true)}
           title="Ask Lex"

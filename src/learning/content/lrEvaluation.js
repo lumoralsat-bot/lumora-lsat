@@ -243,7 +243,7 @@ export const LESSON_STRENGTHEN = {
     { tag: 'wrong_direction', label: 'Choosing a weakener', fix: 'Check whether the choice makes the conclusion more or less likely.' },
     { tag: 'irrelevant', label: 'Topic match with no effect', fix: 'Ask: does this change how well the evidence supports the conclusion?' },
     { tag: 'shell_game', label: 'Supporting a different conclusion', fix: 'Re-read the exact conclusion.' },
-    { tag: 'alternative_cause', label: 'Ignoring alternative explanations', fix: 'Ruling out alternatives is a classic strengthener.' },
+    { tag: 'alternative_cause', label: 'Ignoring alternative explanations', fix: 'Ruling out alternatives is one of the most common ways to strengthen.' },
   ],
   items: [
     item('st.o1', 'orient', 1, '“Plants watered with rainwater grew taller than plants watered with tap water. So rainwater helps plants grow.”', 'Which would most strengthen the argument?', [
