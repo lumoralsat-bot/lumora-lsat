@@ -49,10 +49,10 @@ There is no independent verification, no duplicate check across sessions (only a
 | ID | Risk | Severity | Status |
 |---|---|---|---|
 | **R-1** | **Anthropic API key shipped in the browser bundle.** Anyone can extract it and run up charges. Verified: a canary key appeared in the built JS. | P0 | **Fixed in this phase.** New `api/claude.js` proxy. The prod bundle now contains 0 copies of the key (verified). |
-| **R-2** | **Supabase anon key + no Row-Level Security assumed.** The client can read and patch *any* row in `users` by email, including password hashes, `is_pro`, and history. | P0 | **Open — needs your decision** (see §7). |
+| **R-2** | **Supabase anon key + no Row-Level Security assumed.** The client can read and patch *any* row in `users` by email, including password hashes, `is_pro`, and history. | P0 | **Fixed in code — you finish it in the dashboard** with `docs/SECURITY_MIGRATION.md` (RLS + column grants, verified on Postgres). |
 | R-3 | The `/api/claude` proxy is reachable without authentication. The per-instance rate limit is only best-effort. | P1 | Mitigated (caps on size, tokens, and rate; fixed model). Full fix depends on R-2 (auth). |
-| R-4 | Pro can be granted client-side: `?upgraded=true` URL, promo codes in the bundle, and the `isPro` flag saved from the client. | P0 (revenue) | Open — part of the R-2 fix. |
-| R-5 | Hand-rolled password hashing (SHA-256, predictable salt, plaintext legacy fallback). | P0 | Open — replace with Supabase Auth (R-2). |
+| R-4 | Pro can be granted client-side: `?upgraded=true` URL, promo codes in the bundle, and the `isPro` flag saved from the client. | P0 (revenue) | **Fixed:** Pro is set only by the signed Stripe webhook or server-checked promo codes. Unsigned webhooks are rejected. Checkout, cancel and delete use the verified login. |
+| R-5 | Hand-rolled password hashing (SHA-256, predictable salt, plaintext legacy fallback). | P0 | **Fixed:** Supabase Auth. Each account migrates on its next sign-in and the old hash is erased; the column is dropped after 60–90 days. |
 | R-6 | All learning data lives in JSON blobs on one row, and the local/remote merge picks the longer array, so concurrent devices can lose writes. | P1 | Partly mitigated: the new engine uses id-keyed, idempotent records. A dedicated table is recommended. |
 | R-7 | `App.jsx` is a 2.1 MB single file, including 1.7 MB of images. This slows builds and first load, and makes edits risky. | P2 | Open — move images to `/public` and split modules gradually. |
 | R-8 | Legacy mastery advances a level on one correct answer. | P1 | New engine replaces this for guided skills. Legacy lessons are unchanged. |
@@ -73,13 +73,13 @@ There is no independent verification, no duplicate check across sessions (only a
 | 1 | Learning foundation: skill graph (27 skills, 8 branches), lesson model, engine state, Learn navigation | 0 | ✅ Done |
 | 2 | First complete loop: *Necessary & Sufficient Conditions* (Learn → Recognize → Apply → Challenge → Mastery check), placement/test-out, review | 1 | ✅ Done |
 | 3 | Generator integration: context-aware requests, validation pipeline, exposure tracking, generation log, labeled fallback | 2 | ✅ Done |
-| — | **Gate: R-2/R-4/R-5 security fix (auth + RLS)** | your decision | ⏸ Recommended next |
-| 4 | Tutor: context-grounded hints/explanations for the guided path (graduated, hypothesis-phrased diagnoses) | 3 | Next |
-| 5 | Mastery & review across all skills; error-journal UI that merges with the legacy Mistake Journal | 4 | |
-| 6 | Study planning: real test dates (the current diagnostic stores date *ranges*), daily/weekly plans, recompute on change | 5 | |
-| 7 | Game layer on top of learning events (XP ledger already idempotent) | 5 | |
-| 8 | Curriculum expansion: one full lesson per skill node, with human review | 2–3 | |
-| 9 | Hardening: accessibility audit, performance (images), analytics, release | all | |
+| — | **Gate: R-2/R-4/R-5 security fix (auth + RLS)** | — | ✅ Code done; dashboard steps in `SECURITY_MIGRATION.md` |
+| 4 | Tutor: context-grounded hints/explanations for the guided path (graduated, hypothesis-phrased diagnoses) | 3 | ✅ Done |
+| 5 | Mastery & review across all skills; error-journal UI that merges with the legacy Mistake Journal | 4 | ✅ Done |
+| 6 | Study planning: real test dates (the current diagnostic stores date *ranges*), daily/weekly plans, recompute on change | 5 | ✅ Done |
+| 7 | Game layer on top of learning events (XP ledger already idempotent) | 5 | ✅ Done |
+| 8 | Curriculum expansion: one full lesson per skill node, with human review | 2–3 | 🟡 5 of 27 skills have full lessons |
+| 9 | Hardening: accessibility audit, performance (images), analytics, release | all | 🟡 Partial (see §10) |
 
 **Rollback:** every change is additive. To revert, `git checkout` the previous `src/App.jsx` and remove `src/learning/`, `api/claude.js`, `tests/`. Learning data lives under `learnProgress.__engine`, which old code ignores.
 
@@ -180,4 +180,95 @@ There is no independent verification, no duplicate check across sessions (only a
 | Educational correctness of content (Master §16B) | `content/necessarySufficient.js` + `logic.js` | truth-table test over all items | Pass (human review pending) |
 | Date-aware LSAT format (Master §14) | `config.js#formatForDate` | format test | Pass |
 | Accessibility basics (Exp §13) | radiogroup/radio roles, focus-visible, text + icon status (not color alone), aria-live feedback | e2e keyboard-only placement | Pass (full audit in Phase 9) |
-| Authorization across users (Exp §12) | — | — | **Not met (R-2)** |
+| Authorization across users (Exp §12) | `supabase/migrations/002_lockdown_rls.sql`, `api/_lib/supabase.js#getAuthUser` | `supabase/tests/rls_test.sql` (26 Postgres assertions), `tests/accounts.test.js` (14), browser E2E (26) | Pass (live once Step 5 is run) |
+
+
+---
+
+## 10. Phase 4–9 report (2026-10-31)
+
+**1. Objective:** Build out the rest of the learning platform on top of the Phase 1–3 engine: a tutor, a review system, an adaptive plan, learning achievements, more lessons, and a hardening pass.
+
+**2. Files added or changed**
+- **Added:**
+  - `src/learning/tutor.js`
+  - `journal.js` and `ReviewHub.jsx`
+  - `planner.js` and `PlanPanel.jsx`
+  - `achievements.js` and `ProgressPanel.jsx`
+  - `content/index.js` (lesson registry)
+  - `content/conditionalChains.js`, `negationAndOr.js`, `quantifiers.js`, `argumentParts.js`
+  - Tests: `tests/tutor.test.js`, `review.test.js`, `planner.test.js`, `achievements.test.js`, `curriculum.test.js`
+- **Extended:**
+  - `logic.js`: model checker for quantified statements (all / some / no / most).
+  - `practiceEngine.js`: generation specs and skill-alignment checks for each skill.
+  - `recommend.js`: prerequisite-gap rule.
+  - `store.js`: error snapshots, notes, study profile, plan versions, achievements.
+- **App.jsx:**
+  - New Review screen.
+  - Home shows today's plan.
+  - The Study Plan screen gets the adaptive plan.
+  - The Progress screen gets the learning-progress panel.
+  - Navigation regrouped into Learn, Challenges and Tools; the Practice screen is renamed "Question Generator".
+  - Menu buttons get accessible labels.
+  - The floating Lex button is smaller on phones.
+
+**3. Preserved:** every existing screen and the existing generator. The old AI study plan, old Mistake Journal, old SRS and old practice statistics are still there, labeled "classic."
+
+**4. New behavior**
+- **Tutor (Lex inside lessons):**
+  - Answers using only the lesson text and the stored answer key.
+  - Hints are graduated and checked for answer leaks; a leaking hint is regenerated, then replaced by the authored hint.
+  - After answering, students can ask "why is my answer wrong", "explain it another way", "check my reasoning", or a free question.
+  - Does not tutor before submission in challenge, mastery, placement or review stages.
+  - Diagnoses are phrased as guesses.
+  - If it judges a question ambiguous, the question is flagged and removed from mastery scoring.
+  - A tutor hint counts as assistance on the attempt.
+  - At most 6 calls per question.
+  - If the AI is down, it shows the reviewed explanation instead.
+- **Review hub:**
+  - *Due today:* capped at 5, with no backlog pressure.
+  - *Error journal:* question snapshot, a category the student can edit, notes, archive, link to the relevant lesson section, and status "resolved by a later correct answer".
+  - *Weak skills:* skills with repeated recent unresolved mistakes, with the reason.
+  - *Flagged questions.*
+- **Adaptive plan:**
+  - Study profile: test date, or "not scheduled", or "already taken"; minutes per day; days per week; optional target and latest score. Onboarding answers are used only as labeled estimates — no invented test date.
+  - Planning modes by time to the test: 12+, 8–12, 4–8, 2–4 and under 2 weeks.
+  - Daily plan: never exceeds the student's minutes, reviews take a capped share, one main goal, and a short version for busy days.
+  - Missed days never pile up into a backlog.
+  - Past test dates are rejected, with options to pick a new date or mark the exam as taken.
+  - When the date changes, the app shows "what changed", including a different LSAT format if the new date falls after August 2027.
+  - Weekly check-in with no guilt messaging; versioned plan history.
+- **Achievements:** 11 achievements for retention, fixing mistakes, transfer to new questions, calibration and routine. None reward volume or speed. They are idempotent, and the learning level comes from learning XP.
+- **Progress panel:** mastery per skill with reasons and evidence, on-your-own vs. with-help accuracy, confidence vs. correctness, retention, and timing shown separately from accuracy. Percentages only appear once a group has at least 5 answers.
+- **Curriculum:** 5 full lessons, 72 items in total:
+  - Premises & Conclusions (author-verified)
+  - Necessary & Sufficient (truth-table verified)
+  - Negation / And / Or (truth-table verified)
+  - Quantifiers (model-checked; "most" is checked only up to a size bound)
+  - Conditional Chains (truth-table verified)
+
+  The checker caught and fixed a wrong answer key in the Chains lesson. Each skill also has its own generation spec.
+
+**7–8. Tests run**
+- **Unit and integration (`npm test`): 121/121 pass.**
+- **Supabase rules on real Postgres: 26/26 pass.**
+- **Browser end-to-end tests:**
+  - Learning flows: 31/31 pass. Covers the plan card, opening a lesson directly, the AI hint and its logging, no tutoring in challenges, the hedged diagnosis, review notes, plan edits including a past date, achievements, no horizontal scroll at 375 px on four screens, keyboard-only test-out of a new lesson, and the existing generator.
+  - Account security: 26/26 pass.
+- **Not run:** `vite build` itself (the npm registry is blocked in my sandbox; bundling was checked with esbuild). Real-model quality of tutor and generator output (mocked in tests).
+
+**9. Known limitations**
+- 22 skills still link to classic lessons or show "coming soon". Priority next: necessary/sufficient assumption, flaws, inference, and Reading Comprehension. Those need author review, because they cannot be machine-proved.
+- All content still needs review by a qualified instructor.
+- Daily Challenge, Timed Section and Flaw Lab do not yet feed skill mastery, because their items have no skill tags yet.
+- Mastery thresholds have not been calibrated against real students.
+- Images are still inlined in `App.jsx` (about 1.7 MB).
+
+**10. Security and privacy:**
+- Tutor requests contain no names or emails, and student text is sent as data, not instructions.
+- Notes are capped at 1,000 characters; only category, note and archive can be edited.
+- All learning data lives in the student's own profile row, which row-level security protects once Step 5 of `SECURITY_MIGRATION.md` is done.
+
+**11. Cost:** Tutor calls are made only on request, capped at 6 per question, at about 500 output tokens each.
+
+**13. Next:** The dashboard session (`SECURITY_MIGRATION.md`), then more lessons.

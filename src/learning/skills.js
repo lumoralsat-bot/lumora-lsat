@@ -18,14 +18,14 @@ export const BRANCHES = [
 const S = (id, branch, title, prerequisites = [], lesson = null, summary = '') => ({ id, branch, title, prerequisites, lesson, summary });
 
 export const SKILLS = [
-  S('found.argument_parts', 'foundations', 'Premises & Conclusions', [], 'legacy:LR:Main Point', 'Identify what an argument claims and what it offers as support.'),
+  S('found.argument_parts', 'foundations', 'Premises & Conclusions', [], 'full', 'Identify what an argument claims and what it offers as support.'),
   S('found.validity', 'foundations', 'Truth vs. Logical Support', ['found.argument_parts'], null, 'Separate whether claims are true from whether they support the conclusion.'),
   S('found.deductive_inductive', 'foundations', 'Deductive vs. Inductive Reasoning', ['found.validity'], null, 'Certainty versus probability.'),
 
   S('formal.necessary_sufficient', 'formal', 'Necessary & Sufficient Conditions', ['found.argument_parts'], 'full', 'Translate conditional language and draw only valid conclusions.'),
-  S('formal.negation_or', 'formal', 'Negation, "And" & "Or"', ['formal.necessary_sufficient'], null, 'Negate compound statements correctly; inclusive vs. exclusive or.'),
-  S('formal.quantifiers', 'formal', 'Quantifiers: All, Most, Some, None', ['formal.necessary_sufficient'], null, 'Scope words and what they do and do not allow you to infer.'),
-  S('formal.chains', 'formal', 'Conditional Chains', ['formal.necessary_sufficient'], null, 'Link conditionals and spot broken links.'),
+  S('formal.negation_or', 'formal', 'Negation, "And" & "Or"', ['formal.necessary_sufficient'], 'full', 'Negate compound statements correctly; inclusive vs. exclusive or.'),
+  S('formal.quantifiers', 'formal', 'Quantifiers: All, Most, Some, None', ['formal.necessary_sufficient'], 'full', 'Scope words and what they do and do not allow you to infer.'),
+  S('formal.chains', 'formal', 'Conditional Chains', ['formal.necessary_sufficient'], 'full', 'Link conditionals and spot broken links.'),
 
   S('analysis.main_conclusion', 'analysis', 'Main Conclusion', ['found.argument_parts'], 'legacy:LR:Main Point', 'Find the claim everything else supports.'),
   S('analysis.role', 'analysis', 'Role of a Statement', ['analysis.main_conclusion'], null, 'Describe what a claim does in the argument.'),

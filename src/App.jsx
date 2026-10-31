@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef, useCallback, Component } from "react";
 import { GuidedPath, ContinueLearningCard } from "./learning/LearnPath.jsx";
+import { createAuth } from "./auth.js";
+import { ReviewHub } from "./learning/ReviewHub.jsx";
+import { TodayPlanCard, AdaptivePlanPanel } from "./learning/PlanPanel.jsx";
+import { ProgressPanel } from "./learning/ProgressPanel.jsx";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
@@ -56,18 +60,13 @@ function checkBadges(history,stats,earnedBadges=[]){
 const SUPA_URL=(import.meta.env.VITE_SUPABASE_URL||"").replace(/\/+$/,"");
 const SUPA_KEY=import.meta.env.VITE_SUPABASE_ANON_KEY||"";
 const USE_SUPA=!!(SUPA_URL&&SUPA_KEY);
+// Supabase Auth: real accounts, passwords hashed by Supabase, row-level security on the users table.
+const AUTH=createAuth({url:SUPA_URL,anonKey:SUPA_KEY});
 const STRIPE_PK=import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY||"";
 const STRIPE_PRICE_MONTHLY=import.meta.env.VITE_STRIPE_PRICE_MONTHLY||"";
 const STRIPE_PRICE_YEARLY=import.meta.env.VITE_STRIPE_PRICE_YEARLY||"";
 
-// ── PROMO CODES (hashed for basic obfuscation) ───────────────────────────────
-// To add a new code: add its lowercase value to this array
-// These grant Pro access without payment — for demos and testing
-const PROMO_CODES=["LUMORA2024","DEMO","LSATPRO","TRYLUMORAPRO","EARLYACCESS"];
-// Simple check — not cryptographically secure, fine for demo use
-function checkPromoCode(input){
-  return PROMO_CODES.some(c=>c.toUpperCase()===input.trim().toUpperCase());
-}
+// Promo codes are validated on the server (api/redeem-promo.js, PROMO_CODES env var) — never shipped to the browser.
 
 // ── FREE TIER LIMITS ─────────────────────────────────────────────────────────
 const FREE_LIMITS={
@@ -101,29 +100,12 @@ function checkLimit(user,feature){
   return{allowed:true,used,limit};
 }
 
-async function supaFetch(path,method="GET",body=null,prefer="return=representation"){
-  const url=SUPA_URL+"/rest/v1"+path;
-  const headers={
-    "apikey":SUPA_KEY,
-    "Authorization":"Bearer "+SUPA_KEY,
-    "Content-Type":"application/json",
-  };
-  if(prefer)headers["Prefer"]=prefer;
-  const res=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
-  if(!res.ok){
-    const err=await res.text().catch(()=>"");
-    throw new Error("Supabase "+method+" "+path+" failed "+res.status+": "+err.slice(0,200));
-  }
-  const text=await res.text();
-  return text?JSON.parse(text):null;
-}
-
-// Map app user object → Supabase row
-function userToRow(u){
+// Columns the browser is allowed to read (password hashes and billing ids are server-only).
+const PROFILE_COLS="id,auth_id,email,name,avatar_color,avatar_emoji,diagnostic_done,diagnostic,history,notes,study_plan,learn_progress,earned_badges,stats,onboarding_done,is_pro,subscription_status";
+// Only fields a student may change. Email, Pro status, and billing fields are set by the server only.
+function userToUpdate(u){
   return{
-    email:(u.email||"").toLowerCase(),
     name:u.name||"",
-    password_hash:u.password||u.password_hash||"",
     avatar_color:u.avatarColor||0,
     avatar_emoji:u.avatarEmoji||"",
     diagnostic_done:!!u.diagnosticDone,
@@ -135,23 +117,23 @@ function userToRow(u){
     earned_badges:u.earnedBadges||[],
     stats:u.stats||{xp:0,streak:0,lastDay:null},
     onboarding_done:!!u.onboardingDone,
-    is_pro:!!u.isPro,
   };
 }
 // Map Supabase row → app user object
 function rowToUser(row){
   return{
-    email:row.email,name:row.name,password:row.password_hash,
+    email:row.email,name:row.name,
     avatarColor:row.avatar_color||0,avatarEmoji:row.avatar_emoji||"",
     diagnosticDone:!!row.diagnostic_done,diagnostic:row.diagnostic||{},
     history:row.history||[],notes:row.notes||[],studyPlan:row.study_plan||null,
     learnProgress:row.learn_progress||{},earnedBadges:row.earned_badges||[],
     stats:row.stats||{xp:0,streak:0,lastDay:null},
-    onboardingDone:!!row.onboarding_done,isPro:!!row.is_pro,id:row.id,
+    onboardingDone:!!row.onboarding_done,isPro:!!row.is_pro,id:row.id,authId:row.auth_id,
   };
 }
 
-// ─── PASSWORD HASHING (Web Crypto — no npm needed) ───────────────────────────
+// ─── LOCAL-ONLY MODE PASSWORD HASHING ─────────────────────────────────────────
+// Used ONLY when Supabase is not configured (offline/dev). Production accounts use Supabase Auth.
 async function hashPassword(password){
   const encoder=new TextEncoder();
   const salt="lumora_v1_"+password.length; // simple salt — upgrade to bcrypt for production
@@ -169,91 +151,71 @@ async function verifyPassword(password,hash){
 
 // ─── DB LAYER ─────────────────────────────────────────────────────────────────
 const DB={
-  // Session (always localStorage)
+  // ── Local-only mode session (no Supabase configured) ──
   getSession:()=>{try{return localStorage.getItem("lumora_session")||null}catch{return null}},
-  saveSession:(e)=>{try{localStorage.setItem("lumora_session",e)}catch{}},
-  clearSession:()=>{try{localStorage.removeItem("lumora_session")}catch{}},
+  saveSession:(e)=>{if(USE_SUPA)return;try{localStorage.setItem("lumora_session",e)}catch{}},
+  clearSession:async()=>{
+    try{localStorage.removeItem("lumora_session")}catch{}
+    if(USE_SUPA){const id=AUTH.user()?.id;if(id)DB._clearCache(id);await AUTH.signOut();}
+  },
 
-  // Local fallback
+  // Local storage: local-only mode keeps accounts in lumora_users; Supabase mode keeps a per-login cache.
   _getLocal:(e)=>{try{const u=JSON.parse(localStorage.getItem("lumora_users")||"{}");return u[e]||null}catch{return null}},
-  _setLocal:(e,d)=>{try{const u=JSON.parse(localStorage.getItem("lumora_users")||"{}");u[e]=d;localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
-  // Keep getUsers/saveUsers for any legacy calls
+  _setLocal:(e,d)=>{if(USE_SUPA)return;try{const u=JSON.parse(localStorage.getItem("lumora_users")||"{}");u[e]=d;localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
+  _dropLegacyLocal:(e)=>{try{const u=JSON.parse(localStorage.getItem("lumora_users")||"{}");if(u[e]){delete u[e];localStorage.setItem("lumora_users",JSON.stringify(u));}}catch{}},
+  _getCache:(id)=>{try{return JSON.parse(localStorage.getItem("lumora_cache_"+id)||"null")}catch{return null}},
+  _setCache:(id,d)=>{try{const {password,...safe}=d||{};localStorage.setItem("lumora_cache_"+id,JSON.stringify(safe))}catch{}},
+  _clearCache:(id)=>{try{localStorage.removeItem("lumora_cache_"+id)}catch{}},
   getUsers:()=>{try{return JSON.parse(localStorage.getItem("lumora_users")||"{}")}catch{return{}}},
   saveUsers:(u)=>{try{localStorage.setItem("lumora_users",JSON.stringify(u))}catch{}},
 
-  // Check if user exists
-  checkUserExists:async(email)=>{
-    const em=email.toLowerCase();
-    if(USE_SUPA){
-      try{
-        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(em)+"&select=email&limit=1","GET",null,"");
-        if(rows&&rows.length>0)return true;
-      }catch(e){console.warn("checkUserExists supa failed:",e);}
+  // ── Local-only mode account helpers ──
+  checkUserExists:async(email)=>!!DB._getLocal(email.toLowerCase()),
+  createUser:async(data)=>{DB._setLocal(data.email.toLowerCase(),data);},
+  getUser:async(email)=>DB._getLocal(email.toLowerCase()),
+
+  // ── Supabase mode: load (or link/create) the signed-in student's own profile row ──
+  loadProfile:async()=>{
+    const su=AUTH.user();if(!su)return null;
+    const q=SUPA_URL+"/rest/v1/users?auth_id=eq."+su.id+"&select="+PROFILE_COLS+"&limit=1";
+    const get=async()=>{const r=await AUTH.authedFetch(q);if(r.status===401)return null;if(!r.ok)throw new Error("profile "+r.status);return r.json();};
+    let rows;
+    try{rows=await get();}catch(e){console.warn("Profile load failed, using this device's copy");return DB._getCache(su.id);}
+    if(rows===null){await AUTH.signOut();return null;}
+    if(!rows.length){
+      // An existing (pre-upgrade) profile with this verified email gets linked on the server.
+      await AUTH.authedFetch("/api/auth-migrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"link"})}).catch(()=>{});
+      rows=await get().catch(()=>[]);
     }
-    return !!DB._getLocal(em);
-  },
-
-  // Create new user — uses upsert
-  createUser:async(data)=>{
-    const em=data.email.toLowerCase();
-    DB._setLocal(em,data);
-    if(!USE_SUPA)return;
-    try{
-      // Upsert — on conflict (email) do update
-      await supaFetch("/users","POST",userToRow(data),"resolution=merge-duplicates,return=minimal");
-      console.log("User created in Supabase:",em);
-    }catch(e){console.warn("Supabase createUser failed:",e);}
-  },
-
-  // Get user by email — merge local and remote, prefer most data
-  getUser:async(email)=>{
-    const em=email.toLowerCase();
-    const local=DB._getLocal(em);
-    if(USE_SUPA){
-      try{
-        const rows=await supaFetch("/users?email=eq."+encodeURIComponent(em)+"&limit=1","GET",null,"");
-        if(rows&&rows.length>0){
-          const remote=rowToUser(rows[0]);
-          // Keep whichever has more history/notes (in case local is newer)
-          const merged={
-            ...remote,
-            history:(local?.history||[]).length>(remote.history||[]).length
-              ?local.history:remote.history,
-            notes:(local?.notes||[]).length>(remote.notes||[]).length
-              ?local.notes:remote.notes,
-            learnProgress:Object.keys(local?.learnProgress||{}).length>Object.keys(remote.learnProgress||{}).length
-              ?local.learnProgress:remote.learnProgress,
-          };
-          DB._setLocal(em,merged);
-          return merged;
-        }
-      }catch(e){console.warn("Supabase getUser failed, using local:",e);}
+    if(!rows||!rows.length){
+      const fresh={name:su.name||"",avatarColor:Math.floor(Math.random()*8),diagnosticDone:false,diagnostic:{},history:[],notes:[],studyPlan:null,learnProgress:{},earnedBadges:[],stats:{xp:0,streak:0,lastDay:null},onboardingDone:false};
+      const ins=await AUTH.authedFetch(SUPA_URL+"/rest/v1/users?select="+PROFILE_COLS,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({auth_id:su.id,email:su.email,...userToUpdate(fresh)})});
+      rows=ins.ok?await ins.json():[];
+      if(!rows.length)throw new Error("Could not create your profile. Please try again.");
     }
-    return local;
+    const remote=rowToUser(rows[0]);
+    const local=DB._getCache(su.id);
+    // Keep whichever copy has more progress (offline edits), but Pro status always comes from the server.
+    const merged={
+      ...remote,
+      history:(local?.history||[]).length>(remote.history||[]).length?local.history:remote.history,
+      notes:(local?.notes||[]).length>(remote.notes||[]).length?local.notes:remote.notes,
+      learnProgress:Object.keys(local?.learnProgress||{}).length>Object.keys(remote.learnProgress||{}).length?local.learnProgress:remote.learnProgress,
+    };
+    DB._setCache(su.id,merged);
+    DB._dropLegacyLocal(su.email); // remove any old local copy that contained a password hash
+    return merged;
   },
 
-  // Save user — PATCH existing, POST if new
+  // Save the student's own progress. In Supabase mode the row is selected by the login, never by email.
   saveUser:async(email,data)=>{
-    const em=email.toLowerCase();
-    DB._setLocal(em,data); // always local first (instant)
-    if(!USE_SUPA)return;
+    if(!USE_SUPA){DB._setLocal(email.toLowerCase(),data);return;}
+    const su=AUTH.user();if(!su)return;
+    DB._setCache(su.id,data);
     try{
-      // Try PATCH first (update existing row)
-      const patchRes=await fetch(SUPA_URL+"/rest/v1/users?email=eq."+encodeURIComponent(em),{
-        method:"PATCH",
-        headers:{
-          "apikey":SUPA_KEY,
-          "Authorization":"Bearer "+SUPA_KEY,
-          "Content-Type":"application/json",
-          "Prefer":"return=minimal",
-        },
-        body:JSON.stringify(userToRow(data)),
-      });
-      if(!patchRes.ok){
-        // Row doesn't exist yet — insert it
-        await supaFetch("/users","POST",userToRow(data),"resolution=merge-duplicates,return=minimal");
-      }
-    }catch(e){console.warn("Supabase saveUser failed:",e);}
+      const r=await AUTH.authedFetch(SUPA_URL+"/rest/v1/users?auth_id=eq."+su.id,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(userToUpdate(data))});
+      if(!r.ok)console.warn("Save failed ("+r.status+"); your progress is kept on this device and will sync next time.");
+    }catch{console.warn("Offline; progress kept on this device.");}
   },
 
   // Daily challenge (localStorage only)
@@ -3093,25 +3055,26 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
 
   const PAGES=[
     {id:"home",label:"Home",icon:"⌂",group:"main"},
-    {id:"quick5",label:"Quick 5",icon:"⚡",group:"main"},
-    {id:"practice",label:"Practice",icon:"🎯",group:"main"},
     {id:"learn",label:"Learn",icon:"📖",group:"main"},
+    {id:"review",label:"Review",icon:"🧠",group:"main"},
+    {id:"dashboard",label:"Progress",icon:"📊",group:"main"},
+    {id:"practice",label:"Question Generator",icon:"🎯",group:"main"},
     {id:"daily",label:"Daily Challenge",icon:"📅",group:"study"},
-    {id:"writing",label:"Writing",icon:"✍",group:"study"},
+    {id:"quick5",label:"Quick 5",icon:"⚡",group:"study"},
+    {id:"fullsection",label:"Timed Section",icon:"⏱",group:"study"},
     {id:"flaw",label:"Flaw Lab",icon:"⚖",group:"study"},
-    {id:"fullsection",label:"Full Section",icon:"⏱",group:"study"},
-    {id:"notes",label:"Study Journal",icon:"📓",group:"tools"},
-    {id:"mistakes",label:"Mistake Journal",icon:"❌",group:"tools"},
-    {id:"srs",label:"SRS Review",icon:"🔁",group:"tools"},
+    {id:"writing",label:"Writing",icon:"✍",group:"study"},
     {id:"plan",label:"Study Plan",icon:"📋",group:"tools"},
-    {id:"dashboard",label:"Progress",icon:"📊",group:"tools"},
+    {id:"notes",label:"Study Journal",icon:"📓",group:"tools"},
+    {id:"mistakes",label:"Classic Mistake Journal",icon:"❌",group:"tools"},
+    {id:"srs",label:"Classic SRS Review",icon:"🔁",group:"tools"},
   ];
 
   const close=()=>setMenuOpen(false);
 
   return(
     <>
-      <style>{`@media(max-width:560px){.lm-nav{padding:0 10px!important}.lm-nav-word{display:none!important}.lm-nav-right{gap:6px!important}}@media(max-width:400px){.lm-nav-streak{display:none!important}.lm-nav-a11y button{width:26px!important}}`}</style>
+      <style>{`@media(max-width:560px){.lm-nav{padding:0 10px!important}.lm-nav-word{display:none!important}.lm-nav-right{gap:6px!important}}@media(max-width:400px){.lm-nav-streak{display:none!important}.lm-nav-a11y button{width:26px!important}}@media(max-width:600px){.lm-lex-fab{width:46px!important;height:46px!important;left:10px!important;bottom:10px!important;opacity:0.9}.lm-lex-fab img{width:36px!important;height:36px!important}}`}</style>
       <nav role="navigation" aria-label="Main navigation" className="lm-nav"
         style={{background:C.surface+"f0",backdropFilter:"blur(16px)",
           borderBottom:`1px solid ${C.border}`,padding:"0 20px",
@@ -3232,15 +3195,15 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
               <span style={{fontFamily:T.serif,fontSize:Math.round(16*FONT_SCALE),color:C.text,fontWeight:700}}>
                 <span style={{color:C.accent}}>Lumora</span> LSAT
               </span>
-              <button onClick={close}
+              <button onClick={close} aria-label="Close menu"
                 style={{background:"none",border:"none",color:C.textMuted,
                   fontSize:22,cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
             </div>
 
             {/* Nav groups */}
             {[
-              {label:"Practice",pages:PAGES.filter(p=>p.group==="main")},
-              {label:"Study Modes",pages:PAGES.filter(p=>p.group==="study")},
+              {label:"Learn",pages:PAGES.filter(p=>p.group==="main")},
+              {label:"Challenges",pages:PAGES.filter(p=>p.group==="study")},
               {label:"Tools",pages:PAGES.filter(p=>p.group==="tools")},
             ].map(group=>(
               <div key={group.label} style={{padding:"12px 12px 4px"}}>
@@ -3249,7 +3212,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
                   {group.label}
                 </div>
                 {group.pages.map(p=>(
-                  <button key={p.id}
+                  <button key={p.id} aria-label={p.label} aria-current={screen===p.id?"page":undefined}
                     onClick={()=>{setScreen(p.id);close();}}
                     style={{display:"flex",alignItems:"center",gap:12,width:"100%",
                       textAlign:"left",padding:"10px 12px",borderRadius:12,border:"none",
@@ -3375,15 +3338,48 @@ function Landing({onGetStarted}){
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
-function Auth({onLogin}){
-  const [mode,setMode]=useState("login");
+function Auth({onLogin,notice}){
+  const [mode,setMode]=useState("login"); // login | signup | forgot | sent
+  const [sentMsg,setSentMsg]=useState("");
   const [name,setName]=useState("");
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
   const [error,setError]=useState("");
   const [loading,setLoading]=useState(false);
+  // ── Supabase Auth flow (production) ──
+  const submitSupa=async()=>{
+    const em=email.trim().toLowerCase();
+    if(!em.includes("@")){setError("Please enter a valid email.");return;}
+    if(mode==="forgot"){
+      await fetch("/api/auth-migrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"recover",email:em,redirectTo:window.location.origin+"/"})}).catch(()=>{});
+      setSentMsg("If an account exists for that email, we just sent a link to set a new password.");setMode("sent");return;
+    }
+    if(mode==="signup"){
+      if(!name.trim()||name.trim().length<2){setError("Please enter your full name.");return;}
+      if(password.length<8){setError("Password must be at least 8 characters.");return;}
+      const r=await AUTH.signUp(em,password,name.trim(),window.location.origin+"/");
+      if(r.error){setError(r.message);return;}
+      if(r.needsConfirmation){setSentMsg("Check your inbox to confirm your email, then sign in.");setMode("sent");return;}
+      const u=await DB.loadProfile();if(u)onLogin(u);return;
+    }
+    let r=await AUTH.signIn(em,password);
+    if(r.error==="invalid"){
+      // First sign-in since the security upgrade: the server checks the old password once and moves the account over.
+      const mr=await fetch("/api/auth-migrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"legacy_login",email:em,password})}).catch(()=>null);
+      const m=mr?await mr.json().catch(()=>({})):{};
+      if(mr&&mr.status===429){setError("Too many attempts. Please wait a few minutes and try again.");return;}
+      if(m.migrated)r=await AUTH.signIn(em,password);
+      else if(m.useReset){setError("Please use “Forgot password?” to finish moving your account to the new sign-in.");return;}
+    }
+    if(r.error){setError(r.message);return;}
+    const u=await DB.loadProfile();
+    if(!u){setError("Could not load your profile. Please try again.");return;}
+    onLogin(u);
+  };
+
   const submit=async(e)=>{
     e.preventDefault();setError("");setLoading(true);
+    if(USE_SUPA){try{await submitSupa();}catch(err){setError(err.message||"Something went wrong.");}setLoading(false);return;}
     if(mode==="signup"){
       if(!name.trim()||name.trim().length<2){setError("Please enter your full name.");setLoading(false);return;}
       if(!email.includes("@")){setError("Please enter a valid email.");setLoading(false);return;}
@@ -3419,21 +3415,55 @@ function Auth({onLogin}){
           <div style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,fontWeight:700}}><span style={{color:C.accent}}>Lumora</span> LSAT</div>
         </div>
         <Card>
-          <h1 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginBottom:6,fontWeight:700}}>{mode==="login"?"Welcome back":"Create your account"}</h1>
-          <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":"Your progress saves automatically every session."}</p>
+          <h1 style={{fontFamily:T.serif,fontSize:Math.round(22*FONT_SCALE),color:C.text,marginBottom:6,fontWeight:700}}>{mode==="login"?"Welcome back":mode==="signup"?"Create your account":mode==="forgot"?"Reset your password":"Check your email"}</h1>
+          <p style={{color:C.textSub,fontSize:14,marginBottom:22,lineHeight:1.6}}>{mode==="login"?"All your progress is saved and waiting.":mode==="signup"?"Your progress saves automatically every session.":mode==="forgot"?"We will email you a link to set a new password.":sentMsg}</p>
+          {notice&&mode==="login"&&<div role="status" style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:10,padding:"10px 12px",fontSize:13,color:C.text,marginBottom:14}}>{notice}</div>}
           <ErrBanner message={error} onDismiss={()=>setError("")}/>
+          {mode==="sent"?<Btn style={{width:"100%"}} onClick={()=>{setMode("login");setError("");}}>Back to sign in</Btn>:
           <form onSubmit={submit} noValidate>
             {mode==="signup"&&<Finput id="name" label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Smith" required autoFocus/>}
             <Finput id="email" label="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="jane@example.com" required autoFocus={mode==="login"}/>
-            <Finput id="pw" label="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={mode==="signup"?"At least 6 characters":"Your password"} required/>
-            <Btn type="submit" disabled={loading} style={{width:"100%",marginTop:8}}>{loading?"Please wait…":mode==="login"?"Sign In →":"Create Account →"}</Btn>
-          </form>
-          <div style={{textAlign:"center",marginTop:18,fontSize:14,color:C.textMuted}}>
+            {mode!=="forgot"&&<Finput id="pw" label="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={mode==="signup"?(USE_SUPA?"At least 8 characters":"At least 6 characters"):"Your password"} required/>}
+            <Btn type="submit" disabled={loading} style={{width:"100%",marginTop:8}}>{loading?"Please wait…":mode==="login"?"Sign In →":mode==="signup"?"Create Account →":"Send reset link →"}</Btn>
+            {USE_SUPA&&mode==="login"&&<div style={{textAlign:"right",marginTop:10}}><button type="button" onClick={()=>{setMode("forgot");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:13,fontFamily:T.sans}}>Forgot password?</button></div>}
+            {mode==="forgot"&&<div style={{textAlign:"center",marginTop:10}}><button type="button" onClick={()=>{setMode("login");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontSize:13,fontFamily:T.sans}}>Back to sign in</button></div>}
+          </form>}
+          {(mode==="login"||mode==="signup")&&<div style={{textAlign:"center",marginTop:18,fontSize:14,color:C.textMuted}}>
             {mode==="login"?"Don't have an account? ":"Already have an account? "}
             <button onClick={()=>{setMode(mode==="login"?"signup":"login");setError("");}} style={{background:"none",border:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:14,fontFamily:T.sans}}>{mode==="login"?"Sign up free":"Sign in"}</button>
-          </div>
+          </div>}
         </Card>
       </div>
+    </div>
+  );
+}
+
+// ─── SET NEW PASSWORD (after a reset or invite email link) ────────────────────
+function SetPassword({onDone}){
+  const [pw,setPw]=useState("");const [pw2,setPw2]=useState("");
+  const [error,setError]=useState("");const [loading,setLoading]=useState(false);
+  const submit=async(e)=>{
+    e.preventDefault();setError("");
+    if(pw.length<8){setError("Password must be at least 8 characters.");return;}
+    if(pw!==pw2){setError("The two passwords do not match.");return;}
+    setLoading(true);
+    const r=await AUTH.updatePassword(pw);
+    setLoading(false);
+    if(r.error){setError(r.message);return;}
+    onDone();
+  };
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{width:"100%",maxWidth:440}}><Card>
+        <h1 style={{fontFamily:T.serif,fontSize:22,color:C.text,marginBottom:6,fontWeight:700}}>Set a new password</h1>
+        <p style={{color:C.textSub,fontSize:14,marginBottom:18,lineHeight:1.6}}>Choose a password for your Lumora account.</p>
+        <ErrBanner message={error} onDismiss={()=>setError("")}/>
+        <form onSubmit={submit} noValidate>
+          <Finput id="npw" label="New password" type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="At least 8 characters" required autoFocus/>
+          <Finput id="npw2" label="Confirm password" type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Type it again" required/>
+          <Btn type="submit" disabled={loading} style={{width:"100%",marginTop:8}}>{loading?"Saving…":"Save password →"}</Btn>
+        </form>
+      </Card></div>
     </div>
   );
 }
@@ -3634,9 +3664,8 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
             <button onClick={async()=>{
               if(!window.confirm("Cancel your Pro subscription? You will keep Pro access until your current billing period ends."))return;
               try{
-                const res=await fetch("/api/cancel-subscription",{
-                  method:"POST",headers:{"Content-Type":"application/json"},
-                  body:JSON.stringify({email:user.email})
+                const res=await AUTH.authedFetch("/api/cancel-subscription",{
+                  method:"POST",headers:{"Content-Type":"application/json"},body:"{}"
                 });
                 const data=await res.json();
                 if(data.ok){
@@ -3666,6 +3695,19 @@ function Profile({user,onUpdateUser,onLogout,setScreen,onRetakeDiagnostic}){
       <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
         <Btn ghost danger onClick={()=>{if(window.confirm("Reset all progress? This cannot be undone."))onUpdateUser({history:[],notes:[],studyPlan:null,learnProgress:{},stats:{xp:0,streak:0,lastDay:null}});}}>Reset Progress</Btn>
         <Btn ghost onClick={onLogout}>Sign Out</Btn>
+        {USE_SUPA&&<Btn ghost danger onClick={async()=>{
+          const typed=window.prompt("This permanently deletes your account, all study progress, and notes, and cancels any subscription immediately. This cannot be undone.\n\nType DELETE to confirm.");
+          if(typed!=="DELETE")return;
+          try{
+            const r=await AUTH.authedFetch("/api/delete-account",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:"DELETE"})});
+            const d=await r.json().catch(()=>({}));
+            if(!d.ok){alert(d.error||"Deletion did not complete. Please try again.");return;}
+            // Also remove everything this app stored on this device for the account.
+            try{Object.keys(localStorage).filter(k=>k.startsWith("lumora_")&&(k.includes(user.email)||k.startsWith("lumora_cache_"))).forEach(k=>localStorage.removeItem(k));}catch{}
+            alert("Your account and data have been deleted.");
+            onLogout();
+          }catch{alert("Deletion did not complete. Please try again.");}
+        }}>Delete Account</Btn>}
       </div>
     </main>
   );
@@ -3900,7 +3942,7 @@ function Home({user,setScreen,onUpdateUser}){
       </div>
 
       {/* Guided learning path — primary next action */}
-      <ContinueLearningCard user={user} theme={C} fonts={T} onGo={()=>setScreen("learn")}/>
+      <TodayPlanCard user={user} theme={C} fonts={T} onNavigate={setScreen}/>
 
       {/* Smart suggestion banner */}
       <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}44`,borderRadius:16,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
@@ -3988,9 +4030,10 @@ function Home({user,setScreen,onUpdateUser}){
 
 // ─── LEARN SECTION ────────────────────────────────────────────────────────────
 
-function Learn({user,onUpdateUser,onUpgrade,onNavigate}){
+function Learn({user,onUpdateUser,onUpgrade,onNavigate,intent,onIntentUsed}){
   const [selected,setSelected]=useState(null);
-  const [pathOpen,setPathOpen]=useState(null);
+  const [pathOpen,setPathOpen]=useState(()=>intent||null);
+  useEffect(()=>{if(intent){setPathOpen(intent);onIntentUsed&&onIntentUsed();}},[intent]);
   const [activeSection,setActiveSection]=useState("Logical Reasoning");
   const learnProgress=user.learnProgress||{};
   const isPro=user?.isPro||false;
@@ -5589,7 +5632,6 @@ function StudyPlan({user,onUpdateUser,setScreen}){
     const weakTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t<0.6).map(([k])=>k).slice(0,4);
     const strongTypes=Object.entries(typeStats).filter(([,v])=>v.t>=2&&v.c/v.t>=0.8).map(([k])=>k).slice(0,3);
     const profile=[
-      "Name: "+user.name,
       "Target Score: "+(d.target_score||"165+"),
       "Test Timeline: "+(d.test_date||"unknown"),
       "Weekly Study Hours: "+(d.study_hours||"unknown"),
@@ -5624,7 +5666,9 @@ function StudyPlan({user,onUpdateUser,setScreen}){
     setLoading(false);
   };
   return(
-    <main style={{maxWidth:660,margin:"0 auto",padding:"32px 20px"}}>
+    <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
+      <AdaptivePlanPanel user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T} onNavigate={setScreen}/>
+      <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 4px"}}>AI-written overview (classic)</h2>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:22}}>
         <div><h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Study Plan</h1><p style={{color:C.textMuted,fontSize:14}}>Personalized roadmap to {user.diagnostic?.target_score||"your target score"}.</p></div>
         <Btn onClick={gen} small>{plan?"Regenerate":"Generate Plan"}</Btn>
@@ -6717,7 +6761,9 @@ function Dashboard({user,onUpdateUser}){
   const isPro=user?.isPro||false;
 
   return(
-    <main style={{maxWidth:720,margin:"0 auto",padding:"32px 20px"}}>
+    <main style={{maxWidth:760,margin:"0 auto",padding:"32px 20px"}}>
+      <ProgressPanel user={user} theme={C} fonts={T}/>
+      <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 12px"}}>Practice statistics (classic)</h2>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
         <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text}}>Progress</h1>
         {srsDue.length>0&&<div style={{background:C.gold+"20",border:`1px solid ${C.gold}44`,borderRadius:12,padding:"6px 14px",fontSize:13,color:C.gold,fontWeight:600}}>
@@ -6961,16 +7007,16 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
   const applyPromo=async()=>{
     if(!promoInput.trim())return;
     setPromoLoading(true);setError("");
-    await new Promise(r=>setTimeout(r,600)); // feel like it's doing something
-    if(checkPromoCode(promoInput)){
-      setPromoSuccess(true);
-      setTimeout(()=>{
-        onPromoSuccess&&onPromoSuccess();
-        onClose();
-      },1500);
-    }else{
-      setError("Invalid promo code. Check your code and try again.");
-    }
+    // Codes are checked on the server; Pro is granted there, never by the browser.
+    if(!USE_SUPA){setError("Promo codes need an online account.");setPromoLoading(false);return;}
+    try{
+      const r=await AUTH.authedFetch("/api/redeem-promo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:promoInput.trim()})});
+      const d=await r.json().catch(()=>({}));
+      if(d.ok){
+        setPromoSuccess(true);
+        setTimeout(()=>{onPromoSuccess&&onPromoSuccess();onClose();},1500);
+      }else setError(d.error||"Invalid promo code. Check your code and try again.");
+    }catch{setError("Could not check the code. Please try again.");}
     setPromoLoading(false);
   };
 
@@ -6978,15 +7024,10 @@ function UpgradeModal({user,onClose,reason,onPromoSuccess}){
     if(!priceId){setError("Price not configured. Contact support.");return;}
     setLoading(period);setError("");
     try{
-      const res=await fetch("/api/create-checkout",{
+      const res=await AUTH.authedFetch("/api/create-checkout",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          priceId,
-          email:user.email,
-          successUrl:window.location.origin+"?upgraded=true",
-          cancelUrl:window.location.origin+"?upgraded=false",
-        }),
+        body:JSON.stringify({priceId}), // the server uses your signed-in account, not an email from the browser
       });
       // Read raw text first to avoid "Unexpected end of JSON" error
       const text=await res.text();
@@ -7160,13 +7201,15 @@ function Privacy({onBack}){
   return(
     <LegalPage title="Privacy Policy" onBack={onBack}>
       <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>What We Collect</h2>
-      <p style={{marginBottom:14}}>Name, email, encrypted password, and study data. Payment data is handled by Stripe — we never store card details.</p>
+      <p style={{marginBottom:14}}>Your name, email, and study data (answers, progress, notes, study preferences). Passwords are handled by our authentication provider (Supabase) and stored only as secure one-way hashes; we never see or store your password. Payment data is handled by Stripe — we never store card details.</p>
       <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>How We Use It</h2>
-      <p style={{marginBottom:14}}>Solely to provide the service. We do not sell or share your personal data.</p>
-      <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>Data Storage</h2>
-      <p style={{marginBottom:14}}>Stored on Supabase servers in the United States and cached locally in your browser.</p>
+      <p style={{marginBottom:14}}>Solely to provide the service. We do not sell your personal data or use it for advertising.</p>
+      <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>AI Features</h2>
+      <p style={{marginBottom:14}}>To generate questions, explanations, and study plans, we send the relevant study content (for example a question, your answer, or your target score) to our AI provider, Anthropic. We do not include your name or email in these requests.</p>
+      <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>Data Storage &amp; Security</h2>
+      <p style={{marginBottom:14}}>Stored on Supabase servers and cached in your browser. Database rules ensure each account can only read and change its own data. Signing out removes the cached copy of your profile from this device.</p>
       <h2 style={{color:C.text,fontSize:17,marginTop:24,marginBottom:8}}>Your Rights</h2>
-      <p style={{marginBottom:14}}>You may request access, correction, or deletion of your data at any time through the app.</p>
+      <p style={{marginBottom:14}}>You can view and correct your information in Profile, and permanently delete your account and data at any time with Profile → Delete Account.</p>
     </LegalPage>
   );
 }
@@ -7268,6 +7311,10 @@ export default function App(){
   const [lexSessionResult,setLexSessionResult]=useState(null);
   const [upgradeModal,setUpgradeModal]=useState(null); // null | reason string
   const [showLexChat,setShowLexChat]=useState(false);
+  const [needsNewPassword,setNeedsNewPassword]=useState(false);
+  const [authNotice,setAuthNotice]=useState("");
+  const [proNotice,setProNotice]=useState("");
+  const [learnIntent,setLearnIntent]=useState(null); // open a specific guided lesson when navigating to Learn
   const [streakFreezes,setStreakFreezes]=useState(()=>{try{return parseInt(localStorage.getItem("lumora_freezes")||"1");}catch{return 1;}});
   
   // Apply theme and font globally - sync before render
@@ -7277,24 +7324,34 @@ export default function App(){
   useEffect(()=>{
     (async()=>{
       try{
-        const email=DB.getSession();
-        if(email){
-          const u=await DB.getUser(email);
-          if(u){
-            // Check if returning from successful Stripe checkout
-            const params=new URLSearchParams(window.location.search);
-            if(params.get("upgraded")==="true"&&!u.isPro){
-              const upgraded={...u,isPro:true};
-              await DB.saveUser(upgraded.email,upgraded);
-              setUser(upgraded);
-              window.history.replaceState({},"",window.location.pathname);
-            }else{
-              setUser(u);
-            }
-            setScreen("home");
-          }
+        let u=null;
+        if(USE_SUPA){
+          // Returning from an email link (confirm sign-up / reset password / invite)?
+          const link=await AUTH.consumeUrlSession();
+          if(link?.error)setAuthNotice(link.error);
+          if(link?.type==="recovery"||link?.type==="invite")setNeedsNewPassword(true);
+          if(link?.type==="signup")setAuthNotice("Email confirmed — welcome!");
+          if(AUTH.getSession())u=await DB.loadProfile();
+        }else{
+          const email=DB.getSession();
+          if(email)u=await DB.getUser(email);
         }
-      }catch(e){console.warn("Session restore failed:",e);}
+        if(u){setUser(u);setScreen("home");}
+        // Back from Stripe Checkout: Pro is granted ONLY by the server (webhook). Wait briefly for it.
+        const params=new URLSearchParams(window.location.search);
+        if(params.get("checkout")==="success"&&u){
+          window.history.replaceState({},"",window.location.pathname);
+          setProNotice("Payment received — activating Pro…");
+          (async()=>{
+            for(let i=0;i<8;i++){
+              await new Promise(r=>setTimeout(r,2500));
+              const fresh=USE_SUPA?await DB.loadProfile().catch(()=>null):null;
+              if(fresh?.isPro){setUser(prev=>prev?{...prev,isPro:true}:prev);setProNotice("✦ Pro is active. Thank you!");setTimeout(()=>setProNotice(""),5000);return;}
+            }
+            setProNotice("Your payment is processing. Pro will appear within a few minutes — refresh to check.");
+          })();
+        }else if(params.get("checkout")){window.history.replaceState({},"",window.location.pathname);}
+      }catch(e){console.warn("Session restore failed");}
       setReady(true);
     })();
   },[]);
@@ -7339,7 +7396,8 @@ export default function App(){
     setUser(u);setScreen("home");
     if(!u.onboardingDone&&(!u.history||u.history.length===0))setShowOnboarding(true);
   };
-  const handleLogout=()=>{DB.clearSession();setUser(null);setScreen("landing");};
+  const handleLogout=async()=>{await DB.clearSession();setUser(null);setScreen("landing");};
+  const refreshProfile=async()=>{if(!USE_SUPA)return;const fresh=await DB.loadProfile().catch(()=>null);if(fresh)setUser(prev=>prev?{...prev,isPro:fresh.isPro}:fresh);};
 
   const requirePro=useCallback((feature)=>{
     if(!user)return false;
@@ -7375,7 +7433,7 @@ export default function App(){
         (d.test_date||"flexible")+"\",\"weekly_hours\":\""+
         (d.study_hours||"flexible")+"\",\"phases\":[{\"name\":\"Phase 1\",\"duration\":\"2 weeks\",\"focus\":\"Foundation building\",\"tasks\":[\"Complete Learn lessons for weakest types\",\"10 practice questions daily\",\"Review all wrong answers carefully\"]}],\"daily_routine\":[\"Morning: 30 min Learn section\",\"Afternoon: 20 min Practice\",\"Evening: Review notes and wrong answers\"],\"priority_areas\":[\""+
         (weakTypes||"Identify weak areas through practice")+"\",\"Timed practice under test conditions\",\"Full section simulations\"],\"milestone\":\"At the halfway point you should be consistently scoring above 70% on Level 3 questions\"}. Student: name="+
-        u.name+", target="+(d.target_score||"165+")+", hrs/wk="+(d.study_hours||"unknown")+", challenge="+(d.biggest_challenge||"unknown")+".";
+        "(student), target="+(d.target_score||"165+")+", hrs/wk="+(d.study_hours||"unknown")+", challenge="+(d.biggest_challenge||"unknown")+".";
       const raw=await callClaude(sys,msg,1200);
       const plan=parseJSON(raw);
       const updated={...u,studyPlan:plan};
@@ -7385,9 +7443,10 @@ export default function App(){
   };
 
   if(!ready)return <div style={{background:"#06080f",minHeight:"100vh"}}/>;
+  if(needsNewPassword)return <SetPassword onDone={async()=>{setNeedsNewPassword(false);const u=await DB.loadProfile().catch(()=>null);if(u){setUser(u);setScreen("home");}else{setAuthNotice("Password saved. Please sign in.");setScreen("auth");}}}/>;
 
   if(!user){
-    if(screen==="auth")return <Auth onLogin={handleLogin}/>;
+    if(screen==="auth"||authNotice)return <Auth onLogin={(u)=>{setAuthNotice("");handleLogin(u);}} notice={authNotice}/>;
     return <Landing onGetStarted={()=>setScreen("auth")}/>;
   }
 
@@ -7409,7 +7468,8 @@ export default function App(){
       }}/>;
   }
 
-  const handleSetScreen=(s)=>{
+  const handleSetScreen=(s,intent)=>{
+    if(s==="learn"&&intent)setLearnIntent(intent);
     if(s==="quick5"){
       const check=checkLimit(user,"quick5");
       if(!check.allowed){
@@ -7427,7 +7487,8 @@ export default function App(){
     home:<Home user={user} setScreen={handleSetScreen} onUpdateUser={handleUpdateUser}/>,
     daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
     mistakes:<MistakeJournal user={user} onUpdateUser={handleUpdateUser}/>,
-    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)} onNavigate={handleSetScreen}/>,
+    review:<ReviewHub user={user} onUpdateUser={handleUpdateUser} theme={C} fonts={T} callModel={callClaude} practiceSystem={PRACTICE_SYSTEM} parseJSON={parseJSON} onNavigate={handleSetScreen}/>,
+    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)} onNavigate={handleSetScreen} intent={learnIntent} onIntentUsed={()=>setLearnIntent(null)}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
     writing:<Writing/>,
     flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
@@ -7479,12 +7540,8 @@ export default function App(){
       )}
       {upgradeModal&&user&&<UpgradeModal user={user} reason={upgradeModal}
         onClose={()=>setUpgradeModal(null)}
-        onPromoSuccess={async()=>{
-          const upgraded={...user,isPro:true};
-          setUser(upgraded);
-          await DB.saveUser(upgraded.email,upgraded);
-          setUpgradeModal(null);
-        }}/>}
+        onPromoSuccess={async()=>{await refreshProfile();setUpgradeModal(null);}}/>}
+      {proNotice&&<div role="status" style={{position:"fixed",top:68,left:"50%",transform:"translateX(-50%)",zIndex:700,background:C.surface,border:`1px solid ${C.gold}66`,borderRadius:12,padding:"10px 16px",color:C.text,fontSize:14,boxShadow:"0 8px 32px #0006",maxWidth:"calc(100% - 32px)"}}>{proNotice}</div>}
       {showLexChat&&user&&<MonkeyChat user={user} onUpdateUser={handleUpdateUser}
         onClose={()=>setShowLexChat(false)} onNavigate={handleSetScreen}/>}
       {/* Floating Lex button — always visible */}
@@ -7493,6 +7550,7 @@ export default function App(){
           onClick={()=>setShowLexChat(true)}
           title="Ask Lex"
           aria-label="Open Lex assistant"
+          className="lm-lex-fab"
           style={{
             position:"fixed",bottom:24,left:24,zIndex:300,
             width:68,height:68,borderRadius:"50%",

@@ -110,3 +110,67 @@ export function checkFormalItem(item) {
   if (good.length === 1 && good[0] !== item.correct) problems.push(`keyed ${item.correct} but logic supports ${good[0]}`);
   return { ok: problems.length === 0, entailedChoices: good, problems };
 }
+
+// ─── Quantified (monadic) statements ────────────────────────────────────────
+// Syntax: "all A B" | "some A B" | "no A B" | "most A B" | "notall A B" (= some A are not B)
+// Terms may be negated with ~ (e.g. "all A ~B"). Checked by bounded model enumeration over
+// individual "types" (which predicates each individual has) with up to MAXC individuals per type.
+// For all/some/no this is exhaustive (monadic logic only depends on which types are inhabited);
+// with "most" it is a bounded search (≤3 per type), reported as such.
+const MAXC = 3;
+function parseQ(s) {
+  const m = /^\s*(all|some|no|most|notall)\s+(~?[A-Za-z_]\w*)\s+(~?[A-Za-z_]\w*)\s*$/.exec(s);
+  if (!m) throw new Error('Bad quantified statement: ' + s);
+  const term = (t) => ({ name: t.replace('~', ''), neg: t.startsWith('~') });
+  return { q: m[1], a: term(m[2]), b: term(m[3]) };
+}
+function qPreds(stmts) { const set = new Set(); for (const s of stmts) { set.add(s.a.name); set.add(s.b.name); } return [...set]; }
+function holdsQ(s, preds, counts) {
+  const has = (type, t) => (((type >> preds.indexOf(t.name)) & 1) === 1) !== t.neg;
+  let ab = 0, aNotB = 0;
+  counts.forEach((c, type) => { if (!c) return; if (has(type, s.a)) { if (has(type, s.b)) ab += c; else aNotB += c; } });
+  switch (s.q) {
+    case 'all': return aNotB === 0;
+    case 'no': return ab === 0;
+    case 'some': return ab > 0;
+    case 'notall': return aNotB > 0;
+    case 'most': return ab > aNotB && ab > 0;
+    default: return false;
+  }
+}
+function* qModels(nTypes, maxc) {
+  const counts = new Array(nTypes).fill(0);
+  while (true) {
+    yield counts;
+    let i = 0;
+    while (i < nTypes && counts[i] === maxc) { counts[i] = 0; i++; }
+    if (i === nTypes) return;
+    counts[i]++;
+  }
+}
+export function qEntails(premises, conclusion) {
+  const ps = premises.map(parseQ); const c = parseQ(conclusion);
+  const preds = qPreds([...ps, c]);
+  if (preds.length > 4) throw new Error('Too many predicates');
+  const usesMost = [...ps, c].some(s => s.q === 'most');
+  const nTypes = 1 << preds.length;
+  for (const counts of qModels(nTypes, usesMost ? MAXC : 1)) {
+    if (ps.every(p => holdsQ(p, preds, counts)) && !holdsQ(c, preds, counts)) return false;
+  }
+  return true;
+}
+export function qConsistent(premises) {
+  const ps = premises.map(parseQ); const preds = qPreds(ps);
+  const usesMost = ps.some(s => s.q === 'most');
+  for (const counts of qModels(1 << preds.length, usesMost ? MAXC : 1)) if (ps.every(p => holdsQ(p, preds, counts))) return true;
+  return false;
+}
+/** Like checkFormalItem, for items whose formal.kind === 'quantified'. */
+export function checkQuantifiedItem(item) {
+  const f = item.formal; const problems = [];
+  if (!qConsistent(f.premises)) problems.push('premises are inconsistent');
+  const good = Object.keys(f.choices).filter(id => qEntails(f.premises, f.choices[id]));
+  if (good.length !== 1) problems.push(`expected exactly one valid choice, found ${good.length} (${good.join(',')})`);
+  if (good.length === 1 && good[0] !== item.correct) problems.push(`keyed ${item.correct} but logic supports ${good[0]}`);
+  return { ok: problems.length === 0, entailedChoices: good, problems };
+}

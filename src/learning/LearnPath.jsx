@@ -2,9 +2,9 @@
 // Challenge → Mastery check), placement (test-out), and spaced review.
 // Business rules live in the pure modules next to this file; this component only renders state and
 // dispatches events. Mastery is never decided here.
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, createContext, useContext } from 'react';
 import { BRANCHES, SKILLS, SKILL_BY_ID } from './skills.js';
-import { LESSON_NS, TAG_TO_ERROR_CATEGORY, TAG_TO_SECTION } from './content/necessarySufficient.js';
+import { LESSONS_BY_SKILL, TAG_TO_ERROR_CATEGORY, sectionForTag } from './content/index.js';
 import { STATE_LABELS } from './mastery.js';
 import { STAGE_LABELS, PLAYABLE_STAGES, recognizeCheckpoint, applyCheckpoint, challengeOutcome, placementOutcome } from './lessonEngine.js';
 import { getEngine, engineUpdate, recordAttempt, lessonEvent, newId, flagItem, updateErrorRecord, logGeneration } from './store.js';
@@ -12,8 +12,12 @@ import { recommendNext, prerequisitesMet } from './recommend.js';
 import { dueReviews } from './review.js';
 import { generateSkillQuestion, authoredToServable, pickAuthored } from './practiceEngine.js';
 import { LESSON_POLICY } from './config.js';
+import { TUTOR_MODES, tutorAvailable, buildTutorRequest, askTutor } from './tutor.js';
 
-export const LESSONS_BY_SKILL = { [LESSON_NS.skillId]: LESSON_NS };
+// AI dependencies (existing callClaude/parseJSON from App.jsx) shared with deep components.
+export const AIContext = createContext(null);
+
+export { LESSONS_BY_SKILL };
 
 const STATE_ICON = { not_started: '○', learning: '◔', practicing: '◑', developing: '◕', proficient: '●', mastered: '★' };
 const ERROR_CATEGORIES = [
@@ -33,7 +37,7 @@ function useEngineCommit(onUpdateUser) {
   });
 }
 
-function styles(C, T) {
+export function styles(C, T) {
   return {
     card: { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 },
     h1: { fontFamily: T.serif, color: C.text, margin: '0 0 6px' },
@@ -46,7 +50,7 @@ function styles(C, T) {
   };
 }
 
-function FocusStyles({ C }) {
+export function FocusStyles({ C }) {
   return <style>{`.lp-focus:focus-visible{outline:3px solid ${C.accent};outline-offset:2px}.lp-choice:hover{border-color:${C.accent}88}`}</style>;
 }
 
@@ -66,9 +70,10 @@ export function GuidedPath({ user, onUpdateUser, theme: C, fonts: T, callModel, 
   if (open) {
     const lesson = LESSONS_BY_SKILL[open.skillId];
     const back = () => setOpen(null);
-    if (open.mode === 'placement') return <PlacementSession {...{ user, onUpdateUser, C, T, lesson, onDone: back }} />;
-    if (open.mode === 'review') return <ReviewSession {...{ user, onUpdateUser, C, T, lesson, deps, onDone: back }} />;
-    return <LessonPlayer {...{ user, onUpdateUser, C, T, lesson, deps, onBack: back }} />;
+    const wrap = (el) => <AIContext.Provider value={deps}>{el}</AIContext.Provider>;
+    if (open.mode === 'placement') return wrap(<PlacementSession {...{ user, onUpdateUser, C, T, lesson, onDone: back }} />);
+    if (open.mode === 'review') return wrap(<ReviewSession {...{ user, onUpdateUser, C, T, lesson, deps, onDone: back }} />);
+    return wrap(<LessonPlayer {...{ user, onUpdateUser, C, T, lesson, deps, onBack: back }} />);
   }
 
   const act = (r) => {
@@ -117,7 +122,7 @@ export function GuidedPath({ user, onUpdateUser, theme: C, fonts: T, callModel, 
 function SkillNode({ s, engine, C, S, onOpen, onOpenLegacy }) {
   const m = engine.mastery[s.id];
   const st = m?.state || 'not_started';
-  const full = s.lesson === 'full';
+  const full = s.lesson === 'full' && !!LESSONS_BY_SKILL[s.id];
   const legacy = s.lesson && s.lesson.startsWith('legacy:') ? s.lesson.split(':') : null;
   const prereqOk = prerequisitesMet(s.id, engine.mastery);
   const prereqNames = s.prerequisites.map(p => SKILL_BY_ID[p]?.title).filter(Boolean);
@@ -132,7 +137,7 @@ function SkillNode({ s, engine, C, S, onOpen, onOpenLegacy }) {
       {full && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px', color: C.accent, borderColor: C.accent + '66' }} onClick={() => onOpen({ skillId: s.id, mode: 'lesson' })} aria-label={`Open lesson: ${s.title}`}>Open</button>
-          {engine.lessons[LESSON_NS.id]?.placement !== 'tested_out' && <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} onClick={() => onOpen({ skillId: s.id, mode: 'placement' })} aria-label={`Test out of ${s.title}`}>Test out</button>}
+          {LESSONS_BY_SKILL[s.id]?.placementItemIds?.length > 0 && engine.lessons[LESSONS_BY_SKILL[s.id]?.id]?.placement !== 'tested_out' && <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} onClick={() => onOpen({ skillId: s.id, mode: 'placement' })} aria-label={`Test out of ${s.title}`}>Test out</button>}
         </div>
       )}
       {legacy && <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} onClick={() => onOpenLegacy && onOpenLegacy(legacy[1] === 'RC' ? 'Reading Comprehension' : 'Logical Reasoning', legacy.slice(2).join(':'))}>Open classic lesson</button>}
@@ -144,7 +149,7 @@ function SkillNode({ s, engine, C, S, onOpen, onOpenLegacy }) {
 // ═════════════════════════════════════════════════════════════════════════════
 // LESSON PLAYER
 // ═════════════════════════════════════════════════════════════════════════════
-function LessonPlayer({ user, onUpdateUser, C, T, lesson, deps, onBack }) {
+export function LessonPlayer({ user, onUpdateUser, C, T, lesson, deps, onBack }) {
   const S = styles(C, T);
   const commit = useEngineCommit(onUpdateUser);
   const engine = getEngine(user);
@@ -414,7 +419,7 @@ function PlacementSession({ user, onUpdateUser, C, T, lesson, onDone }) {
   );
 }
 
-function ReviewSession({ user, onUpdateUser, C, T, lesson, deps, onDone }) {
+export function ReviewSession({ user, onUpdateUser, C, T, lesson, deps, onDone }) {
   const S = styles(C, T);
   const commit = useEngineCommit(onUpdateUser);
   const engine = getEngine(user);
@@ -453,7 +458,7 @@ function QuestionCard({ C, S, T, item, stage, lesson, commit, engine, allowHints
   const correct = selected === key;
   const tag = selected && !correct ? item.distractorTags?.[selected] : null;
   const misconception = tag ? lesson.misconceptions.find(m => m.tag === tag) : null;
-  const section = tag ? lesson.sections.find(s => s.id === TAG_TO_SECTION[tag]) : null;
+  const section = tag ? lesson.sections.find(s => s.id === sectionForTag(lesson, tag)) : null;
   const errorRec = submitted && !correct ? engine.errors.find(e => e.attemptId === attemptId) : null;
 
   const submit = () => {
@@ -466,6 +471,7 @@ function QuestionCard({ C, S, T, item, stage, lesson, commit, engine, allowHints
       timeMs: Date.now() - startedAt, scorable: item.scorable !== false && stage !== 'learn' && stage !== 'recognize',
       errorTag: tag || null, errorCategory: tag ? TAG_TO_ERROR_CATEGORY[tag] : (selected !== key && confidence === 'guess' ? 'guess' : null),
       remediationSection: section?.id || null, ...extra,
+      itemSnapshot: { stimulus: item.content.stimulus.slice(0, 220), stem: item.content.stem.slice(0, 160), selectedText: (item.content.choices.find(c => c.id === selected)?.text || '').slice(0, 160), correctText: (item.content.choices.find(c => c.id === key)?.text || '').slice(0, 160) },
     };
     commit(e => recordAttempt(e, attempt));
     if (!showFeedback) setTimeout(onNext, 0);
@@ -512,6 +518,8 @@ function QuestionCard({ C, S, T, item, stage, lesson, commit, engine, allowHints
             {hints < item.hints.length && <button className="lp-focus" style={S.btnGhost} onClick={() => setHints(h => h + 1)}>{hints === 0 ? 'Get a hint' : 'Another hint'} ({hints}/{item.hints.length})</button>}
           </div>
         )}
+        {tutorAvailable('hint', { stage, submitted }) && (!item.hints?.length || hints >= item.hints.length) &&
+          <TutorPanel {...{ C, S, item, lesson, engine, commit, stage, selected, confidence, hints, submitted: false, onHintUsed: () => setHints(h => h + 1) }} />}
         <button className="lp-focus" style={{ ...S.btn, marginTop: 6, opacity: selected ? 1 : 0.5, cursor: selected ? 'pointer' : 'not-allowed' }} disabled={!selected} onClick={submit} aria-disabled={!selected}>Submit answer</button>
         {!selected && <span style={{ ...S.small, marginLeft: 10 }}>Choose an answer to submit.</span>}
       </>}
@@ -533,6 +541,7 @@ function QuestionCard({ C, S, T, item, stage, lesson, commit, engine, allowHints
               </select>
             </label>
           )}
+          <TutorPanel {...{ C, S, item, lesson, engine, commit, stage, selected, confidence, hints, submitted: true, correct }} />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button className="lp-focus" style={S.btn} onClick={onNext}>{nextLabel}</button>
             <button className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} disabled={flagged} onClick={() => { setFlagged(true); commit(en => ({ engine: flagItem(en, { itemKey: item.itemId, skillId: lesson.skillId, source: item.source, reason: 'student_report' }) })); }}>{flagged ? 'Reported — thanks' : 'Report a problem with this question'}</button>
@@ -557,5 +566,73 @@ export function ContinueLearningCard({ user, theme: C, fonts: T, onGo }) {
       <p style={{ ...S.small, margin: '0 0 12px' }}>{rec.reason}</p>
       <button className="lp-focus" style={S.btn} onClick={onGo}>Continue learning →</button>
     </section>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TUTOR PANEL — grounded explanations; never changes scores
+// ═════════════════════════════════════════════════════════════════════════════
+const MAX_TUTOR_CALLS_PER_QUESTION = 6;
+function TutorPanel({ C, S, item, lesson, engine, commit, stage, selected, confidence, hints, submitted, correct, onHintUsed }) {
+  const deps = useContext(AIContext);
+  const [busy, setBusy] = useState(null);
+  const [turns, setTurns] = useState([]);
+  const [text, setText] = useState('');
+  const [textMode, setTextMode] = useState(null);
+  const calls = useRef(0);
+  const modes = Object.keys(TUTOR_MODES).filter(m => tutorAvailable(m, { stage, submitted, correct }));
+  if (!modes.length) return null;
+  const recentErrorCategories = engine.errors.filter(e => e.skillId === lesson.skillId && !e.resolvedBy).slice(-3).map(e => e.category);
+
+  const run = async (mode, studentText) => {
+    if (busy || calls.current >= MAX_TUTOR_CALLS_PER_QUESTION) return;
+    calls.current += 1; setBusy(mode);
+    if (mode === 'hint') onHintUsed && onHintUsed(); // an AI hint is a hint: recorded on the attempt as assistance
+    const req = buildTutorRequest({ mode, lesson, item, selected: submitted ? selected : null, confidence, hintsUsed: hints, studentText, recentErrorCategories });
+    const r = await askTutor(req, { item, lesson, selected }, deps);
+    commit(e => ({ engine: { ...e, genLog: [...(e.genLog || []), { kind: 'tutor', ...r.log }].slice(-50) } }));
+    if (r.flagAmbiguous) commit(e => ({ engine: flagItem(e, { itemKey: item.itemId, skillId: lesson.skillId, source: item.source, reason: 'tutor_ambiguity' }) }));
+    setTurns(t => [...t, { mode, studentText, ...r }]);
+    setBusy(null); setText(''); setTextMode(null);
+  };
+
+  return (
+    <div style={{ margin: '10px 0', padding: 12, borderRadius: 12, border: `1px dashed ${C.border}` }} aria-live="polite">
+      <div style={{ ...S.small, fontWeight: 700, color: C.text, marginBottom: 6 }}>🐵 Ask Lex</div>
+      {turns.map((t, i) => (
+        <div key={i} style={{ marginBottom: 8 }}>
+          {t.studentText && <p style={{ ...S.small, fontStyle: 'italic' }}>You: {t.studentText}</p>}
+          <p style={{ ...S.p, fontSize: 14, background: C.surfaceHigh, padding: '8px 12px', borderRadius: 10, margin: 0 }}>
+            {t.mode === 'hint' ? '💡 ' : ''}{t.reply}
+          </p>
+          {t.diagnosis && <p style={{ ...S.small, marginTop: 4 }}>Possible cause (a guess, not a verdict): {t.diagnosis}</p>}
+          {t.sectionId && <a href={'#sec-' + t.sectionId} style={{ ...S.small, color: C.accent }}>Review “{lesson.sections.find(s => s.id === t.sectionId)?.title}”</a>}
+          {t.flagAmbiguous && <p role="status" style={{ ...S.small, color: C.gold }}>Lex thinks this question may be ambiguous. It has been flagged for review and won’t count toward your mastery.</p>}
+          {t.source === 'fallback' && <p style={{ ...S.small }}>(Lex is offline — showing the reviewed explanation.)</p>}
+        </div>
+      ))}
+      {textMode ? (
+        <form onSubmit={e => { e.preventDefault(); if (text.trim()) run(textMode, text.trim()); }}>
+          <label style={{ ...S.small, display: 'block', marginBottom: 4 }}>{textMode === 'check_reasoning' ? 'Write your reasoning in a sentence or two:' : 'Your question:'}
+            <textarea className="lp-focus" value={text} onChange={e => setText(e.target.value)} maxLength={800} rows={3}
+              style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: `1px solid ${C.border}`, background: C.surface, color: C.text, fontFamily: 'inherit', fontSize: 14 }} />
+          </label>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="lp-focus" type="submit" style={{ ...S.btnGhost, padding: '6px 12px', color: C.accent }} disabled={!!busy || !text.trim()}>{busy ? 'Thinking…' : 'Send'}</button>
+            <button className="lp-focus" type="button" style={{ ...S.btnGhost, padding: '6px 12px' }} onClick={() => setTextMode(null)}>Cancel</button>
+          </div>
+        </form>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {modes.map(m => (
+            <button key={m} className="lp-focus" style={{ ...S.btnGhost, padding: '6px 12px' }} disabled={!!busy || calls.current >= MAX_TUTOR_CALLS_PER_QUESTION}
+              onClick={() => TUTOR_MODES[m].needsText ? setTextMode(m) : run(m)}>
+              {busy === m ? 'Thinking…' : TUTOR_MODES[m].label}
+            </button>
+          ))}
+        </div>
+      )}
+      {calls.current >= MAX_TUTOR_CALLS_PER_QUESTION && <p style={S.small}>That’s the limit for this question — try the next one, or revisit the lesson section.</p>}
+    </div>
   );
 }

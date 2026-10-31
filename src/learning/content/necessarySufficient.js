@@ -480,22 +480,9 @@ export const LESSON_NS = {
   ],
 
   placementItemIds: ['ns.r3', 'ns.a3', 'ns.a4', 'ns.c2', 'ns.m2'],
-};
-
-// Map item distractor tags → error-journal categories (spec §11)
-export const TAG_TO_ERROR_CATEGORY = {
-  converse: 'conditional_translation',
-  inverse: 'conditional_translation',
-  only_if_reversal: 'conditional_translation',
-  unless_misread: 'conditional_translation',
-  chain_error: 'conditional_translation',
-  out_of_scope: 'unsupported_inference',
-  unsupported: 'unsupported_inference',
-  conceptual: 'conceptual',
-};
-
-// Tag → smallest relevant lesson section (remediation link)
-export const TAG_TO_SECTION = {
-  converse: 'errors', inverse: 'errors', only_if_reversal: 'translate', unless_misread: 'translate',
-  chain_error: 'contrapositive', conceptual: 'core', out_of_scope: 'core', unsupported: 'core',
+  // Tag → smallest relevant lesson section (remediation link)
+  tagToSection: {
+    converse: 'errors', inverse: 'errors', only_if_reversal: 'translate', unless_misread: 'translate',
+    chain_error: 'contrapositive', conceptual: 'core', out_of_scope: 'core', unsupported: 'core',
+  },
 };

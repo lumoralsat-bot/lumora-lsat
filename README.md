@@ -92,12 +92,18 @@ The app calls the Anthropic API to generate questions. You need an API key.
 
 ---
 
+## 🔐 Accounts & security
+
+Accounts use **Supabase Auth** with row-level security. Setup and migration steps (what to click, in order): **[docs/SECURITY_MIGRATION.md](docs/SECURITY_MIGRATION.md)**. All environment variables are listed in `.env.example`.
+
+---
+
 ## 🧪 Tests
 
 ```
 npm test
 ```
-Runs the learning-engine, curriculum-logic, and API-proxy tests with Node's built-in test runner (no extra installs). See `docs/AUDIT_AND_PLAN.md` for the audit, plan, and latest phase report.
+Runs the learning-engine, curriculum-logic, account-security, and API tests with Node's built-in test runner (no extra installs). See `docs/AUDIT_AND_PLAN.md` for the audit, plan, and latest phase report.
 
 ---
 
@@ -113,7 +119,8 @@ lumora-lsat/
 ├── api/
 │   ├── claude.js       # Server-side AI proxy (holds the Anthropic key)
 │   └── ...             # Stripe checkout / webhook / cancel
-├── docs/AUDIT_AND_PLAN.md
+├── docs/               # AUDIT_AND_PLAN.md, SECURITY_MIGRATION.md
+├── supabase/           # SQL migrations (run in Supabase SQL Editor) + RLS tests
 ├── tests/              # npm test
 └── src/
     ├── main.jsx        # React mount point

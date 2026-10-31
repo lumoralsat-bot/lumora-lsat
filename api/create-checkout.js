@@ -1,99 +1,55 @@
-// Vercel serverless function — creates a Stripe Checkout session
-
-export const config = {
-  api: {
-    bodyParser: true,
-  },
-};
+// Creates a Stripe Checkout session for the SIGNED-IN student.
+// Identity comes from the verified access token (not from the request body). Price ids are allow-listed and
+// redirect URLs are fixed to this site, so the endpoint cannot be used to bill someone else or redirect elsewhere.
+import { parseBody, getAuthUser, sameOriginOnly } from './_lib/supabase.js';
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Verify function is running
-  console.log('create-checkout invoked, method:', req.method);
-  console.log('body type:', typeof req.body, 'keys:', req.body ? Object.keys(req.body) : 'null');
-
+  sameOriginOnly(res);
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) {
-    console.error('STRIPE_SECRET_KEY missing from env');
-    return res.status(500).json({ error: 'Stripe secret key not configured' });
-  }
-  console.log('Stripe key present, length:', stripeKey.length);
+  if (!stripeKey) return res.status(500).json({ error: 'Payments are not configured.' });
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-  const { priceId, email, successUrl, cancelUrl } = body;
+  const user = await getAuthUser(req);
+  if (!user) return res.status(401).json({ error: 'Please sign in again.' });
 
-  console.log('Parsed:', { priceId: priceId?.slice(0,20), email, hasSuccess: !!successUrl, hasCancel: !!cancelUrl });
+  const body = parseBody(req) || {};
+  const allowed = [process.env.STRIPE_PRICE_MONTHLY || process.env.VITE_STRIPE_PRICE_MONTHLY, process.env.STRIPE_PRICE_YEARLY || process.env.VITE_STRIPE_PRICE_YEARLY].filter(Boolean);
+  if (!body.priceId || !allowed.includes(body.priceId)) return res.status(400).json({ error: 'Unknown plan.' });
 
-  if (!priceId || !email || !successUrl || !cancelUrl) {
-    return res.status(400).json({
-      error: 'Missing fields',
-      missing: { priceId: !priceId, email: !email, successUrl: !successUrl, cancelUrl: !cancelUrl }
-    });
-  }
+  const origin = siteOrigin(req);
+  if (!origin) return res.status(400).json({ error: 'Bad origin.' });
+
+  const params = new URLSearchParams();
+  params.append('mode', 'subscription');
+  params.append('customer_email', user.email);
+  params.append('client_reference_id', user.id); // lets the webhook link payment → account without trusting emails
+  params.append('success_url', origin + '/?checkout=success');
+  params.append('cancel_url', origin + '/?checkout=cancelled');
+  params.append('allow_promotion_codes', 'true');
+  params.append('line_items[0][price]', body.priceId);
+  params.append('line_items[0][quantity]', '1');
+  params.append('subscription_data[metadata][auth_id]', user.id);
 
   try {
-    const params = new URLSearchParams();
-    params.append('mode', 'subscription');
-    params.append('customer_email', email);
-    params.append('success_url', successUrl);
-    params.append('cancel_url', cancelUrl);
-    params.append('allow_promotion_codes', 'true');
-    params.append('line_items[0][price]', priceId);
-    params.append('line_items[0][quantity]', '1');
-
-    console.log('Calling Stripe API...');
-    const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + stripeKey,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Stripe-Version': '2023-10-16',
-      },
+      headers: { Authorization: 'Bearer ' + stripeKey, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': '2023-10-16' },
       body: params.toString(),
     });
-
-    const text = await stripeRes.text();
-    console.log('Stripe status:', stripeRes.status, 'body length:', text.length);
-
-    if (!text) {
-      return res.status(500).json({ error: 'Empty response from Stripe' });
-    }
-
-    let session;
-    try {
-      session = JSON.parse(text);
-    } catch (e) {
-      console.error('JSON parse error:', e.message, 'text:', text.slice(0, 200));
-      return res.status(500).json({ error: 'Invalid JSON from Stripe' });
-    }
-
-    if (!stripeRes.ok) {
-      console.error('Stripe error response:', session);
-      return res.status(400).json({ error: session.error?.message || 'Stripe error' });
-    }
-
-    if (!session.url) {
-      console.error('No url in session:', JSON.stringify(session).slice(0, 300));
-      return res.status(500).json({ error: 'Stripe returned no checkout URL' });
-    }
-
-    console.log('Success! Session id:', session.id);
+    const session = await r.json().catch(() => ({}));
+    if (!r.ok || !session.url) { console.warn('[checkout] stripe error', { status: r.status }); return res.status(400).json({ error: session.error?.message || 'Could not start checkout.' }); }
     return res.status(200).json({ url: session.url });
-
-  } catch (err) {
-    console.error('Unexpected error:', err.message);
-    return res.status(500).json({ error: err.message });
+  } catch {
+    console.warn('[checkout] network error');
+    return res.status(502).json({ error: 'Could not reach the payment provider.' });
   }
+}
+
+function siteOrigin(req) {
+  const configured = (process.env.SITE_URL || '').replace(/\/+$/, '');
+  if (configured) return configured;
+  const host = req.headers?.['x-forwarded-host'] || req.headers?.host;
+  if (!host) return null;
+  const proto = req.headers?.['x-forwarded-proto'] || 'https';
+  return `${proto}://${host}`;
 }

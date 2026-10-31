@@ -1,127 +1,40 @@
-// Cancel a Stripe subscription for a user
-// Marks subscription as cancelled at period end (user keeps access until then)
+// Cancel the SIGNED-IN student's subscription at the end of the billing period.
+// Previously anyone could cancel any subscriber by typing their email; identity now comes from the access token.
+import { getAuthUser, getProfileByAuthId, sameOriginOnly } from './_lib/supabase.js';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  sameOriginOnly(res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   const stripeKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeKey) return res.status(500).json({ error: 'Stripe not configured' });
+  if (!stripeKey) return res.status(500).json({ error: 'Payments are not configured.' });
+  const user = await getAuthUser(req);
+  if (!user) return res.status(401).json({ error: 'Please sign in again.' });
 
-  const supaUrl = (process.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-  const supaKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-  const { email } = body;
-  if (!email) return res.status(400).json({ error: 'Email required' });
-
+  const S = (path, init = {}) => fetch('https://api.stripe.com/v1' + path, { ...init, headers: { Authorization: 'Bearer ' + stripeKey, ...(init.headers || {}) } }).then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
   try {
-    // Strategy 1: Look up stripe_customer_id from Supabase first
-    let customerId = null;
-    if (supaUrl && supaKey) {
-      try {
-        const supaRes = await fetch(
-          `${supaUrl}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=stripe_customer_id&limit=1`,
-          { headers: { 'apikey': supaKey, 'Authorization': 'Bearer ' + supaKey } }
-        );
-        const supaData = await supaRes.json();
-        if (supaData?.[0]?.stripe_customer_id) {
-          customerId = supaData[0].stripe_customer_id;
-          console.log('Found customer ID from Supabase:', customerId);
+    const profile = await getProfileByAuthId(user.id);
+    let subId = profile?.stripe_subscription_id || null;
+    if (!subId) {
+      let customerId = profile?.stripe_customer_id || null;
+      if (!customerId) {
+        const c = await S(`/customers?email=${encodeURIComponent(user.email)}&limit=5`); // verified email only
+        customerId = c.data?.data?.[0]?.id || null;
+      }
+      if (customerId) {
+        for (const status of ['active', 'trialing', 'past_due']) {
+          const s = await S(`/subscriptions?customer=${encodeURIComponent(customerId)}&status=${status}&limit=1`);
+          if (s.data?.data?.[0]) { subId = s.data.data[0].id; break; }
         }
-      } catch (e) {
-        console.warn('Supabase lookup failed:', e.message);
       }
     }
-
-    // Strategy 2: Search Stripe by email if no customer ID in Supabase
-    if (!customerId) {
-      const custRes = await fetch(
-        `https://api.stripe.com/v1/customers?email=${encodeURIComponent(email)}&limit=5`,
-        { headers: { 'Authorization': 'Bearer ' + stripeKey } }
-      );
-      const custData = await custRes.json();
-      console.log('Stripe customer search results:', custData.data?.length || 0);
-      if (custData.data?.length > 0) {
-        // Pick the customer with an active subscription
-        for (const cust of custData.data) {
-          const subCheck = await fetch(
-            `https://api.stripe.com/v1/subscriptions?customer=${cust.id}&status=active&limit=1`,
-            { headers: { 'Authorization': 'Bearer ' + stripeKey } }
-          );
-          const subCheckData = await subCheck.json();
-          if (subCheckData.data?.length > 0) {
-            customerId = cust.id;
-            break;
-          }
-        }
-        // Fallback to first customer if none have active sub
-        if (!customerId) customerId = custData.data[0].id;
-      }
-    }
-
-    if (!customerId) {
-      return res.status(404).json({
-        error: 'No Stripe account found for this email. If you subscribed with a different email, contact support.'
-      });
-    }
-
-    // Get active subscriptions for this customer
-    const subRes = await fetch(
-      `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=1`,
-      { headers: { 'Authorization': 'Bearer ' + stripeKey } }
-    );
-    const subData = await subRes.json();
-    const subscription = subData.data?.[0];
-
-    if (!subscription) {
-      // Check for trialing subscriptions too
-      const trialRes = await fetch(
-        `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=trialing&limit=1`,
-        { headers: { 'Authorization': 'Bearer ' + stripeKey } }
-      );
-      const trialData = await trialRes.json();
-      if (!trialData.data?.[0]) {
-        return res.status(404).json({ error: 'No active subscription found for this account.' });
-      }
-    }
-
-    const subToCancel = subData.data?.[0] || (await fetch(
-      `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=trialing&limit=1`,
-      { headers: { 'Authorization': 'Bearer ' + stripeKey } }
-    ).then(r => r.json()).then(d => d.data?.[0]));
-
-    // Cancel at period end
-    const cancelRes = await fetch(
-      `https://api.stripe.com/v1/subscriptions/${subToCancel.id}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + stripeKey,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'cancel_at_period_end=true',
-      }
-    );
-    const cancelData = await cancelRes.json();
-
-    if (!cancelRes.ok) {
-      console.error('Stripe cancel error:', cancelData);
-      return res.status(400).json({ error: cancelData.error?.message || 'Cancellation failed' });
-    }
-
-    const cancelDate = new Date(cancelData.current_period_end * 1000).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric'
-    });
-
-    console.log('Subscription cancelled at period end:', subToCancel.id, 'for', email, '— ends', cancelDate);
-    return res.status(200).json({ ok: true, cancelAt: cancelDate });
-
-  } catch (err) {
-    console.error('Cancel error:', err.message, err.stack);
-    return res.status(500).json({ error: 'Something went wrong: ' + err.message });
+    if (!subId) return res.status(404).json({ error: 'No active subscription found for your account.' });
+    const r = await S(`/subscriptions/${encodeURIComponent(subId)}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'cancel_at_period_end=true' });
+    if (!r.ok) { console.warn('[cancel] stripe error'); return res.status(400).json({ error: r.data?.error?.message || 'Cancellation failed.' }); }
+    const cancelAt = new Date((r.data.current_period_end || r.data.cancel_at || 0) * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    console.log('[cancel] scheduled');
+    return res.status(200).json({ ok: true, cancelAt });
+  } catch {
+    console.warn('[cancel] error');
+    return res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 }

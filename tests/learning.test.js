@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 
 import { parse, entails, equivalent, checkFormalItem } from '../src/learning/logic.js';
 import { SKILLS, validateSkillGraph, SKILL_BY_ID } from '../src/learning/skills.js';
-import { LESSON_NS, TAG_TO_ERROR_CATEGORY, TAG_TO_SECTION } from '../src/learning/content/necessarySufficient.js';
+import { LESSON_NS } from '../src/learning/content/necessarySufficient.js';
+import { TAG_TO_ERROR_CATEGORY } from '../src/learning/content/index.js';
+const TAG_TO_SECTION = LESSON_NS.tagToSection;
 import { assessMastery } from '../src/learning/mastery.js';
 import { newLessonProgress, applyLessonEvent, recognizeCheckpoint, challengeOutcome, placementOutcome } from '../src/learning/lessonEngine.js';
 import { scheduleInitial, recordReview, dueReviews } from '../src/learning/review.js';

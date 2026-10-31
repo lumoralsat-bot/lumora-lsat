@@ -4,15 +4,43 @@
 import { GENERATION_POLICY } from './config.js';
 import { validateGeneratedQuestion, fingerprintQuestion, screenDuplicate, conditionalLanguageScore } from './questionValidation.js';
 
-export const PROMPT_VERSION = 'skillgen-ns-v1';
+export const PROMPT_VERSION = 'skillgen-v2';
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
-const SKILL_SPECS = {
+const DOMAINS = ['municipal permitting', 'a university course policy', 'a hospital staffing rule', 'a museum loan agreement', 'a farm irrigation schedule', 'a software release process', 'a sports league eligibility rule', 'a library archive policy', 'a shipping and customs procedure', 'a theater production schedule', 'a wildlife survey protocol', 'a court filing rule', 'a public transit budget', 'an archaeological dig', 'a newsroom fact-checking process'];
+
+export const SKILL_SPECS = {
   'formal.necessary_sufficient': {
     questionType: 'Must Be True (conditional reasoning)',
     objective: 'translate conditional language and draw only conclusions supported by the rule or its contrapositive; reject converse and inverse errors',
     requirements: 'The stimulus must state at least two conditional rules using varied indicators (e.g., "only if", "unless", "every", "no", "requires", "whenever") plus one fact. The correct answer must follow by applying a contrapositive and/or chaining rules. Distractors must include at least one converse error and one inverse error, plus one plausible but unsupported claim. Every rule applies to the individual named in the fact. Avoid quantifier words like "some" or "most".',
-    domains: ['municipal permitting', 'a university course policy', 'a hospital staffing rule', 'a museum loan agreement', 'a farm irrigation schedule', 'a software release process', 'a sports league eligibility rule', 'a library archive policy', 'a shipping and customs procedure', 'a theater production schedule', 'a wildlife survey protocol', 'a court filing rule'],
+    domains: DOMAINS,
+  },
+  'formal.chains': {
+    questionType: 'Must Be True (conditional chain)',
+    objective: 'link two or three conditional rules head-to-tail and apply the chain or its contrapositive to a fact',
+    requirements: 'The stimulus must state two or three conditional rules that link into one chain (at least one link should require a contrapositive or a negated term), plus one fact about a named individual at the start or end of the chain. Distractors must include a broken link (two arrows into the same term), a converse of the chain, and an inverse of the chain. Avoid "some" and "most".',
+    domains: DOMAINS,
+  },
+  'formal.negation_or': {
+    questionType: 'Must Be True (compound conditions with and/or/neither)',
+    objective: 'negate "and"/"or" statements correctly and reason by elimination from an inclusive "or"',
+    requirements: 'The stimulus must use at least one "and" or "or" inside a rule (e.g., "only if both…", "if either…", "neither…nor", "or…"), plus one fact. The correct answer must require correctly negating a compound or eliminating one option of an "or". Distractors must include treating "or" as exclusive and negating "and" as "neither". Treat "or" as inclusive unless the stimulus says "but not both".',
+    domains: DOMAINS,
+  },
+  'formal.quantifiers': {
+    questionType: 'Must Be True (quantifiers)',
+    objective: 'combine quantified statements (all, most, some, none) and reject conclusions that overstate or reverse them',
+    requirements: 'The stimulus must contain two quantified statements about groups (using all/most/some/none) that validly combine. Use the LSAT conventions: "some" = at least one, "most" = more than half. Distractors must include upgrading "some" to "most" or "most" to "all", reversing an "all" or "most" statement, and reading "some" as "some but not all".',
+    domains: DOMAINS,
+    align: (t) => /\b(all|most|some|none|no|every|each)\b/i.test(t) && (String(t).match(/\b(all|most|some|none|no|every|each|many)\b/gi) || []).length >= 2,
+  },
+  'found.argument_parts': {
+    questionType: 'Main Conclusion',
+    objective: 'identify the main conclusion of a short argument, distinguishing it from premises, intermediate conclusions, and opposing views',
+    requirements: 'The stimulus must be a short argument (3–4 sentences) with at least one premise and ideally an intermediate conclusion or an opposing view that the author rejects. Do not always put the conclusion last. Distractors must include a premise, an intermediate conclusion (if present), an opposing view, and an overstatement of the conclusion.',
+    domains: DOMAINS,
+    align: (t) => /\b(so|therefore|thus|hence|consequently|because|since|but|however|should|must|clearly)\b/i.test(t),
   },
 };
 
@@ -92,7 +120,9 @@ export async function generateSkillQuestion(ctx, deps, policy = GENERATION_POLIC
       const v = validateGeneratedQuestion(raw);
       if (!v.ok) { outcomes.push({ attempt, reason: 'schema', detail: v.errors.join('; ').slice(0, 200) }); continue; }
       const q = v.question;
-      if (conditionalLanguageScore(q.content.stimulus) < 2) { outcomes.push({ attempt, reason: 'skill_alignment', detail: 'stimulus lacks conditional rules' }); continue; }
+      const spec = SKILL_SPECS[ctx.skillId];
+      const aligned = spec.align ? spec.align(q.content.stimulus) : conditionalLanguageScore(q.content.stimulus) >= 2;
+      if (!aligned) { outcomes.push({ attempt, reason: 'skill_alignment', detail: 'stimulus does not exercise the target skill' }); continue; }
       const fp = fingerprintQuestion(q);
       const dup = screenDuplicate(fp, exposure, policy);
       if (dup.duplicate) { outcomes.push({ attempt, reason: 'duplicate_' + dup.kind, detail: dup.score.toFixed(2) }); continue; }

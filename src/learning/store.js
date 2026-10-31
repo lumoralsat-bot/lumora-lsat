@@ -12,6 +12,7 @@ import { newLessonProgress, applyLessonEvent } from './lessonEngine.js';
 import { scheduleInitial, recordReview } from './review.js';
 import { awardXP, xpForEvent } from './xp.js';
 import { GENERATION_POLICY } from './config.js';
+import { evaluateAchievements } from './achievements.js';
 
 export const ENGINE_KEY = '__engine';
 const MAX_ATTEMPTS = 1500;
@@ -62,7 +63,8 @@ export function lessonEvent(engine0, lesson, event, now = Date.now()) {
     engine.reviews = { ...engine.reviews, [lesson.skillId]: scheduleInitial(engine.reviews[lesson.skillId], lesson.skillId, now) };
   }
   engine.mastery = { ...engine.mastery, [lesson.skillId]: assessMastery(skillAttempts(engine, lesson.skillId), { lessonStarted: true, testedOut: progress.placement === 'tested_out', peakState: engine.mastery[lesson.skillId]?.peakState }) };
-  return { engine, xpGranted, changed: true };
+  const ach = evaluateAchievements(engine, now);
+  return { engine: ach.engine, xpGranted: xpGranted + ach.xpGranted, changed: true, newAchievements: ach.newly };
 }
 
 /**
@@ -71,7 +73,8 @@ export function lessonEvent(engine0, lesson, event, now = Date.now()) {
  */
 export function recordAttempt(engine0, attempt, now = Date.now()) {
   if (!attempt?.id || engine0.attempts.some(a => a.id === attempt.id)) return { engine: engine0, xpGranted: 0, duplicate: true, mastery: engine0.mastery[attempt?.skillId] };
-  const engine = { ...engine0, attempts: [...engine0.attempts, { ...attempt, ts: attempt.ts || now }], mastery: { ...engine0.mastery }, reviews: { ...engine0.reviews }, errors: [...engine0.errors] };
+  const { itemSnapshot, ...attemptRecord } = attempt; // snapshots live only on error records (keeps the row small)
+  const engine = { ...engine0, attempts: [...engine0.attempts, { ...attemptRecord, ts: attempt.ts || now }], mastery: { ...engine0.mastery }, reviews: { ...engine0.reviews }, errors: [...engine0.errors] };
   if (engine.attempts.length > MAX_ATTEMPTS) engine.attempts = engine.attempts.slice(-MAX_ATTEMPTS);
   let xpGranted = 0;
   const sid = attempt.skillId;
@@ -94,7 +97,8 @@ export function recordAttempt(engine0, attempt, now = Date.now()) {
       id: newId('err'), attemptId: attempt.id, skillId: sid, itemId: attempt.itemId, at: now,
       selected: attempt.selected, correctChoice: attempt.correctChoice, confidence: attempt.confidence || null,
       timeMs: attempt.timeMs || null, category: attempt.errorCategory || 'unclassified', categorySource: attempt.errorCategory ? 'provisional' : 'none',
-      remediationSection: attempt.remediationSection || null, note: '', resolvedBy: null,
+      remediationSection: attempt.remediationSection || null, note: '', resolvedBy: null, lessonId: attempt.lessonId || null, stage: attempt.stage || null,
+      snapshot: attempt.itemSnapshot || null,
     });
     if (engine.errors.length > 400) engine.errors = engine.errors.slice(-400);
   }
@@ -108,12 +112,17 @@ export function recordAttempt(engine0, attempt, now = Date.now()) {
   if (stateRank(m.state) > stateRank(prev?.state || 'not_started')) {
     xpGranted += grant(engine, `state:${sid}:${m.state}`, 'state_reached', { state: m.state }, now);
   }
-  return { engine, xpGranted, duplicate: false, mastery: engine.mastery[sid], previousState: prev?.state || 'not_started' };
+  const ach = evaluateAchievements(engine, now);
+  return { engine: ach.engine, xpGranted: xpGranted + ach.xpGranted, duplicate: false, mastery: engine.mastery[sid], previousState: prev?.state || 'not_started', newAchievements: ach.newly };
 }
 
 /** Student refines an error record (category / note). */
 export function updateErrorRecord(engine, errorId, patch) {
-  return { ...engine, errors: engine.errors.map(e => e.id === errorId ? { ...e, ...patch, categorySource: patch.category ? 'student' : e.categorySource } : e) };
+  const allowed = {};
+  if (typeof patch.category === 'string') allowed.category = patch.category.slice(0, 40);
+  if (typeof patch.note === 'string') allowed.note = patch.note.slice(0, 1000);
+  if (typeof patch.archived === 'boolean') allowed.archived = patch.archived;
+  return { ...engine, errors: engine.errors.map(e => e.id === errorId ? { ...e, ...allowed, categorySource: allowed.category ? 'student' : e.categorySource } : e) };
 }
 
 /** Flag an item (ambiguous / wrong key / repeated). Flagged items stop counting toward mastery pending review. */
@@ -129,4 +138,12 @@ export function flagItem(engine0, flag, now = Date.now()) {
 
 export function logGeneration(engine, entry) {
   return { ...engine, genLog: [...engine.genLog, entry].slice(-50) };
+}
+
+/** Save the study profile (UserLearningProfile). Plan revisions are versioned with the reason for the change. */
+export function setStudyProfile(engine0, value, explanation = [], now = Date.now()) {
+  const engine = { ...engine0, profile: { ...value, updatedAt: now } };
+  const prev = engine0.planLog || [];
+  engine.planLog = [...prev, { version: prev.length + 1, at: now, testDate: value.testDate, testStatus: value.testStatus, minutesPerDay: value.minutesPerDay, daysPerWeek: value.daysPerWeek, changes: explanation.slice(0, 6) }].slice(-30);
+  return engine;
 }
