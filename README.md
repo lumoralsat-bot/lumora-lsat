@@ -80,11 +80,24 @@ The app calls the Anthropic API to generate questions. You need an API key.
 2. Click **"API Keys"** → **"Create Key"** → copy the key (starts with `sk-ant-...`).
 3. In Vercel, go to your project → **"Settings"** → **"Environment Variables"**.
 4. Add a new variable:
-   - **Name:** `VITE_ANTHROPIC_API_KEY`
+   - **Name:** `ANTHROPIC_API_KEY`  ← no `VITE_` prefix
    - **Value:** paste your API key
-5. Click **"Save"**, then go to **"Deployments"** and click **"Redeploy"**.
+5. If an old `VITE_ANTHROPIC_API_KEY` variable exists, **delete it** (any `VITE_` variable can be bundled into the public website).
+6. Click **"Save"**, then go to **"Deployments"** and click **"Redeploy"**.
+
+> All AI calls go through the server function `api/claude.js`; the key never reaches the browser.
+> For local `npm run dev` (no serverless functions), you may put `VITE_ANTHROPIC_API_KEY` in a local `.env` — it is only used in dev mode and is compiled out of production builds. Or run `vercel dev` to use the real proxy.
 
 > **Note on API costs:** Anthropic charges per question generated. At current rates (~$0.003 per question), 1,000 questions costs about $3. For early testing this is negligible. When you add paid subscriptions later, your revenue covers this easily.
+
+---
+
+## 🧪 Tests
+
+```
+npm test
+```
+Runs the learning-engine, curriculum-logic, and API-proxy tests with Node's built-in test runner (no extra installs). See `docs/AUDIT_AND_PLAN.md` for the audit, plan, and latest phase report.
 
 ---
 
@@ -97,9 +110,15 @@ lumora-lsat/
 ├── vite.config.js      # Build config
 ├── vercel.json         # Routing config for Vercel
 ├── .gitignore          # Files excluded from GitHub
+├── api/
+│   ├── claude.js       # Server-side AI proxy (holds the Anthropic key)
+│   └── ...             # Stripe checkout / webhook / cancel
+├── docs/AUDIT_AND_PLAN.md
+├── tests/              # npm test
 └── src/
     ├── main.jsx        # React mount point
-    └── App.jsx         # The entire Lumora LSAT application
+    ├── App.jsx         # Main application (screens, legacy features)
+    └── learning/       # Guided learning engine: skills, lessons, mastery, review, practice engine, UI
 ```
 
 ---

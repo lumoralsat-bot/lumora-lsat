@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Component } from "react";
+import { GuidedPath, ContinueLearningCard } from "./learning/LearnPath.jsx";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SECTIONS = ["Logical Reasoning","Reading Comprehension"];
@@ -298,23 +299,40 @@ function srsDueTypes(srsData){
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-let API_KEY="";
-try{API_KEY=import.meta.env.VITE_ANTHROPIC_API_KEY||"";}catch{API_KEY="";}
-
-async function callClaude(system,userMsg,maxTokens=1200){
-  if(!API_KEY)throw new Error("No API key configured. Add VITE_ANTHROPIC_API_KEY in Vercel environment variables.");
-  const messages=[{role:"user",content:userMsg}];
+// All model calls go through the server-side proxy (api/claude.js) so the
+// Anthropic key never ships in the browser bundle.
+// Local `vite dev` has no serverless functions; ONLY in dev mode we fall back to a
+// direct browser call using VITE_ANTHROPIC_API_KEY from your local .env file.
+// This branch is compiled out of production builds (import.meta.env.DEV === false).
+async function callClaudeDirectDev(system,userMsg,maxTokens){
+  let key="";
+  if(import.meta.env.DEV){key=import.meta.env.VITE_ANTHROPIC_API_KEY||"";}
+  if(!key)throw new Error("AI proxy unavailable in local dev. Run `vercel dev`, or add VITE_ANTHROPIC_API_KEY to a local .env for dev-only direct calls.");
   const res=await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages}),
+    headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTokens,system,messages:[{role:"user",content:userMsg}]}),
   });
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||"API error "+res.status);}
   const data=await res.json();
   const text=data.content?.map(i=>i.text||"").join("").trim();
   if(!text)throw new Error("Empty response from API");
-  // When we prefilled "{", prepend it back so parseJSON gets valid JSON
   return text;
+}
+
+async function callClaude(system,userMsg,maxTokens=1200){
+  let res;
+  try{
+    res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system,userMsg,maxTokens})});
+  }catch(e){
+    if(import.meta.env.DEV)return callClaudeDirectDev(system,userMsg,maxTokens);
+    throw new Error("Network error — check your connection and try again.");
+  }
+  if(res.status===404&&import.meta.env.DEV)return callClaudeDirectDev(system,userMsg,maxTokens);
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.error||("AI service error "+res.status));
+  if(!data.text)throw new Error("Empty response from API");
+  return data.text;
 }
 
 function parseJSON(raw){
@@ -3093,7 +3111,8 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
 
   return(
     <>
-      <nav role="navigation" aria-label="Main navigation"
+      <style>{`@media(max-width:560px){.lm-nav{padding:0 10px!important}.lm-nav-word{display:none!important}.lm-nav-right{gap:6px!important}}@media(max-width:400px){.lm-nav-streak{display:none!important}.lm-nav-a11y button{width:26px!important}}`}</style>
+      <nav role="navigation" aria-label="Main navigation" className="lm-nav"
         style={{background:C.surface+"f0",backdropFilter:"blur(16px)",
           borderBottom:`1px solid ${C.border}`,padding:"0 20px",
           display:"flex",alignItems:"center",justifyContent:"space-between",
@@ -3106,16 +3125,16 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
             display:"flex",alignItems:"center",justifyContent:"center",
             fontSize:15,fontWeight:900,color:"#fff",fontFamily:T.serif,
             boxShadow:"0 0 16px #3a6bff44"}}>L</div>
-          <span style={{fontFamily:T.serif,fontSize:Math.round(17*FONT_SCALE),color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
+          <span className="lm-nav-word" style={{fontFamily:T.serif,fontSize:Math.round(17*FONT_SCALE),color:C.text,fontWeight:700,letterSpacing:"0.03em"}}>
             <span style={{color:C.accent}}>Lumora</span> LSAT
           </span>
           {user?.isPro&&<span style={{background:"linear-gradient(135deg,#f5c842,#e09040)",color:"#1a0800",fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:20,letterSpacing:"0.05em"}}>PRO</span>}
         </button>
 
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div className="lm-nav-right" style={{display:"flex",alignItems:"center",gap:10}}>
           {/* Streak badge */}
           {user&&(user.stats?.streak||0)>0&&(
-            <div style={{display:"flex",alignItems:"center",gap:4,
+            <div className="lm-nav-streak" style={{display:"flex",alignItems:"center",gap:4,
               background:"#ff6b0018",border:"1px solid #ff6b0033",
               borderRadius:20,padding:"3px 10px"}}>
               <span>🔥</span>
@@ -3145,7 +3164,7 @@ function Nav({screen,setScreen,user,onLogout,onUpgrade,onLexChat,darkMode,setDar
           )}
 
           {/* Accessibility quick controls */}
-          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+          <div className="lm-nav-a11y" style={{display:"flex",gap:4,alignItems:"center"}}>
             <button onClick={()=>{const v=!darkMode;setDarkMode(v);try{localStorage.setItem("lumora_dark",v?"1":"0");}catch{}}}
               title={darkMode?"Light mode":"Dark mode"}
               style={{background:"none",border:"1px solid "+C.border,borderRadius:8,
@@ -3880,6 +3899,9 @@ function Home({user,setScreen,onUpdateUser}){
         </button>
       </div>
 
+      {/* Guided learning path — primary next action */}
+      <ContinueLearningCard user={user} theme={C} fonts={T} onGo={()=>setScreen("learn")}/>
+
       {/* Smart suggestion banner */}
       <div style={{background:`linear-gradient(135deg,${C.accentSoft},#1a1230)`,border:`1px solid ${C.accent}44`,borderRadius:16,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
         <div style={{fontSize:13,color:C.textSub,lineHeight:1.6,flex:1}}>💡 {suggestion.text}</div>
@@ -3966,13 +3988,27 @@ function Home({user,setScreen,onUpdateUser}){
 
 // ─── LEARN SECTION ────────────────────────────────────────────────────────────
 
-function Learn({user,onUpdateUser,onUpgrade}){
+function Learn({user,onUpdateUser,onUpgrade,onNavigate}){
   const [selected,setSelected]=useState(null);
+  const [pathOpen,setPathOpen]=useState(null);
   const [activeSection,setActiveSection]=useState("Logical Reasoning");
   const learnProgress=user.learnProgress||{};
   const isPro=user?.isPro||false;
 
   if(selected)return <LearnLesson key={selected.typeObj.type} user={user} onUpdateUser={onUpdateUser} typeObj={selected.typeObj} section={selected.section} onBack={()=>setSelected(null)}/>;
+
+  const openLegacy=(section,typeName)=>{
+    const list=LEARN_CURRICULUM[section]||[];
+    const idx=list.findIndex(t=>t.type===typeName);
+    if(idx<0)return;
+    if(!isPro&&idx>0){onUpgrade&&onUpgrade("pro_only");return;}
+    setSelected({section,typeObj:list[idx]});
+  };
+  const guided=<GuidedPath user={user} onUpdateUser={onUpdateUser} theme={C} fonts={T}
+    callModel={callClaude} practiceSystem={PRACTICE_SYSTEM} parseJSON={parseJSON}
+    open={pathOpen} setOpen={setPathOpen}
+    onOpenLegacy={openLegacy} onMixedPractice={()=>onNavigate&&onNavigate("practice")}/>;
+  if(pathOpen)return guided;
 
   const sectionTypes=LEARN_CURRICULUM[activeSection];
   return(
@@ -3980,7 +4016,7 @@ function Learn({user,onUpdateUser,onUpgrade}){
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontFamily:T.serif,fontSize:Math.round(26*FONT_SCALE),color:C.text,marginBottom:4}}>Learn</h1>
-          <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>Master every LSAT question type from first principles.</p>
+          <p style={{color:C.textSub,fontSize:14,lineHeight:1.6}}>A guided path from logic foundations to full LSAT reasoning.</p>
         </div>
         {!isPro&&(
           <div style={{background:"linear-gradient(135deg,#4f7fff22,#a78bfa22)",border:"1px solid #4f7fff44",borderRadius:12,padding:"8px 14px",fontSize:12,color:C.accent,maxWidth:220}}>
@@ -3989,6 +4025,10 @@ function Learn({user,onUpdateUser,onUpgrade}){
         )}
       </div>
 
+      <div style={{marginTop:20}}>{guided}</div>
+
+      <h2 style={{fontFamily:T.serif,fontSize:20,color:C.text,margin:"8px 0 4px"}}>Classic lessons by question type</h2>
+      <p style={{color:C.textSub,fontSize:13,lineHeight:1.6,margin:0}}>The original question-type lessons, with leveled practice.</p>
       <div style={{display:"flex",gap:8,marginBottom:20,marginTop:16}}>
         {SECTIONS.map(s=>(
           <button key={s} onClick={()=>setActiveSection(s)}
@@ -7312,9 +7352,12 @@ export default function App(){
     return true;
   },[user]);
 
-  const handleUpdateUser=useCallback((updates)=>{
+  // Accepts an object, or a function (prev)=>updates for atomic read-modify-write
+  // (used by the learning engine so an attempt and its derived progress are saved together).
+  const handleUpdateUser=useCallback((updatesOrFn)=>{
     setUser(prev=>{
       if(!prev)return prev;
+      const updates=typeof updatesOrFn==="function"?(updatesOrFn(prev)||{}):updatesOrFn;
       const next={...prev,...updates};
       if(updates.stats)next.stats={...prev.stats,...updates.stats};
       (async()=>{try{await DB.saveUser(next.email,next);}catch(e){console.warn("saveUser failed:",e);}})();
@@ -7384,7 +7427,7 @@ export default function App(){
     home:<Home user={user} setScreen={handleSetScreen} onUpdateUser={handleUpdateUser}/>,
     daily:<DailyChallengeScreen user={user} onUpdateUser={handleUpdateUser} onBack={()=>setScreen("home")}/>,
     mistakes:<MistakeJournal user={user} onUpdateUser={handleUpdateUser}/>,
-    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)}/>,
+    learn:<Learn user={user} onUpdateUser={handleUpdateUser} onUpgrade={(r)=>setUpgradeModal(r)} onNavigate={handleSetScreen}/>,
     practice:<Practice user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
     writing:<Writing/>,
     flaw:<FlawLab user={user} onUpdateUser={handleUpdateUser} requirePro={requirePro}/>,
